@@ -1,0 +1,133 @@
+/**
+ * wp4shpy Media Library Styles
+ * Styles for Shopify sync integration in WordPress media library.
+ */
+
+/* Attachment sync field in media modal */
+.wp4shpy-attachment-sync {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-sync-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-sync-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-sync-status.synced {
+    color: #46b450;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-sync-status.synced .dashicons {
+    color: #46b450;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-sync-status.not-synced {
+    color: #999;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-sync-status.not-synced .dashicons {
+    color: #ccc;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-cdn-link {
+    color: #5c6ac4;
+    text-decoration: none;
+    font-size: 12px;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-cdn-link:hover {
+    text-decoration: underline;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-sync-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #96bf48;
+    border-color: #96bf48;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-sync-btn:hover {
+    background: #96bf48;
+    color: #fff;
+    border-color: #96bf48;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-sync-btn .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+}
+
+.wp4shpy-attachment-sync .wp4shpy-sync-btn.syncing {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.wp4shpy-attachment-sync .spinner {
+    float: none;
+    margin: 0;
+    display: none;
+}
+
+.wp4shpy-attachment-sync .spinner.is-active {
+    display: inline-block;
+}
+
+/* Attachment edit page submitbox */
+.wp4shpy-attachment-sync-section {
+    padding: 10px;
+    border-top: 1px solid #ddd;
+}
+
+.wp4shpy-attachment-sync-section .dashicons-store {
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+/* Media library grid view - sync indicator */
+.attachments-browser .attachment .wp4shpy-sync-indicator {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    z-index: 10;
+}
+
+.attachments-browser .attachment .wp4shpy-sync-indicator .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+}
+
+.attachments-browser .attachment .wp4shpy-sync-indicator .dashicons-yes-alt {
+    color: #46b450;
+}
+
+.attachments-browser .attachment .wp4shpy-sync-indicator .dashicons-upload {
+    color: #ccc;
+}
+
+/* Spinning animation for sync button */
+@keyframes wp4shpy-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.wp4shpy-attachment-sync .wp4shpy-sync-btn .dashicons.spin {
+    animation: wp4shpy-spin 1s linear infinite;
+}

@@ -1,0 +1,89 @@
+/* wp4shpy Admin Styles */
+
+.wp4shpy-settings h1 {
+  display: flex;
+  align-items: center;
+  font-size: 23px;
+  font-weight: 600;
+  color: #1d2327;
+  margin-bottom: 8px;
+}
+
+.wp4shpy-settings .nav-tab-wrapper {
+  margin-bottom: 20px;
+}
+
+.wp4shpy-settings .title {
+  font-size: 16px;
+  color: #1d2327;
+  padding-top: 20px;
+  border-top: 1px solid #c3c4c7;
+  margin-top: 24px;
+}
+
+.wp4shpy-settings .title:first-of-type {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.wp4shpy-connection-status .notice {
+  margin: 16px 0;
+  border-left-width: 4px;
+}
+
+.wp4shpy-connection-status .notice-success {
+  border-left-color: #50B83C;
+}
+
+.wp4shpy-connection-status .notice-error {
+  border-left-color: #DE3618;
+}
+
+#wp4shpy-test-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#wp4shpy-test-connection .dashicons {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+#wp4shpy-test-connection.is-loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.wp4shpy-settings .form-table th {
+  width: 200px;
+}
+
+.wp4shpy-settings .form-table .description {
+  color: #646970;
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* Posts list: Shopify sync status column */
+.column-wp4shpy_sync {
+  width: 40px;
+  text-align: center;
+}
+
+.column-wp4shpy_sync .dashicons {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+}
+
+.column-wp4shpy_sync a {
+  text-decoration: none;
+}
+
+.column-wp4shpy_sync a:hover .dashicons {
+  color: #135e96 !important;
+}
