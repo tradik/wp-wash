@@ -199,6 +199,185 @@ class wp4shpyApiClient {
     }
 
     /**
+     * Diagnose connection issues with the Shopify App.
+     * Uses the authenticated diagnose endpoint to check session validity.
+     *
+     * @return array|WP_Error Diagnosis response or error
+     */
+    public function diagnose() {
+        if (empty($this->apiKey)) {
+            return new \WP_Error('wp4shpy_not_configured', __('wp4shpy is not configured.', 'wp4shpy'));
+        }
+
+        $url = $this->appUrl . '/api/diagnose';
+        $timestamp = (string) time();
+
+        $headers = [
+            'Accept'                 => 'application/json',
+            'X-WP4Shopify-Key'       => $this->apiKey,
+            'X-WP4Shopify-Timestamp' => $timestamp,
+        ];
+
+        // Add HTTP Basic Auth if configured
+        if (!empty($this->httpUser) && !empty($this->httpPass)) {
+            $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
+        }
+
+        $response = wp_remote_get($url, [
+            'timeout' => 15,
+            'headers' => $headers,
+        ]);
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $body = wp_remote_retrieve_body($response);
+        $responseBody = json_decode($body, true);
+
+        // Return full response including diagnosis info even on error
+        if ($responseBody !== null) {
+            return $responseBody;
+        }
+
+        return new \WP_Error('wp4shpy_diagnose_error', sprintf(__('Diagnosis failed (HTTP %d)', 'wp4shpy'), $code));
+    }
+
+    /**
+     * Debug Shopify session - shows detailed session information.
+     *
+     * @return array|WP_Error Debug info or error
+     */
+    public function debugSession() {
+        if (empty($this->apiKey)) {
+            return new \WP_Error('wp4shpy_not_configured', __('wp4shpy is not configured.', 'wp4shpy'));
+        }
+
+        $url = $this->appUrl . '/api/debug-session';
+        $timestamp = (string) time();
+
+        $headers = [
+            'Accept'                 => 'application/json',
+            'X-WP4Shopify-Key'       => $this->apiKey,
+            'X-WP4Shopify-Timestamp' => $timestamp,
+        ];
+
+        if (!empty($this->httpUser) && !empty($this->httpPass)) {
+            $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
+        }
+
+        $response = wp_remote_get($url, [
+            'timeout' => 15,
+            'headers' => $headers,
+        ]);
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        $responseBody = json_decode($body, true);
+
+        if ($responseBody !== null) {
+            return $responseBody;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        return new \WP_Error('wp4shpy_debug_error', sprintf(__('Debug failed (HTTP %d)', 'wp4shpy'), $code));
+    }
+
+    /**
+     * Reset Shopify session - deletes session to force re-authentication.
+     *
+     * @return array|WP_Error Result or error
+     */
+    public function resetSession() {
+        if (empty($this->apiKey)) {
+            return new \WP_Error('wp4shpy_not_configured', __('wp4shpy is not configured.', 'wp4shpy'));
+        }
+
+        $url = $this->appUrl . '/api/debug-session';
+        $timestamp = (string) time();
+
+        $headers = [
+            'Accept'                 => 'application/json',
+            'X-WP4Shopify-Key'       => $this->apiKey,
+            'X-WP4Shopify-Timestamp' => $timestamp,
+        ];
+
+        if (!empty($this->httpUser) && !empty($this->httpPass)) {
+            $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
+        }
+
+        $response = wp_remote_request($url, [
+            'method'  => 'DELETE',
+            'timeout' => 15,
+            'headers' => $headers,
+        ]);
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        $responseBody = json_decode($body, true);
+
+        if ($responseBody !== null) {
+            return $responseBody;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        return new \WP_Error('wp4shpy_reset_error', sprintf(__('Reset failed (HTTP %d)', 'wp4shpy'), $code));
+    }
+
+    /**
+     * Fix Shopify session scope - updates session to include all granted scopes.
+     * This fixes the Token Exchange bug where only write_* scopes are stored.
+     *
+     * @return array|WP_Error Result or error
+     */
+    public function fixSession() {
+        if (empty($this->apiKey)) {
+            return new \WP_Error('wp4shpy_not_configured', __('wp4shpy is not configured.', 'wp4shpy'));
+        }
+
+        $url = $this->appUrl . '/api/fix-session';
+        $timestamp = (string) time();
+
+        $headers = [
+            'Accept'                 => 'application/json',
+            'Content-Type'           => 'application/json',
+            'X-WP4Shopify-Key'       => $this->apiKey,
+            'X-WP4Shopify-Timestamp' => $timestamp,
+        ];
+
+        if (!empty($this->httpUser) && !empty($this->httpPass)) {
+            $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
+        }
+
+        $response = wp_remote_post($url, [
+            'timeout' => 15,
+            'headers' => $headers,
+            'body'    => '{}',
+        ]);
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        $responseBody = json_decode($body, true);
+
+        if ($responseBody !== null) {
+            return $responseBody;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        return new \WP_Error('wp4shpy_fix_error', sprintf(__('Fix session failed (HTTP %d)', 'wp4shpy'), $code));
+    }
+
+    /**
      * Send request with exponential backoff retry on rate limiting.
      */
     private function sendWithRetry($url, $body, $headers, $attempt = 0) {

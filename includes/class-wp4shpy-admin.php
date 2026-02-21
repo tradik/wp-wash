@@ -22,12 +22,20 @@ class wp4shpyAdmin {
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
         add_action('wp_ajax_wp4shpy_test_connection', [$this, 'ajaxTestConnection']);
         add_action('wp_ajax_wp4shpy_disconnect', [$this, 'ajaxDisconnect']);
+        add_action('wp_ajax_wp4shpy_debug_session', [$this, 'ajaxDebugSession']);
+        add_action('wp_ajax_wp4shpy_reset_session', [$this, 'ajaxResetSession']);
+        add_action('wp_ajax_wp4shpy_fix_session', [$this, 'ajaxFixSession']);
         // Blog mappings AJAX handlers
         add_action('wp_ajax_wp4shpy_get_mappings', [$this, 'ajaxGetMappings']);
         add_action('wp_ajax_wp4shpy_get_shopify_blogs', [$this, 'ajaxGetShopifyBlogs']);
         add_action('wp_ajax_wp4shpy_create_mapping', [$this, 'ajaxCreateMapping']);
         add_action('wp_ajax_wp4shpy_update_mapping', [$this, 'ajaxUpdateMapping']);
         add_action('wp_ajax_wp4shpy_delete_mapping', [$this, 'ajaxDeleteMapping']);
+        // Redirections AJAX handlers
+        add_action('wp_ajax_wp4shpy_get_shopify_redirections', [$this, 'ajaxGetShopifyRedirections']);
+        add_action('wp_ajax_wp4shpy_generate_redirections', [$this, 'ajaxGenerateRedirections']);
+        add_action('wp_ajax_wp4shpy_sync_redirections', [$this, 'ajaxSyncRedirections']);
+        add_action('wp_ajax_wp4shpy_fetch_wp_redirections', [$this, 'ajaxFetchWpRedirections']);
         // Preserve tab after settings save
         add_filter('wp_redirect', [$this, 'preserveTabAfterSave']);
         // Shopify preview link in post editor
@@ -235,14 +243,21 @@ class wp4shpyAdmin {
         );
 
         wp_localize_script('wp4shpy-admin', 'wp4shpyAdmin', [
-            'ajaxUrl'         => admin_url('admin-ajax.php'),
-            'nonce'           => wp_create_nonce('wp4shpy_nonce'),
-            'disconnectNonce' => wp_create_nonce('wp4shpy_disconnect'),
-            'i18n'            => [
+            'ajaxUrl'           => admin_url('admin-ajax.php'),
+            'nonce'             => wp_create_nonce('wp4shpy_nonce'),
+            'disconnectNonce'   => wp_create_nonce('wp4shpy_disconnect'),
+            'redirectionsNonce' => wp_create_nonce('wp4shpy_redirections'),
+            'i18n'              => [
                 'testing'           => __('Testing connection...', 'wp4shpy'),
                 'success'           => __('Connection successful!', 'wp4shpy'),
                 'error'             => __('Connection failed: ', 'wp4shpy'),
                 'confirmDisconnect' => __('Are you sure you want to disconnect from Shopify?', 'wp4shpy'),
+                'loading'           => __('Loading...', 'wp4shpy'),
+                'syncing'           => __('Syncing redirections...', 'wp4shpy'),
+                'generating'        => __('Generating redirections...', 'wp4shpy'),
+                'fetchingWp'        => __('Fetching WordPress redirections...', 'wp4shpy'),
+                'syncSuccess'       => __('Redirections synced successfully!', 'wp4shpy'),
+                'syncError'         => __('Failed to sync redirections: ', 'wp4shpy'),
             ],
         ]);
     }
@@ -290,6 +305,64 @@ class wp4shpyAdmin {
         delete_option('wp4shpy_api_secret');
 
         wp_send_json_success();
+    }
+
+    /**
+     * AJAX handler for debugging Shopify session.
+     */
+    public function ajaxDebugSession() {
+        check_ajax_referer('wp4shpy_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wp4shpy'));
+        }
+
+        $result = $this->apiClient->debugSession();
+
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        }
+
+        wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX handler for resetting/deleting Shopify session.
+     */
+    public function ajaxResetSession() {
+        check_ajax_referer('wp4shpy_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wp4shpy'));
+        }
+
+        $result = $this->apiClient->resetSession();
+
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        }
+
+        wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX handler for fixing Shopify session scope.
+     * This fixes the Token Exchange bug where only write_* scopes are stored.
+     */
+    public function ajaxFixSession() {
+        check_ajax_referer('wp4shpy_redirections', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wp4shpy'));
+        }
+
+        $result = $this->apiClient->fixSession();
+
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        }
+
+        wp_send_json_success($result);
     }
 
     /**
@@ -413,6 +486,241 @@ class wp4shpyAdmin {
         }
 
         wp_send_json_success();
+    }
+
+    /**
+     * AJAX handler for getting existing Shopify redirections.
+     */
+    public function ajaxGetShopifyRedirections() {
+        check_ajax_referer('wp4shpy_redirections', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wp4shpy'));
+        }
+
+        $result = $this->apiClient->get('/api/redirections');
+
+        if (is_wp_error($result)) {
+            // Try to get diagnosis for better error message
+            $diagnosis = $this->apiClient->diagnose();
+            $errorMsg = $result->get_error_message();
+
+            if (!is_wp_error($diagnosis) && isset($diagnosis['fix'])) {
+                $errorMsg .= "\n\n" . __('How to fix:', 'wp4shpy') . " " . $diagnosis['fix'];
+            }
+
+            wp_send_json_error($errorMsg);
+        }
+
+        wp_send_json_success([
+            'stats'      => $result['stats'] ?? [],
+            'redirects'  => $result['redirects'] ?? [],
+        ]);
+    }
+
+    /**
+     * AJAX handler for generating redirections based on synced content.
+     */
+    public function ajaxGenerateRedirections() {
+        check_ajax_referer('wp4shpy_redirections', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wp4shpy'));
+        }
+
+        $redirections = [];
+        $shopifyStore = get_option('wp4shpy_shopify_store', '');
+
+        $posts = get_posts([
+            'post_type'      => ['post', 'page'],
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'meta_query'     => [
+                [
+                    'key'     => '_wp4shpy_article_id',
+                    'compare' => 'EXISTS',
+                ],
+            ],
+        ]);
+
+        foreach ($posts as $post) {
+            $wpPermalink = get_permalink($post->ID);
+            $wpPath = wp_parse_url($wpPermalink, PHP_URL_PATH);
+
+            if ($post->post_type === 'page') {
+                $shopifyPath = '/pages/' . $post->post_name;
+            } else {
+                $blogHandle = get_post_meta($post->ID, '_wp4shpy_blog_handle', true);
+                if (empty($blogHandle)) {
+                    $blogHandle = 'news';
+                }
+                $shopifyPath = '/blogs/' . $blogHandle . '/' . $post->post_name;
+            }
+
+            if ($wpPath && $wpPath !== $shopifyPath) {
+                $redirections[] = [
+                    'from'  => rtrim($wpPath, '/'),
+                    'to'    => $shopifyPath,
+                    'title' => $post->post_title,
+                ];
+            }
+        }
+
+        wp_send_json_success([
+            'redirections' => $redirections,
+            'count'        => count($redirections),
+        ]);
+    }
+
+    /**
+     * AJAX handler for syncing redirections to Shopify.
+     */
+    public function ajaxSyncRedirections() {
+        check_ajax_referer('wp4shpy_redirections', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wp4shpy'));
+        }
+
+        $redirectionsRaw = isset($_POST['redirections']) ? sanitize_textarea_field(wp_unslash($_POST['redirections'])) : '';
+
+        if (empty($redirectionsRaw)) {
+            wp_send_json_error(__('No redirections provided.', 'wp4shpy'));
+        }
+
+        $redirections = $this->parseRedirections($redirectionsRaw);
+
+        if (empty($redirections)) {
+            wp_send_json_error(__('No valid redirections found. Format: /old-path -> /new-path', 'wp4shpy'));
+        }
+
+        $result = $this->apiClient->post('/api/redirections', [
+            'redirects' => $redirections,
+        ]);
+
+        if (is_wp_error($result)) {
+            // Try to get diagnosis for better error message
+            $diagnosis = $this->apiClient->diagnose();
+            $errorMsg = $result->get_error_message();
+
+            if (!is_wp_error($diagnosis) && isset($diagnosis['fix'])) {
+                $errorMsg .= "\n\n" . __('How to fix:', 'wp4shpy') . " " . $diagnosis['fix'];
+            }
+
+            wp_send_json_error($errorMsg);
+        }
+
+        wp_send_json_success([
+            'created'        => $result['created'] ?? 0,
+            'skipped'        => $result['skipped'] ?? 0,
+            'failed'         => $result['failed'] ?? 0,
+            'remaining'      => $result['remaining'] ?? 0,
+            'totalInShopify' => $result['totalInShopify'] ?? 0,
+            'errors'         => $result['errors'] ?? [],
+        ]);
+    }
+
+    /**
+     * AJAX handler for fetching WordPress redirections from redirection plugins.
+     */
+    public function ajaxFetchWpRedirections() {
+        check_ajax_referer('wp4shpy_redirections', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wp4shpy'));
+        }
+
+        $redirections = [];
+
+        if (class_exists('Red_Item')) {
+            $items = \Red_Item::get_all();
+            foreach ($items as $item) {
+                if ($item->is_enabled() && $item->get_action_type() === 'url') {
+                    $redirections[] = [
+                        'from'   => $item->get_url(),
+                        'to'     => $item->get_action_data()['url'] ?? '',
+                        'source' => 'Redirection',
+                    ];
+                }
+            }
+        }
+
+        global $wpdb;
+        $rankMathTable = $wpdb->prefix . 'rank_math_redirections';
+        if ($wpdb->get_var("SHOW TABLES LIKE '$rankMathTable'") === $rankMathTable) {
+            $rankMathRedirects = $wpdb->get_results(
+                "SELECT sources, url_to FROM $rankMathTable WHERE status = 'active'",
+                ARRAY_A
+            );
+            foreach ($rankMathRedirects as $redirect) {
+                $sources = maybe_unserialize($redirect['sources']);
+                if (is_array($sources)) {
+                    foreach ($sources as $source) {
+                        $redirections[] = [
+                            'from'   => $source['pattern'] ?? '',
+                            'to'     => $redirect['url_to'],
+                            'source' => 'RankMath',
+                        ];
+                    }
+                }
+            }
+        }
+
+        $yoastRedirectOption = get_option('wpseo-premium-redirects-base', []);
+        if (!empty($yoastRedirectOption) && is_array($yoastRedirectOption)) {
+            foreach ($yoastRedirectOption as $redirect) {
+                $redirections[] = [
+                    'from'   => $redirect['origin'] ?? '',
+                    'to'     => $redirect['url'] ?? '',
+                    'source' => 'Yoast Premium',
+                ];
+            }
+        }
+
+        wp_send_json_success([
+            'redirections' => $redirections,
+            'count'        => count($redirections),
+        ]);
+    }
+
+    /**
+     * Parse redirections from textarea content.
+     * Expected format: /old-path -> /new-path (one per line)
+     *
+     * @param string $content Raw textarea content.
+     * @return array Parsed redirections.
+     */
+    private function parseRedirections($content) {
+        $redirections = [];
+        $lines = explode("\n", $content);
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line) || strpos($line, '#') === 0) {
+                continue;
+            }
+
+            if (preg_match('/^(.+?)\s*(?:->|→|=>)\s*(.+)$/', $line, $matches)) {
+                $from = trim($matches[1]);
+                $to = trim($matches[2]);
+
+                if (!empty($from) && !empty($to)) {
+                    if (strpos($from, '/') !== 0) {
+                        $from = '/' . $from;
+                    }
+                    if (strpos($to, '/') !== 0 && strpos($to, 'http') !== 0) {
+                        $to = '/' . $to;
+                    }
+
+                    $redirections[] = [
+                        'from' => $from,
+                        'to'   => $to,
+                    ];
+                }
+            }
+        }
+
+        return $redirections;
     }
 
     /**

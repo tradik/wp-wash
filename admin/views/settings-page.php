@@ -175,7 +175,18 @@ $shopifyStore = get_option('wp4shpy_shopify_store', '');
                     <span class="dashicons dashicons-networking" style="vertical-align: text-bottom;"></span>
                     <?php esc_html_e('Test Connection', 'wp4shpy'); ?>
                 </button>
+                <button type="button" id="wp4shpy-debug-session" class="button button-secondary" style="margin-left: 10px;">
+                    <span class="dashicons dashicons-admin-tools" style="vertical-align: text-bottom;"></span>
+                    <?php esc_html_e('Debug Session', 'wp4shpy'); ?>
+                </button>
+                <button type="button" id="wp4shpy-reset-session" class="button button-secondary" style="margin-left: 10px; color: #d63638;">
+                    <span class="dashicons dashicons-trash" style="vertical-align: text-bottom;"></span>
+                    <?php esc_html_e('Reset Session', 'wp4shpy'); ?>
+                </button>
             </p>
+            <div id="wp4shpy-debug-output" style="display: none; margin-top: 15px; padding: 15px; background: #f0f0f1; border-radius: 4px;">
+                <pre style="white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;"></pre>
+            </div>
         </div>
 
         <!-- Blogs Tab -->
@@ -273,8 +284,92 @@ $shopifyStore = get_option('wp4shpy_shopify_store', '');
 
         <!-- Redirections Tab -->
         <div class="wp4shpy-tab-content" id="tab-redirections" style="display: none;">
-            <h2 class="title"><?php esc_html_e('URL Structure & Redirections', 'wp4shpy'); ?></h2>
-            <p class="description"><?php esc_html_e('This guide explains how your content URLs change when syncing from WordPress to Shopify.', 'wp4shpy'); ?></p>
+            <h2 class="title"><?php esc_html_e('URL Redirections Management', 'wp4shpy'); ?></h2>
+            <p class="description"><?php esc_html_e('Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration.', 'wp4shpy'); ?></p>
+
+            <?php if ($isConnected) : ?>
+            <!-- Redirections Management Section -->
+            <div class="wp4shpy-redirections-manager" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; margin: 20px 0;">
+                <h3 style="margin-top: 0;">
+                    <span class="dashicons dashicons-randomize" style="color: #2271b1;"></span>
+                    <?php esc_html_e('Redirections Manager', 'wp4shpy'); ?>
+                </h3>
+
+                <!-- Stats Bar -->
+                <div id="wp4shpy-redirect-stats" style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 12px 15px; margin-bottom: 20px;">
+                    <span class="dashicons dashicons-chart-bar" style="color: #2271b1; vertical-align: middle;"></span>
+                    <span id="wp4shpy-stats-text"><?php esc_html_e('Loading redirect stats...', 'wp4shpy'); ?></span>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
+                    <button type="button" id="wp4shpy-fetch-wp-redirections" class="button button-secondary">
+                        <span class="dashicons dashicons-download" style="vertical-align: text-bottom;"></span>
+                        <?php esc_html_e('Sync from Old Website', 'wp4shpy'); ?>
+                    </button>
+                    <button type="button" id="wp4shpy-generate-redirections" class="button button-secondary">
+                        <span class="dashicons dashicons-admin-page" style="vertical-align: text-bottom;"></span>
+                        <?php esc_html_e('Generate from Synced Posts', 'wp4shpy'); ?>
+                    </button>
+                    <button type="button" id="wp4shpy-load-shopify-redirections" class="button button-secondary">
+                        <span class="dashicons dashicons-cloud" style="vertical-align: text-bottom;"></span>
+                        <?php esc_html_e('Load from Shopify', 'wp4shpy'); ?>
+                    </button>
+                    <button type="button" id="wp4shpy-fix-session" class="button" style="display: none; background: #d63638; border-color: #d63638; color: #fff;">
+                        <span class="dashicons dashicons-admin-tools" style="vertical-align: text-bottom;"></span>
+                        <?php esc_html_e('Fix Session Scopes', 'wp4shpy'); ?>
+                    </button>
+                </div>
+
+                <!-- Textarea for Redirections -->
+                <div style="margin-bottom: 15px;">
+                    <label for="wp4shpy-redirections-textarea" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                        <?php esc_html_e('Redirections List', 'wp4shpy'); ?>
+                        <span style="font-weight: normal; color: #666;">
+                            (<?php esc_html_e('format: /old-path -> /new-path', 'wp4shpy'); ?>)
+                        </span>
+                    </label>
+                    <textarea id="wp4shpy-redirections-textarea" rows="15" style="width: 100%; font-family: monospace; font-size: 13px;" placeholder="<?php esc_attr_e('/blog/my-post -> /blogs/news/my-post
+/about-us -> /pages/about-us
+/category/news -> /blogs/news
+
+# Lines starting with # are comments', 'wp4shpy'); ?>"></textarea>
+                    <p class="description" style="margin-top: 8px;">
+                        <?php esc_html_e('Enter one redirection per line. You can use ->, =>, or → as separator. Lines starting with # are ignored.', 'wp4shpy'); ?>
+                    </p>
+                </div>
+
+                <!-- Sync Button -->
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <button type="button" id="wp4shpy-sync-redirections" class="button button-primary button-large">
+                        <span class="dashicons dashicons-update" style="vertical-align: text-bottom;"></span>
+                        <?php esc_html_e('Sync Redirections to Shopify', 'wp4shpy'); ?>
+                    </button>
+                    <span id="wp4shpy-sync-status" style="display: none;"></span>
+                </div>
+
+                <!-- Sync Results -->
+                <div id="wp4shpy-sync-results" style="display: none; margin-top: 20px; padding: 15px; background: #f0fff4; border: 1px solid #96bf48; border-radius: 4px;">
+                    <h4 style="margin-top: 0; color: #155724;">
+                        <span class="dashicons dashicons-yes-alt"></span>
+                        <?php esc_html_e('Sync Complete', 'wp4shpy'); ?>
+                    </h4>
+                    <ul id="wp4shpy-sync-results-list" style="margin: 0; padding-left: 20px;"></ul>
+                </div>
+            </div>
+            <?php else : ?>
+            <div class="notice notice-warning" style="margin: 15px 0;">
+                <p><?php esc_html_e('Connect to Shopify first to manage redirections.', 'wp4shpy'); ?></p>
+            </div>
+            <?php endif; ?>
+
+            <!-- Informational Guide -->
+            <details style="margin-top: 30px; border: 1px solid #c3c4c7; border-radius: 4px;">
+                <summary style="padding: 12px 15px; background: #f6f7f7; cursor: pointer; font-weight: 600; border-radius: 4px;">
+                    <span class="dashicons dashicons-info" style="vertical-align: text-bottom;"></span>
+                    <?php esc_html_e('URL Structure Guide', 'wp4shpy'); ?>
+                </summary>
+                <div style="padding: 15px;">
 
             <!-- Current WordPress URL Structure -->
             <div class="wp4shpy-info-section" style="background: #fef7f1; border: 1px solid #f0c674; border-radius: 4px; padding: 20px; margin: 20px 0;">
@@ -519,6 +614,9 @@ $shopifyStore = get_option('wp4shpy_shopify_store', '');
                     <li>☐ <?php esc_html_e('Set up robots.txt to block WordPress from search engines (if keeping it)', 'wp4shpy'); ?></li>
                 </ul>
             </div>
+
+                </div>
+            </details>
         </div>
 
         <!-- Hreflangs Tab -->
