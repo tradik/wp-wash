@@ -3,7 +3,7 @@
  * Plugin Name:       wp4shpy
  * Plugin URI:        https://github.com/tradik/wp4shpy
  * Description:       Synchronize WordPress content, images, and metafields to Shopify blogs.
- * Version:           1.6.3
+ * Version:           1.7.4
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Tradik
@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('wp4shpy_VERSION', '1.6.3');
+define('wp4shpy_VERSION', '1.7.4');
 define('wp4shpy_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('wp4shpy_PLUGIN_BASENAME', plugin_basename(__FILE__));
 

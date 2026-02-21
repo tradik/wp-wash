@@ -474,4 +474,82 @@ class wp4shpyApiClient {
     public function isConfigured() {
         return !empty($this->apiKey) && !empty($this->apiSecret);
     }
+
+    /**
+     * Backup current plugin settings to the Shopify App.
+     * Settings are stored per-connection and can be restored on reauth.
+     *
+     * @return array|WP_Error Result or error
+     */
+    public function backupSettings() {
+        $settings = [
+            'syncOnPublish'    => get_option('wp4shpy_sync_on_publish', '1'),
+            'syncImages'       => get_option('wp4shpy_sync_images', '1'),
+            'syncMetafields'   => get_option('wp4shpy_sync_metafields', '1'),
+            'postTypes'        => get_option('wp4shpy_post_types', 'post'),
+            'blockRobots'      => get_option('wp4shpy_block_robots', '1'),
+            'metaWpCore'       => get_option('wp4shpy_meta_wp_core', '1'),
+            'metaYoast'        => get_option('wp4shpy_meta_yoast', '0'),
+            'metaRankmath'     => get_option('wp4shpy_meta_rankmath', '0'),
+            'metaAcf'          => get_option('wp4shpy_meta_acf', '0'),
+            'hreflangsEnabled' => get_option('wp4shpy_hreflangs_enabled', '0'),
+            'authorsEnabled'   => get_option('wp4shpy_authors_enabled', '0'),
+            'authorMappings'   => get_option('wp4shpy_author_mappings', []),
+            'filesEnabled'     => get_option('wp4shpy_files_enabled', '1'),
+            'webpConvert'      => get_option('wp4shpy_webp_convert', '0'),
+            'allowedFileTypes' => get_option('wp4shpy_allowed_file_types', ['images']),
+            'rewriteUrls'      => get_option('wp4shpy_rewrite_internal_urls', '0'),
+        ];
+
+        return $this->post('/api/settings-sync', $settings);
+    }
+
+    /**
+     * Get backed up settings from the Shopify App.
+     * Used during reauth to restore previous configuration.
+     *
+     * @return array|WP_Error Settings or error
+     */
+    public function getBackedUpSettings() {
+        return $this->get('/api/settings-sync');
+    }
+
+    /**
+     * Restore settings from backup to WordPress options.
+     *
+     * @param array $settings Settings array from backup
+     * @return bool True on success
+     */
+    public function restoreSettings($settings) {
+        if (empty($settings) || !is_array($settings)) {
+            return false;
+        }
+
+        $optionMap = [
+            'syncOnPublish'    => 'wp4shpy_sync_on_publish',
+            'syncImages'       => 'wp4shpy_sync_images',
+            'syncMetafields'   => 'wp4shpy_sync_metafields',
+            'postTypes'        => 'wp4shpy_post_types',
+            'blockRobots'      => 'wp4shpy_block_robots',
+            'metaWpCore'       => 'wp4shpy_meta_wp_core',
+            'metaYoast'        => 'wp4shpy_meta_yoast',
+            'metaRankmath'     => 'wp4shpy_meta_rankmath',
+            'metaAcf'          => 'wp4shpy_meta_acf',
+            'hreflangsEnabled' => 'wp4shpy_hreflangs_enabled',
+            'authorsEnabled'   => 'wp4shpy_authors_enabled',
+            'authorMappings'   => 'wp4shpy_author_mappings',
+            'filesEnabled'     => 'wp4shpy_files_enabled',
+            'webpConvert'      => 'wp4shpy_webp_convert',
+            'allowedFileTypes' => 'wp4shpy_allowed_file_types',
+            'rewriteUrls'      => 'wp4shpy_rewrite_internal_urls',
+        ];
+
+        foreach ($optionMap as $key => $option) {
+            if (isset($settings[$key])) {
+                update_option($option, $settings[$key]);
+            }
+        }
+
+        return true;
+    }
 }

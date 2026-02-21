@@ -59,6 +59,62 @@ class wp4shpyAdmin {
 
         // AJAX handler for manual sync
         add_action('wp_ajax_wp4shpy_manual_sync', [$this, 'ajaxManualSync']);
+
+        // Backup settings to Shopify App after settings update
+        add_action('update_option_wp4shpy_sync_on_publish', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_sync_images', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_sync_metafields', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_post_types', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_block_robots', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_meta_wp_core', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_meta_yoast', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_meta_rankmath', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_meta_acf', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_hreflangs_enabled', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_authors_enabled', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_author_mappings', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_files_enabled', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_webp_convert', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_allowed_file_types', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wp4shpy_rewrite_internal_urls', [$this, 'scheduleSettingsBackup']);
+
+        // Run the actual backup after all settings are updated (at shutdown)
+        add_action('shutdown', [$this, 'runScheduledSettingsBackup']);
+    }
+
+    /**
+     * Schedule settings backup to run at shutdown.
+     * This prevents multiple API calls when multiple settings are updated at once.
+     */
+    public function scheduleSettingsBackup() {
+        // Set a transient flag to indicate backup is needed
+        set_transient('wp4shpy_settings_backup_pending', true, 60);
+    }
+
+    /**
+     * Run the scheduled settings backup at shutdown.
+     */
+    public function runScheduledSettingsBackup() {
+        if (!get_transient('wp4shpy_settings_backup_pending')) {
+            return;
+        }
+
+        // Check if plugin is configured
+        if (!$this->apiClient->isConfigured()) {
+            delete_transient('wp4shpy_settings_backup_pending');
+            return;
+        }
+
+        // Backup settings to Shopify App
+        $result = $this->apiClient->backupSettings();
+
+        if (is_wp_error($result)) {
+            error_log('[wp4shpy] Settings backup failed: ' . $result->get_error_message());
+        } else {
+            error_log('[wp4shpy] Settings backed up to Shopify App');
+        }
+
+        delete_transient('wp4shpy_settings_backup_pending');
     }
 
     /**
@@ -204,10 +260,41 @@ class wp4shpyAdmin {
                     update_option('wp4shpy_shopify_store', sanitize_text_field($_GET['store']));
                 }
 
+                // Check if this is a reauth with backup available
+                $isReauth = isset($_GET['is_reauth']) && $_GET['is_reauth'] === '1';
+                $hasBackup = isset($_GET['has_backup']) && $_GET['has_backup'] === '1';
+
+                if ($isReauth && $hasBackup) {
+                    // Restore settings from backup
+                    $this->restoreSettingsFromBackup();
+                }
+
                 // Redirect to clean URL
-                wp_redirect(admin_url('options-general.php?page=wp4shpy&connected=1'));
+                $redirectUrl = admin_url('options-general.php?page=wp4shpy&connected=1');
+                if ($isReauth) {
+                    $redirectUrl = add_query_arg('restored', $hasBackup ? '1' : '0', $redirectUrl);
+                }
+                wp_redirect($redirectUrl);
                 exit;
             }
+        }
+    }
+
+    /**
+     * Restore plugin settings from Shopify App backup.
+     * Called during reauth when backup is available.
+     */
+    private function restoreSettingsFromBackup() {
+        $response = $this->apiClient->getBackedUpSettings();
+
+        if (is_wp_error($response)) {
+            error_log('[wp4shpy] Failed to restore settings: ' . $response->get_error_message());
+            return;
+        }
+
+        if (!empty($response['success']) && !empty($response['settings'])) {
+            $this->apiClient->restoreSettings($response['settings']);
+            error_log('[wp4shpy] Settings restored from backup');
         }
     }
 
