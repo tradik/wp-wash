@@ -87,3 +87,89 @@
 .column-wp4shpy_sync a:hover .dashicons {
   color: #135e96 !important;
 }
+
+/* Locked tabs styling */
+.wp4shpy-tabs .nav-tab-locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+  position: relative;
+}
+
+.wp4shpy-tabs .nav-tab-locked:hover {
+  background: #f0f0f1;
+  border-bottom-color: #c3c4c7;
+}
+
+.wp4shpy-tabs .nav-tab-locked .dashicons-lock {
+  margin-left: 4px;
+  vertical-align: text-bottom;
+}
+
+/* Upgrade prompt modal */
+.wp4shpy-upgrade-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+}
+
+.wp4shpy-upgrade-modal__content {
+  background: #fff;
+  padding: 30px;
+  border-radius: 8px;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.wp4shpy-upgrade-modal__icon {
+  font-size: 48px;
+  color: #96bf48;
+  margin-bottom: 15px;
+}
+
+.wp4shpy-upgrade-modal__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #1d2327;
+}
+
+.wp4shpy-upgrade-modal__description {
+  color: #646970;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.wp4shpy-upgrade-modal__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.wp4shpy-upgrade-modal__actions .button-primary {
+  background: #96bf48;
+  border-color: #96bf48;
+}
+
+.wp4shpy-upgrade-modal__actions .button-primary:hover {
+  background: #7ea63a;
+  border-color: #7ea63a;
+}
+
+/* Plan badge in header */
+.wp4shpy-plan-badge {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Usage summary bar */
+.wp4shpy-usage-summary strong {
+  color: #1d2327;
+}

@@ -476,6 +476,83 @@ class wp4shpyApiClient {
     }
 
     /**
+     * Get plan info including features and usage from the Shopify App.
+     * Caches the result for 5 minutes to reduce API calls.
+     *
+     * @param bool $forceRefresh Force refresh ignoring cache.
+     * @return array|WP_Error Plan info or error.
+     */
+    public function getPlanInfo($forceRefresh = false) {
+        $cacheKey = 'wp4shpy_plan_info';
+        $cached = get_transient($cacheKey);
+
+        if ($cached !== false && !$forceRefresh) {
+            return $cached;
+        }
+
+        $result = $this->get('/api/plan-info');
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        // Cache for 5 minutes
+        set_transient($cacheKey, $result, 5 * MINUTE_IN_SECONDS);
+
+        return $result;
+    }
+
+    /**
+     * Check if a specific feature is available on the current plan.
+     *
+     * @param string $featureName Feature name (e.g., 'seoSync', 'acfSync').
+     * @return bool True if feature is available.
+     */
+    public function hasFeature($featureName) {
+        $planInfo = $this->getPlanInfo();
+
+        if (is_wp_error($planInfo)) {
+            // On error, assume feature is available to not block functionality
+            return true;
+        }
+
+        return !empty($planInfo['features'][$featureName]);
+    }
+
+    /**
+     * Get the minimum plan required for a feature.
+     *
+     * @param string $featureName Feature name.
+     * @return string|null Plan name or null if feature is available.
+     */
+    public function getRequiredPlanForFeature($featureName) {
+        $featurePlans = [
+            'seoSync' => 'PRO',
+            'metafields' => 'PRO',
+            'hreflang' => 'PRO',
+            'authorMapping' => 'PRO',
+            'blogMapping' => 'PRO',
+            'smartRedirections' => 'BUSINESS',
+            'acfSync' => 'BUSINESS',
+            'prioritySupport' => 'BUSINESS',
+            'managedHosting' => 'MANAGED',
+        ];
+
+        if (!$this->hasFeature($featureName)) {
+            return $featurePlans[$featureName] ?? 'PRO';
+        }
+
+        return null; // Feature is available
+    }
+
+    /**
+     * Clear cached plan info.
+     */
+    public function clearPlanInfoCache() {
+        delete_transient('wp4shpy_plan_info');
+    }
+
+    /**
      * Backup current plugin settings to the Shopify App.
      * Settings are stored per-connection and can be restored on reauth.
      *

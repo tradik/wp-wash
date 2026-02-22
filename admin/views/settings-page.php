@@ -1,41 +1,143 @@
 <?php
 $isConnected = !empty(get_option('wp4shpy_api_key')) && !empty(get_option('wp4shpy_api_secret'));
 $shopifyStore = get_option('wp4shpy_shopify_store', '');
+
+// Fetch plan info for feature gating
+$planInfo = null;
+$features = [];
+$upgradeUrl = '';
+$planName = 'FREE';
+
+if ($isConnected) {
+    $apiClient = new wp4shpyApiClient();
+    $planInfo = $apiClient->getPlanInfo();
+    if (!is_wp_error($planInfo) && !empty($planInfo['features'])) {
+        $features = $planInfo['features'];
+        $upgradeUrl = $planInfo['upgradeUrl'] ?? '';
+        $planName = $planInfo['plan'] ?? 'FREE';
+    }
+}
+
+// Feature to tab mapping
+$tabFeatures = [
+    'blogs' => 'blogMapping',
+    'redirections' => 'smartRedirections',
+    'hreflangs' => 'hreflang',
+    'metafields' => 'metafields',
+    'authors' => 'authorMapping',
+];
+
+// Required plans for locked features
+$featurePlans = [
+    'blogMapping' => 'PRO',
+    'smartRedirections' => 'BUSINESS',
+    'hreflang' => 'PRO',
+    'metafields' => 'PRO',
+    'authorMapping' => 'PRO',
+    'acfSync' => 'BUSINESS',
+    'seoSync' => 'PRO',
+];
+
+/**
+ * Check if a tab/feature is locked.
+ */
+function wp4shpy_is_feature_locked($featureName, $features) {
+    if (empty($features)) {
+        return false; // No plan info, don't lock
+    }
+    return empty($features[$featureName]);
+}
+
+/**
+ * Render a tab link with optional locked state.
+ */
+function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans, $upgradeUrl, $isActive = false) {
+    $featureName = $tabFeatures[$tab] ?? null;
+    $isLocked = $featureName && wp4shpy_is_feature_locked($featureName, $features);
+    $requiredPlan = $featurePlans[$featureName] ?? 'PRO';
+
+    $classes = 'nav-tab';
+    if ($isActive) {
+        $classes .= ' nav-tab-active';
+    }
+    if ($isLocked) {
+        $classes .= ' nav-tab-locked';
+    }
+
+    $lockIcon = $isLocked ? ' <span class="dashicons dashicons-lock" style="font-size: 14px; opacity: 0.6;"></span>' : '';
+    $title = $isLocked ? sprintf(esc_attr__('Requires %s plan', 'wp4shpy'), $requiredPlan) : '';
+
+    printf(
+        '<a href="#%s" class="%s" data-tab="%s" data-locked="%s" data-required-plan="%s" data-upgrade-url="%s" title="%s">%s%s</a>',
+        esc_attr($tab),
+        esc_attr($classes),
+        esc_attr($tab),
+        $isLocked ? '1' : '0',
+        esc_attr($requiredPlan),
+        esc_url($upgradeUrl),
+        esc_attr($title),
+        esc_html($label),
+        $lockIcon
+    );
+}
 ?>
 <div class="wrap wp4shpy-settings">
     <h1>
         <img src="<?php echo esc_url(wp4shpy_plugin_url() . 'admin/assets/logo.png'); ?>" alt="wp4shpy" style="height: 28px; width: auto; margin-right: 8px; vertical-align: middle;" />
         <?php esc_html_e('wp4shpy Settings', 'wp4shpy'); ?>
+        <?php if ($isConnected && $planName) : ?>
+            <span class="wp4shpy-plan-badge" style="font-size: 12px; font-weight: 600; background: <?php echo $planName === 'FREE' ? '#f0f0f1' : '#d4edda'; ?>; color: <?php echo $planName === 'FREE' ? '#666' : '#155724'; ?>; padding: 4px 10px; border-radius: 12px; margin-left: 10px; vertical-align: middle;">
+                <?php echo esc_html($planName); ?>
+            </span>
+        <?php endif; ?>
     </h1>
 
+    <?php if ($isConnected && !empty($planInfo['usage'])) : ?>
+    <div class="wp4shpy-usage-summary" style="background: #f8f9fa; border: 1px solid #e2e4e7; border-radius: 4px; padding: 12px 15px; margin: 15px 0; display: flex; gap: 30px; font-size: 13px;">
+        <div>
+            <strong><?php esc_html_e('Articles:', 'wp4shpy'); ?></strong>
+            <?php
+            $articlesUsed = $planInfo['usage']['articlesUsed'] ?? 0;
+            $articlesLimit = $planInfo['usage']['articlesLimit'] ?? -1;
+            if ($articlesLimit === -1) {
+                echo esc_html($articlesUsed) . ' ' . esc_html__('(unlimited)', 'wp4shpy');
+            } else {
+                echo esc_html($articlesUsed) . ' / ' . esc_html($articlesLimit);
+            }
+            ?>
+        </div>
+        <div>
+            <strong><?php esc_html_e('Edits:', 'wp4shpy'); ?></strong>
+            <?php
+            $editsUsed = $planInfo['usage']['editsUsed'] ?? 0;
+            $editsLimit = $planInfo['usage']['editsLimit'] ?? -1;
+            if ($editsLimit === -1) {
+                echo esc_html($editsUsed) . ' ' . esc_html__('(unlimited)', 'wp4shpy');
+            } else {
+                echo esc_html($editsUsed) . ' / ' . esc_html($editsLimit);
+            }
+            ?>
+        </div>
+        <?php if ($planName === 'FREE' && !empty($upgradeUrl)) : ?>
+        <div style="margin-left: auto;">
+            <a href="<?php echo esc_url($upgradeUrl); ?>" target="_blank" style="color: #0073aa; text-decoration: none;">
+                <?php esc_html_e('Upgrade Plan', 'wp4shpy'); ?> →
+            </a>
+        </div>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
+
     <nav class="nav-tab-wrapper wp4shpy-tabs">
-        <a href="#connection" class="nav-tab nav-tab-active" data-tab="connection">
-            <?php esc_html_e('Connection', 'wp4shpy'); ?>
-        </a>
-        <a href="#blogs" class="nav-tab" data-tab="blogs">
-            <?php esc_html_e('Blogs', 'wp4shpy'); ?>
-        </a>
-        <a href="#redirections" class="nav-tab" data-tab="redirections">
-            <?php esc_html_e('Redirections', 'wp4shpy'); ?>
-        </a>
-        <a href="#hreflangs" class="nav-tab" data-tab="hreflangs">
-            <?php esc_html_e('Hreflangs', 'wp4shpy'); ?>
-        </a>
-        <a href="#metafields" class="nav-tab" data-tab="metafields">
-            <?php esc_html_e('Meta Fields', 'wp4shpy'); ?>
-        </a>
-        <a href="#authors" class="nav-tab" data-tab="authors">
-            <?php esc_html_e('Authors', 'wp4shpy'); ?>
-        </a>
-        <a href="#files" class="nav-tab" data-tab="files">
-            <?php esc_html_e('Files & Media', 'wp4shpy'); ?>
-        </a>
-        <a href="#sync" class="nav-tab" data-tab="sync">
-            <?php esc_html_e('Sync Settings', 'wp4shpy'); ?>
-        </a>
-        <a href="#advanced" class="nav-tab" data-tab="advanced">
-            <?php esc_html_e('Advanced', 'wp4shpy'); ?>
-        </a>
+        <?php wp4shpy_render_tab('connection', __('Connection', 'wp4shpy'), $features, $tabFeatures, $featurePlans, $upgradeUrl, true); ?>
+        <?php wp4shpy_render_tab('blogs', __('Blogs', 'wp4shpy'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <?php wp4shpy_render_tab('redirections', __('Redirections', 'wp4shpy'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <?php wp4shpy_render_tab('hreflangs', __('Hreflangs', 'wp4shpy'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <?php wp4shpy_render_tab('metafields', __('Meta Fields', 'wp4shpy'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <?php wp4shpy_render_tab('authors', __('Authors', 'wp4shpy'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <a href="#files" class="nav-tab" data-tab="files"><?php esc_html_e('Files & Media', 'wp4shpy'); ?></a>
+        <a href="#sync" class="nav-tab" data-tab="sync"><?php esc_html_e('Sync Settings', 'wp4shpy'); ?></a>
+        <a href="#advanced" class="nav-tab" data-tab="advanced"><?php esc_html_e('Advanced', 'wp4shpy'); ?></a>
     </nav>
 
     <div class="wp4shpy-connection-status" id="wp4shpy-connection-status" style="display:none;">

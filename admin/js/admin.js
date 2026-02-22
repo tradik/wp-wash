@@ -450,5 +450,64 @@
                 },
             });
         });
+
+        // =====================
+        // Locked Tab Handler - Show Upgrade Modal
+        // =====================
+        $(".wp4shpy-tabs").on("click", ".nav-tab-locked", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const $tab = $(this);
+            const requiredPlan = $tab.data("required-plan") || "PRO";
+            const upgradeUrl = $tab.data("upgrade-url") || "";
+            const tabName = $tab.text().trim().replace(/[\u2714\s]+$/, ""); // Remove lock icon text
+
+            // Create and show upgrade modal
+            const modalHtml = `
+                <div class="wp4shpy-upgrade-modal" id="wp4shpy-upgrade-modal">
+                    <div class="wp4shpy-upgrade-modal__content">
+                        <div class="wp4shpy-upgrade-modal__icon">
+                            <span class="dashicons dashicons-lock"></span>
+                        </div>
+                        <div class="wp4shpy-upgrade-modal__title">
+                            ${tabName} Requires ${requiredPlan} Plan
+                        </div>
+                        <div class="wp4shpy-upgrade-modal__description">
+                            Upgrade your plan to unlock this feature and get access to more powerful sync capabilities.
+                        </div>
+                        <div class="wp4shpy-upgrade-modal__actions">
+                            <button type="button" class="button" id="wp4shpy-modal-close">
+                                Cancel
+                            </button>
+                            ${upgradeUrl ? `<a href="${upgradeUrl}" target="_blank" class="button button-primary">
+                                Upgrade to ${requiredPlan}
+                            </a>` : ""}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Remove any existing modal
+            $("#wp4shpy-upgrade-modal").remove();
+
+            // Add modal to body
+            $("body").append(modalHtml);
+
+            // Close modal handlers
+            $("#wp4shpy-modal-close, #wp4shpy-upgrade-modal").on("click", function (ev) {
+                if (ev.target === this) {
+                    $("#wp4shpy-upgrade-modal").remove();
+                }
+            });
+
+            // ESC key to close
+            $(document).on("keydown.upgradeModal", function (ev) {
+                if (ev.key === "Escape") {
+                    $("#wp4shpy-upgrade-modal").remove();
+                    $(document).off("keydown.upgradeModal");
+                }
+            });
+        });
     });
 })(jQuery);
