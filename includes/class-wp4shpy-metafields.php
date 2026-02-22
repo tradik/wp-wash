@@ -55,6 +55,7 @@ class wp4shpyMetafields {
         'acf'        => 'wp4shopify_acf',
         'seo'        => 'wp4shopify_seo',
         'custom'     => 'wp4shopify_custom',
+        'hreflang'   => 'wp4shopify_hreflang',
     ];
 
     public function __construct() {

@@ -726,43 +726,77 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
             <h2 class="title"><?php esc_html_e('Hreflang Tags Configuration', 'wp4shpy'); ?></h2>
             <p class="description"><?php esc_html_e('Configure hreflang tags for multi-language SEO on Shopify.', 'wp4shpy'); ?></p>
 
+            <?php
+            $hreflangsHandler = new wp4shpyHreflangs();
+            $activePlugin = $hreflangsHandler->getActivePluginName();
+            $hasPlugin = $hreflangsHandler->isMultilingualPluginActive();
+            ?>
+
+            <!-- Detected Plugin Status -->
+            <div class="wp4shpy-info-section" style="background: <?php echo $hasPlugin ? '#f0fff4' : '#fef0f0'; ?>; border: 2px solid <?php echo $hasPlugin ? '#00a32a' : '#d63638'; ?>; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span class="dashicons <?php echo $hasPlugin ? 'dashicons-yes-alt' : 'dashicons-warning'; ?>" style="font-size: 40px; width: 40px; height: 40px; color: <?php echo $hasPlugin ? '#00a32a' : '#d63638'; ?>;"></span>
+                    <div>
+                        <h3 style="margin: 0 0 5px 0;"><?php esc_html_e('Multilingual Plugin Status', 'wp4shpy'); ?></h3>
+                        <p style="margin: 0; font-size: 15px;">
+                            <?php if ($hasPlugin): ?>
+                                <?php printf(
+                                    esc_html__('Detected: %s', 'wp4shpy'),
+                                    '<strong style="color: #00a32a;">' . esc_html($activePlugin) . '</strong>'
+                                ); ?>
+                                <br><span style="color: #666;"><?php esc_html_e('Translations will be automatically detected and synced.', 'wp4shpy'); ?></span>
+                            <?php else: ?>
+                                <strong style="color: #d63638;"><?php esc_html_e('No multilingual plugin detected', 'wp4shpy'); ?></strong>
+                                <br><span style="color: #666;"><?php esc_html_e('Install WPML, Polylang, TranslatePress, or Weglot to enable hreflang syncing.', 'wp4shpy'); ?></span>
+                            <?php endif; ?>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row"><?php esc_html_e('Enable Hreflangs', 'wp4shpy'); ?></th>
                     <td>
                         <label>
                             <input type="checkbox" name="wp4shpy_hreflangs_enabled" value="1"
-                                <?php checked(get_option('wp4shpy_hreflangs_enabled'), '1'); ?> />
+                                <?php checked(get_option('wp4shpy_hreflangs_enabled'), '1'); ?>
+                                <?php disabled(!$hasPlugin); ?> />
                             <?php esc_html_e('Sync hreflang data to Shopify metafields', 'wp4shpy'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('When enabled, language relationship data will be synced as metafields.', 'wp4shpy'); ?></p>
+                        <p class="description"><?php esc_html_e('When enabled, language relationship data from your multilingual plugin will be synced as metafields.', 'wp4shpy'); ?></p>
                     </td>
                 </tr>
             </table>
 
-            <!-- Important Warning -->
-            <div class="wp4shpy-info-section" style="background: #fef0f0; border: 2px solid #d63638; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0; color: #d63638;">
-                    <span class="dashicons dashicons-warning" style="color: #d63638;"></span>
-                    <?php esc_html_e('Important: Shopify Hreflang Implementation', 'wp4shpy'); ?>
+            <!-- Supported Plugins -->
+            <div class="wp4shpy-info-section" style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 20px; margin: 20px 0;">
+                <h3 style="margin-top: 0;">
+                    <span class="dashicons dashicons-admin-plugins" style="color: #2271b1;"></span>
+                    <?php esc_html_e('Supported Multilingual Plugins', 'wp4shpy'); ?>
                 </h3>
-                <p style="font-size: 14px; line-height: 1.6;">
-                    <?php esc_html_e('Shopify does NOT natively support hreflang tags in blog articles. To implement proper hreflang tags, you need to:', 'wp4shpy'); ?>
-                </p>
-                <ol style="margin-left: 20px; line-height: 2;">
-                    <li>
-                        <strong><?php esc_html_e('Contact Shopify Support', 'wp4shpy'); ?></strong><br>
-                        <span style="color: #666;"><?php esc_html_e('Request them to enable "Script Injection" at store level. This allows custom code in the &lt;head&gt; section of your theme.', 'wp4shpy'); ?></span>
-                    </li>
-                    <li>
-                        <strong><?php esc_html_e('Edit Your Theme', 'wp4shpy'); ?></strong><br>
-                        <span style="color: #666;"><?php esc_html_e('Add Liquid code to your theme\'s theme.liquid or article template to read hreflang metafields and output proper hreflang tags.', 'wp4shpy'); ?></span>
-                    </li>
-                    <li>
-                        <strong><?php esc_html_e('Define Metafield Structure', 'wp4shpy'); ?></strong><br>
-                        <span style="color: #666;"><?php esc_html_e('Hreflang relationships must be stored in Shopify metafields with a consistent namespace.', 'wp4shpy'); ?></span>
-                    </li>
-                </ol>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                    <div style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
+                        <strong>WPML</strong>
+                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Full support with automatic translation detection', 'wp4shpy'); ?></p>
+                    </div>
+                    <div style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
+                        <strong>Polylang</strong>
+                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Full support with locale detection', 'wp4shpy'); ?></p>
+                    </div>
+                    <div style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
+                        <strong>TranslatePress</strong>
+                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Partial support (URL-based translations)', 'wp4shpy'); ?></p>
+                    </div>
+                    <div style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
+                        <strong>Weglot</strong>
+                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Partial support (API-based)', 'wp4shpy'); ?></p>
+                    </div>
+                    <div style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
+                        <strong>Lokalise</strong>
+                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Via WPML integration', 'wp4shpy'); ?></p>
+                    </div>
+                </div>
             </div>
 
             <!-- How It Works -->
@@ -775,29 +809,38 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
                 <table class="widefat" style="margin-top: 10px;">
                     <thead>
                         <tr>
-                            <th><?php esc_html_e('Metafield', 'wp4shpy'); ?></th>
-                            <th><?php esc_html_e('Description', 'wp4shpy'); ?></th>
+                            <th><?php esc_html_e('Metafield Key', 'wp4shpy'); ?></th>
+                            <th><?php esc_html_e('Namespace', 'wp4shpy'); ?></th>
                             <th><?php esc_html_e('Example Value', 'wp4shpy'); ?></th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td><code>hreflang.language</code></td>
-                            <td><?php esc_html_e('ISO language code of this article', 'wp4shpy'); ?></td>
-                            <td><code>en</code>, <code>de</code>, <code>pl</code></td>
+                            <td><code>hreflang_en_us</code></td>
+                            <td><code>wp4shopify_hreflang</code></td>
+                            <td><code>https://store.myshopify.com/blogs/news/article-en</code></td>
                         </tr>
                         <tr>
-                            <td><code>hreflang.translations</code></td>
-                            <td><?php esc_html_e('JSON array of alternate language versions', 'wp4shpy'); ?></td>
-                            <td><code>[{"lang":"de","url":"/blogs/blog-de/artikel"}]</code></td>
+                            <td><code>hreflang_de_de</code></td>
+                            <td><code>wp4shopify_hreflang</code></td>
+                            <td><code>https://store.myshopify.com/blogs/news/artikel-de</code></td>
                         </tr>
                         <tr>
-                            <td><code>hreflang.x_default</code></td>
-                            <td><?php esc_html_e('URL of the default/fallback version', 'wp4shpy'); ?></td>
-                            <td><code>/blogs/news/article</code></td>
+                            <td><code>hreflang_pl_pl</code></td>
+                            <td><code>wp4shopify_hreflang</code></td>
+                            <td><code>https://store.myshopify.com/blogs/news/artykul-pl</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>hreflang_x_default</code></td>
+                            <td><code>wp4shopify_hreflang</code></td>
+                            <td><code>https://store.myshopify.com/blogs/news/article-en</code></td>
                         </tr>
                     </tbody>
                 </table>
+                <p style="margin-top: 15px; color: #666; font-size: 13px;">
+                    <span class="dashicons dashicons-info-outline"></span>
+                    <?php esc_html_e('Each translation gets its own metafield. When a translation is removed in WordPress, the corresponding metafield is automatically cleared in Shopify.', 'wp4shpy'); ?>
+                </p>
             </div>
 
             <!-- Liquid Code Example -->
@@ -806,42 +849,63 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
                     <span class="dashicons dashicons-editor-code" style="color: #96bf48;"></span>
                     <?php esc_html_e('Liquid Code for theme.liquid', 'wp4shpy'); ?>
                 </h3>
-                <p style="color: #999; font-size: 13px;"><?php esc_html_e('Add this code inside the &lt;head&gt; section of your theme:', 'wp4shpy'); ?></p>
-                <pre style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;">{% if article %}
-  {% assign hreflang_lang = article.metafields.hreflang.language %}
-  {% assign hreflang_translations = article.metafields.hreflang.translations %}
-  {% assign hreflang_default = article.metafields.hreflang.x_default %}
+                <p style="color: #999; font-size: 13px;"><?php esc_html_e('Add this code inside the &lt;head&gt; section of your theme (layout/theme.liquid):', 'wp4shpy'); ?></p>
+                <pre style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;">&lt;!-- WP4Shopify Hreflang Tags --&gt;
+{% if article %}
+  {% assign ns = 'wp4shopify_hreflang' %}
 
-  {% if hreflang_lang %}
-    &lt;link rel="alternate" hreflang="{{ hreflang_lang }}" href="{{ canonical_url }}" /&gt;
-  {% endif %}
-
-  {% if hreflang_translations %}
-    {% assign translations = hreflang_translations | parse_json %}
-    {% for trans in translations %}
-      &lt;link rel="alternate" hreflang="{{ trans.lang }}" href="{{ shop.url }}{{ trans.url }}" /&gt;
-    {% endfor %}
-  {% endif %}
-
-  {% if hreflang_default %}
-    &lt;link rel="alternate" hreflang="x-default" href="{{ shop.url }}{{ hreflang_default }}" /&gt;
-  {% endif %}
+  {% for metafield in article.metafields[ns] %}
+    {% if metafield.key contains 'hreflang_' %}
+      {% assign lang_code = metafield.key | remove: 'hreflang_' | replace: '_', '-' %}
+      &lt;link rel="alternate" hreflang="{{ lang_code }}" href="{{ metafield.value }}" /&gt;
+    {% endif %}
+  {% endfor %}
 {% endif %}</pre>
+                <p style="color: #999; font-size: 12px; margin-top: 10px;">
+                    <span class="dashicons dashicons-info-outline" style="color: #999;"></span>
+                    <?php esc_html_e('This code automatically outputs all hreflang tags including x-default.', 'wp4shpy'); ?>
+                </p>
+            </div>
+
+            <!-- Important Warning -->
+            <div class="wp4shpy-info-section" style="background: #fef0f0; border: 2px solid #d63638; border-radius: 4px; padding: 20px; margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #d63638;">
+                    <span class="dashicons dashicons-warning" style="color: #d63638;"></span>
+                    <?php esc_html_e('Important: Shopify Theme Configuration', 'wp4shpy'); ?>
+                </h3>
+                <p style="font-size: 14px; line-height: 1.6;">
+                    <?php esc_html_e('Shopify does NOT natively output hreflang tags for blog articles. You must manually add the Liquid code above to your theme.', 'wp4shpy'); ?>
+                </p>
+                <ol style="margin-left: 20px; line-height: 2;">
+                    <li>
+                        <strong><?php esc_html_e('Edit Your Theme', 'wp4shpy'); ?></strong><br>
+                        <span style="color: #666;"><?php esc_html_e('Go to Online Store → Themes → Edit code → layout/theme.liquid', 'wp4shpy'); ?></span>
+                    </li>
+                    <li>
+                        <strong><?php esc_html_e('Add the Liquid Code', 'wp4shpy'); ?></strong><br>
+                        <span style="color: #666;"><?php esc_html_e('Paste the code above inside the &lt;head&gt; section, before &lt;/head&gt;', 'wp4shpy'); ?></span>
+                    </li>
+                    <li>
+                        <strong><?php esc_html_e('Save and Test', 'wp4shpy'); ?></strong><br>
+                        <span style="color: #666;"><?php esc_html_e('View page source on an article to verify hreflang tags are present', 'wp4shpy'); ?></span>
+                    </li>
+                </ol>
             </div>
 
             <!-- Contact Support -->
             <div class="wp4shpy-info-section" style="background: #fff8e5; border: 1px solid #f0c674; border-radius: 4px; padding: 20px; margin: 20px 0;">
                 <h3 style="margin-top: 0;">
-                    <span class="dashicons dashicons-phone" style="color: #8b5a00;"></span>
-                    <?php esc_html_e('Shopify Support Contact', 'wp4shpy'); ?>
+                    <span class="dashicons dashicons-lightbulb" style="color: #8b5a00;"></span>
+                    <?php esc_html_e('Alternative: Shopify Markets', 'wp4shpy'); ?>
                 </h3>
-                <p><?php esc_html_e('To enable script injection for hreflang tags, contact Shopify Plus support:', 'wp4shpy'); ?></p>
+                <p><?php esc_html_e('For stores with Shopify Plus or compatible plans, consider using Shopify Markets:', 'wp4shpy'); ?></p>
                 <ul style="margin-left: 20px; line-height: 1.8;">
-                    <li><strong><?php esc_html_e('Shopify Plus:', 'wp4shpy'); ?></strong> <?php esc_html_e('Contact your Merchant Success Manager or use the Priority Support channel.', 'wp4shpy'); ?></li>
-                    <li><strong><?php esc_html_e('Regular Plans:', 'wp4shpy'); ?></strong> <?php esc_html_e('Visit help.shopify.com and request "Script Tag API access" or "Checkout extensibility" for hreflang implementation.', 'wp4shpy'); ?></li>
+                    <li><?php esc_html_e('Built-in multi-language support', 'wp4shpy'); ?></li>
+                    <li><?php esc_html_e('Automatic hreflang tag generation', 'wp4shpy'); ?></li>
+                    <li><?php esc_html_e('No theme customization required', 'wp4shpy'); ?></li>
                 </ul>
                 <p style="margin-top: 15px; padding: 10px; background: #fff; border-radius: 4px;">
-                    <strong><?php esc_html_e('Alternative:', 'wp4shpy'); ?></strong> <?php esc_html_e('Use Shopify Markets for built-in multi-language support with automatic hreflang tags (requires Shopify Plus or compatible plan).', 'wp4shpy'); ?>
+                    <strong><?php esc_html_e('Note:', 'wp4shpy'); ?></strong> <?php esc_html_e('Shopify Markets works independently of this plugin. Use this feature when Markets is not available or you need custom hreflang handling.', 'wp4shpy'); ?>
                 </p>
             </div>
         </div>

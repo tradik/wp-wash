@@ -3,7 +3,7 @@
  * Plugin Name:       wp4shpy
  * Plugin URI:        https://github.com/tradik/wp4shpy
  * Description:       Synchronize WordPress content, images, and metafields to Shopify blogs.
- * Version:           1.7.4
+ * Version:           1.8.0
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Tradik
@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('wp4shpy_VERSION', '1.7.4');
+define('wp4shpy_VERSION', '1.8.0');
 define('wp4shpy_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('wp4shpy_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
@@ -36,6 +36,7 @@ require_once wp4shpy_PLUGIN_DIR . 'includes/class-wp4shpy-admin.php';
 require_once wp4shpy_PLUGIN_DIR . 'includes/class-wp4shpy-sync.php';
 require_once wp4shpy_PLUGIN_DIR . 'includes/class-wp4shpy-images.php';
 require_once wp4shpy_PLUGIN_DIR . 'includes/class-wp4shpy-metafields.php';
+require_once wp4shpy_PLUGIN_DIR . 'includes/class-wp4shpy-hreflangs.php';
 require_once wp4shpy_PLUGIN_DIR . 'includes/class-wp4shpy-multisite.php';
 require_once wp4shpy_PLUGIN_DIR . 'includes/class-wp4shpy-files-media.php';
 
@@ -58,6 +59,9 @@ function wp4shpyInit() {
 
     $metafields = new wp4shpyMetafields();
     $metafields->init();
+
+    $hreflangs = new wp4shpyHreflangs();
+    $hreflangs->init();
 
     $filesMedia = new wp4shpyFilesMedia();
     $filesMedia->init();

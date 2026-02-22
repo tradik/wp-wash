@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.6.3
+Stable tag: 1.8.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -20,6 +20,7 @@ Edit content in WordPress and have it automatically published to your Shopify st
 * Automatic content sync on publish/update/delete
 * Image upload to Shopify CDN with URL rewriting
 * Metafield sync (ACF, custom fields, SEO plugins)
+* Hreflang sync for multilingual sites (WPML, Polylang, TranslatePress, Weglot)
 * WP Multisite → multiple Shopify blogs
 * Yoast SEO and RankMath integration
 * HMAC-signed API communication
@@ -44,6 +45,13 @@ Yes. The companion Shopify app (included in this monorepo) must be deployed and 
 Yes. Each site in the network maps to a separate Shopify blog.
 
 == Changelog ==
+
+= 1.8.0 =
+* Added hreflang sync for multilingual sites
+* Supports WPML, Polylang, TranslatePress, Weglot, and Lokalise
+* Each translation syncs as individual Shopify metafield
+* Auto-detection of active multilingual plugin
+* Liquid template code provided for Shopify theme integration
 
 = 1.6.3 =
 * Added option to rewrite internal WordPress URLs to Shopify format

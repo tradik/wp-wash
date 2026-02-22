@@ -160,6 +160,12 @@ class wp4shpySync {
 
                 // Sync metafields (ACF, custom fields, SEO)
                 $this->syncMetafields($postId, $shopifyId);
+
+                // Sync hreflangs (WPML, Polylang, TranslatePress, Weglot)
+                $this->syncHreflangs($postId, $shopifyId);
+
+                // Fire action for extensibility
+                do_action('wp4shpy_post_synced', $postId, $shopifyId);
             }
         }
     }
@@ -183,6 +189,33 @@ class wp4shpySync {
         } else {
             $count = $result['count'] ?? 0;
             error_log("[wp4shpy] syncMetafields() - Synced {$count} metafields for post {$postId}");
+        }
+    }
+
+    /**
+     * Sync hreflang metafields for a post to Shopify.
+     * Detects translations from WPML, Polylang, TranslatePress, Weglot.
+     *
+     * @param int    $postId    WordPress post ID
+     * @param string $shopifyId Shopify resource GID
+     */
+    private function syncHreflangs($postId, $shopifyId) {
+        if (get_option('wp4shpy_hreflangs_enabled') !== '1') {
+            return;
+        }
+
+        $hreflangsHandler = new wp4shpyHreflangs();
+        $result = $hreflangsHandler->syncHreflangs($postId, $shopifyId);
+
+        if (is_wp_error($result)) {
+            error_log("[wp4shpy] syncHreflangs() - Error: " . $result->get_error_message());
+        } else {
+            $count = $result['count'] ?? 0;
+            if (isset($result['cleared']) && $result['cleared']) {
+                error_log("[wp4shpy] syncHreflangs() - Cleared hreflangs (no translations) for post {$postId}");
+            } else {
+                error_log("[wp4shpy] syncHreflangs() - Synced {$count} hreflang entries for post {$postId}");
+            }
         }
     }
 
