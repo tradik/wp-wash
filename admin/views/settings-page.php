@@ -92,7 +92,7 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
         <?php endif; ?>
     </h1>
 
-    <?php if ($isConnected && !empty($planInfo['usage'])) : ?>
+    <?php if ($isConnected && !is_wp_error($planInfo) && !empty($planInfo['usage'])) : ?>
     <div class="wp4shpy-usage-summary" style="background: #f8f9fa; border: 1px solid #e2e4e7; border-radius: 4px; padding: 12px 15px; margin: 15px 0; display: flex; gap: 30px; font-size: 13px;">
         <div>
             <strong><?php esc_html_e('Articles:', 'wp4shpy'); ?></strong>

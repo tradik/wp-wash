@@ -1,0 +1,424 @@
+# Japanese translation for WP4Shpy
+# Copyright (C) 2026 Tradik
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: WP4Shpy 1.8.0\n"
+"Report-Msgid-Bugs-To: https://github.com/tradik/wp4shopify/issues\n"
+"POT-Creation-Date: 2026-02-22T12:00:00+00:00\n"
+"PO-Revision-Date: 2026-02-22T12:00:00+00:00\n"
+"Last-Translator: Tradik Team <hello@tradik.com>\n"
+"Language-Team: Japanese <ja@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "wp4shpy Settings"
+msgstr "wp4shpy 設定"
+
+msgid "Articles:"
+msgstr "記事:"
+
+msgid "(unlimited)"
+msgstr "(無制限)"
+
+msgid "Edits:"
+msgstr "編集:"
+
+msgid "Upgrade Plan"
+msgstr "プランをアップグレード"
+
+msgid "Connection"
+msgstr "接続"
+
+msgid "Blogs"
+msgstr "ブログ"
+
+msgid "Redirections"
+msgstr "リダイレクト"
+
+msgid "Hreflangs"
+msgstr "Hreflang"
+
+msgid "Meta Fields"
+msgstr "メタフィールド"
+
+msgid "Authors"
+msgstr "著者"
+
+msgid "Files & Media"
+msgstr "ファイルとメディア"
+
+msgid "Sync Settings"
+msgstr "同期設定"
+
+msgid "Advanced"
+msgstr "高度な設定"
+
+msgid "Shopify Store Connection"
+msgstr "Shopifyストア接続"
+
+msgid "Connected"
+msgstr "接続済み"
+
+msgid "Shopify Store"
+msgstr "Shopifyストア"
+
+msgid "Your Shopify store handle (e.g., \"my-store\" from my-store.myshopify.com)"
+msgstr "Shopifyストアハンドル（例：my-store.myshopify.comの「my-store」）"
+
+msgid "Connect to Shopify"
+msgstr "Shopifyに接続"
+
+msgid "Disconnect"
+msgstr "切断"
+
+msgid "Manual Configuration"
+msgstr "手動設定"
+
+msgid "If automatic connection fails, you can enter credentials manually."
+msgstr "自動接続に失敗した場合、認証情報を手動で入力できます。"
+
+msgid "API Key"
+msgstr "APIキー"
+
+msgid "API Secret"
+msgstr "APIシークレット"
+
+msgid "Hide manual configuration"
+msgstr "手動設定を非表示"
+
+msgid "Enter credentials manually"
+msgstr "認証情報を手動で入力"
+
+msgid "HTTP Authentication (Optional)"
+msgstr "HTTP認証（オプション）"
+
+msgid "For apps behind Basic Auth"
+msgstr "Basic Auth背後のアプリ用"
+
+msgid "HTTP Username"
+msgstr "HTTPユーザー名"
+
+msgid "HTTP Password"
+msgstr "HTTPパスワード"
+
+msgid "Test Connection"
+msgstr "接続をテスト"
+
+msgid "Debug Session"
+msgstr "デバッグセッション"
+
+msgid "Reset Session"
+msgstr "セッションをリセット"
+
+msgid "Blog Routing Rules"
+msgstr "ブログルーティングルール"
+
+msgid "Route WordPress posts to different Shopify blogs based on language or category."
+msgstr "言語またはカテゴリに基づいてWordPress投稿を異なるShopifyブログにルーティングします。"
+
+msgid "Higher priority rules are matched first. Default rule is used when no other rule matches."
+msgstr "優先度の高いルールが最初にマッチします。他のルールがマッチしない場合、デフォルトルールが使用されます。"
+
+msgid "Connect to Shopify first to configure blog mappings."
+msgstr "ブログマッピングを設定するには、まずShopifyに接続してください。"
+
+msgid "Loading mappings..."
+msgstr "マッピングを読み込み中..."
+
+msgid "Add Mapping Rule"
+msgstr "マッピングルールを追加"
+
+msgid "Rule Type"
+msgstr "ルールタイプ"
+
+msgid "Default (catch-all)"
+msgstr "デフォルト（キャッチオール）"
+
+msgid "By Language"
+msgstr "言語別"
+
+msgid "By Category"
+msgstr "カテゴリ別"
+
+msgid "Value"
+msgstr "値"
+
+msgid "Language code (en, de, pl) or category slug"
+msgstr "言語コード（en、de、pl）またはカテゴリスラッグ"
+
+msgid "Target Shopify Blog"
+msgstr "ターゲットShopifyブログ"
+
+msgid "Select a blog..."
+msgstr "ブログを選択..."
+
+msgid "Create new blog"
+msgstr "新しいブログを作成"
+
+msgid "New blog name (e.g., blog-en)"
+msgstr "新しいブログ名（例：blog-ja）"
+
+msgid "Priority"
+msgstr "優先度"
+
+msgid "Higher priority rules are matched first (0-100)"
+msgstr "優先度の高いルールが最初にマッチします（0-100）"
+
+msgid "Save Mapping"
+msgstr "マッピングを保存"
+
+msgid "Cancel"
+msgstr "キャンセル"
+
+msgid "URL Redirections Management"
+msgstr "URLリダイレクト管理"
+
+msgid "Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration."
+msgstr "移行中のSEO保持のため、WordPress URLからShopify URLへの301リダイレクトを管理します。"
+
+msgid "Redirections Manager"
+msgstr "リダイレクトマネージャー"
+
+msgid "Loading redirect stats..."
+msgstr "リダイレクト統計を読み込み中..."
+
+msgid "Sync from Old Website"
+msgstr "古いウェブサイトから同期"
+
+msgid "Generate from Synced Posts"
+msgstr "同期した投稿から生成"
+
+msgid "Load from Shopify"
+msgstr "Shopifyから読み込み"
+
+msgid "Fix Session Scopes"
+msgstr "セッションスコープを修正"
+
+msgid "Redirections List"
+msgstr "リダイレクトリスト"
+
+msgid "format: /old-path -> /new-path"
+msgstr "形式：/古いパス -> /新しいパス"
+
+msgid "Enter one redirection per line. You can use ->, =>, or → as separator. Lines starting with # are ignored."
+msgstr "1行に1つのリダイレクトを入力します。->、=>、または→を区切り文字として使用できます。#で始まる行は無視されます。"
+
+msgid "Sync Redirections to Shopify"
+msgstr "リダイレクトをShopifyに同期"
+
+msgid "Sync Complete"
+msgstr "同期完了"
+
+msgid "Connect to Shopify first to manage redirections."
+msgstr "リダイレクトを管理するには、まずShopifyに接続してください。"
+
+msgid "URL Structure Guide"
+msgstr "URL構造ガイド"
+
+msgid "WordPress URL Structure (Current)"
+msgstr "WordPress URL構造（現在）"
+
+msgid "Your WordPress site currently serves content with these URL patterns:"
+msgstr "WordPressサイトは現在、これらのURLパターンでコンテンツを提供しています："
+
+msgid "Blog Posts"
+msgstr "ブログ投稿"
+
+msgid "Permalink structure depends on Settings → Permalinks"
+msgstr "パーマリンク構造は設定→パーマリンクに依存します"
+
+msgid "Pages"
+msgstr "ページ"
+
+msgid "Page slug becomes the URL"
+msgstr "ページスラッグがURLになります"
+
+msgid "Categories"
+msgstr "カテゴリ"
+
+msgid "Category archives with pagination"
+msgstr "ページネーション付きカテゴリアーカイブ"
+
+msgid "Images"
+msgstr "画像"
+
+msgid "Served from your WordPress server"
+msgstr "WordPressサーバーから提供"
+
+msgid "Shopify URL Structure (After Sync)"
+msgstr "Shopify URL構造（同期後）"
+
+msgid "After syncing, your content will be available on Shopify with these URL patterns:"
+msgstr "同期後、コンテンツはこれらのURLパターンでShopifyで利用可能になります："
+
+msgid "Blog handle is required in Shopify URLs. Configure in Blogs tab."
+msgstr "Shopify URLにはブログハンドルが必要です。ブログタブで設定してください。"
+
+msgid "Multi-language Posts"
+msgstr "多言語投稿"
+
+msgid "English"
+msgstr "英語"
+
+msgid "German"
+msgstr "ドイツ語"
+
+msgid "Polish"
+msgstr "ポーランド語"
+
+msgid "Each language gets its own blog with routing rules."
+msgstr "各言語はルーティングルール付きの独自のブログを持ちます。"
+
+msgid "Pages are prefixed with /pages/ in Shopify."
+msgstr "ページはShopifyで/pages/プレフィックスが付きます。"
+
+msgid "Images are uploaded to Shopify CDN for faster global delivery."
+msgstr "画像はより速いグローバル配信のためにShopify CDNにアップロードされます。"
+
+msgid "Image Handling"
+msgstr "画像処理"
+
+msgid "Image Type"
+msgstr "画像タイプ"
+
+msgid "What Happens"
+msgstr "何が起こるか"
+
+msgid "Featured Image"
+msgstr "アイキャッチ画像"
+
+msgid "Uploaded to Shopify and set as article image. Displayed in blog listings and article headers."
+msgstr "Shopifyにアップロードされ、記事画像として設定されます。ブログ一覧と記事ヘッダーに表示されます。"
+
+msgid "Inline Images"
+msgstr "インライン画像"
+
+msgid "Uploaded to Shopify CDN. URLs in content are automatically rewritten."
+msgstr "Shopify CDNにアップロードされます。コンテンツ内のURLは自動的に書き換えられます。"
+
+msgid "Gallery Images"
+msgstr "ギャラリー画像"
+
+msgid "Uploaded to Shopify CDN. Gallery shortcodes converted to HTML."
+msgstr "Shopify CDNにアップロードされます。ギャラリーショートコードはHTMLに変換されます。"
+
+msgid "Requires %s plan"
+msgstr "%sプランが必要"
+
+msgid "None detected"
+msgstr "検出なし"
+
+msgid "Settings"
+msgstr "設定"
+
+msgid "Sync Now"
+msgstr "今すぐ同期"
+
+msgid "Sync in progress..."
+msgstr "同期中..."
+
+msgid "Synced successfully"
+msgstr "正常に同期されました"
+
+msgid "Sync failed"
+msgstr "同期に失敗しました"
+
+msgid "Last synced:"
+msgstr "最終同期:"
+
+msgid "Never synced"
+msgstr "未同期"
+
+msgid "Error:"
+msgstr "エラー:"
+
+msgid "Success:"
+msgstr "成功:"
+
+msgid "Hreflang Synchronization"
+msgstr "Hreflang同期"
+
+msgid "Enable hreflang synchronization"
+msgstr "Hreflang同期を有効化"
+
+msgid "Detected multilingual plugin:"
+msgstr "検出された多言語プラグイン:"
+
+msgid "Automatically sync hreflang tags for multilingual content."
+msgstr "多言語コンテンツのhreflangタグを自動同期します。"
+
+msgid "Custom Fields Sync"
+msgstr "カスタムフィールド同期"
+
+msgid "Enable custom fields sync"
+msgstr "カスタムフィールド同期を有効化"
+
+msgid "Sync ACF and custom meta fields as Shopify metafields."
+msgstr "ACFとカスタムメタフィールドをShopifyメタフィールドとして同期します。"
+
+msgid "Author Mapping"
+msgstr "著者マッピング"
+
+msgid "Map WordPress authors to Shopify staff accounts."
+msgstr "WordPress著者をShopifyスタッフアカウントにマッピングします。"
+
+msgid "WordPress Author"
+msgstr "WordPress著者"
+
+msgid "Shopify Staff"
+msgstr "Shopifyスタッフ"
+
+msgid "Select staff member"
+msgstr "スタッフメンバーを選択"
+
+msgid "Save Author Mappings"
+msgstr "著者マッピングを保存"
+
+msgid "Post Types to Sync"
+msgstr "同期する投稿タイプ"
+
+msgid "Select which post types should be synced to Shopify."
+msgstr "Shopifyに同期する投稿タイプを選択します。"
+
+msgid "Automatic Sync"
+msgstr "自動同期"
+
+msgid "Automatically sync content when published or updated."
+msgstr "公開または更新時にコンテンツを自動同期します。"
+
+msgid "Sync on Publish"
+msgstr "公開時に同期"
+
+msgid "Sync on Update"
+msgstr "更新時に同期"
+
+msgid "Sync on Delete"
+msgstr "削除時に同期"
+
+msgid "Delete from Shopify when trashed in WordPress."
+msgstr "WordPressでゴミ箱に移動したらShopifyから削除します。"
+
+msgid "Debug Mode"
+msgstr "デバッグモード"
+
+msgid "Enable debug logging"
+msgstr "デバッグログを有効化"
+
+msgid "Log detailed sync information for troubleshooting."
+msgstr "トラブルシューティングのために詳細な同期情報をログに記録します。"
+
+msgid "Clear All Data"
+msgstr "すべてのデータをクリア"
+
+msgid "Remove all sync data and mappings"
+msgstr "すべての同期データとマッピングを削除"
+
+msgid "This will clear all sync history and Shopify article IDs. Use with caution."
+msgstr "これによりすべての同期履歴とShopify記事IDがクリアされます。注意して使用してください。"
+
+msgid "Save Settings"
+msgstr "設定を保存"

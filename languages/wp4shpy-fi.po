@@ -1,0 +1,424 @@
+# Finnish translation for WP4Shpy
+# Copyright (C) 2026 Tradik
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: WP4Shpy 1.8.0\n"
+"Report-Msgid-Bugs-To: https://github.com/tradik/wp4shopify/issues\n"
+"POT-Creation-Date: 2026-02-22T12:00:00+00:00\n"
+"PO-Revision-Date: 2026-02-22T12:00:00+00:00\n"
+"Last-Translator: Tradik Team <hello@tradik.com>\n"
+"Language-Team: Finnish <fi@li.org>\n"
+"Language: fi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "wp4shpy Settings"
+msgstr "wp4shpy-asetukset"
+
+msgid "Articles:"
+msgstr "Artikkelit:"
+
+msgid "(unlimited)"
+msgstr "(rajoittamaton)"
+
+msgid "Edits:"
+msgstr "Muokkaukset:"
+
+msgid "Upgrade Plan"
+msgstr "Päivitä tilaus"
+
+msgid "Connection"
+msgstr "Yhteys"
+
+msgid "Blogs"
+msgstr "Blogit"
+
+msgid "Redirections"
+msgstr "Uudelleenohjaukset"
+
+msgid "Hreflangs"
+msgstr "Hreflangs"
+
+msgid "Meta Fields"
+msgstr "Metakentät"
+
+msgid "Authors"
+msgstr "Kirjoittajat"
+
+msgid "Files & Media"
+msgstr "Tiedostot ja media"
+
+msgid "Sync Settings"
+msgstr "Synkronointiasetukset"
+
+msgid "Advanced"
+msgstr "Lisäasetukset"
+
+msgid "Shopify Store Connection"
+msgstr "Shopify-kauppayhteys"
+
+msgid "Connected"
+msgstr "Yhdistetty"
+
+msgid "Shopify Store"
+msgstr "Shopify-kauppa"
+
+msgid "Your Shopify store handle (e.g., \"my-store\" from my-store.myshopify.com)"
+msgstr "Shopify-kauppasi tunniste (esim. \"oma-kauppa\" osoitteesta oma-kauppa.myshopify.com)"
+
+msgid "Connect to Shopify"
+msgstr "Yhdistä Shopifyyn"
+
+msgid "Disconnect"
+msgstr "Katkaise yhteys"
+
+msgid "Manual Configuration"
+msgstr "Manuaalinen määritys"
+
+msgid "If automatic connection fails, you can enter credentials manually."
+msgstr "Jos automaattinen yhteys epäonnistuu, voit syöttää tunnistetiedot manuaalisesti."
+
+msgid "API Key"
+msgstr "API-avain"
+
+msgid "API Secret"
+msgstr "API-salaisuus"
+
+msgid "Hide manual configuration"
+msgstr "Piilota manuaalinen määritys"
+
+msgid "Enter credentials manually"
+msgstr "Syötä tunnistetiedot manuaalisesti"
+
+msgid "HTTP Authentication (Optional)"
+msgstr "HTTP-todennus (Valinnainen)"
+
+msgid "For apps behind Basic Auth"
+msgstr "Sovelluksille Basic Auth -suojauksen takana"
+
+msgid "HTTP Username"
+msgstr "HTTP-käyttäjänimi"
+
+msgid "HTTP Password"
+msgstr "HTTP-salasana"
+
+msgid "Test Connection"
+msgstr "Testaa yhteys"
+
+msgid "Debug Session"
+msgstr "Virheenkorjausistunto"
+
+msgid "Reset Session"
+msgstr "Nollaa istunto"
+
+msgid "Blog Routing Rules"
+msgstr "Blogin reitityssäännöt"
+
+msgid "Route WordPress posts to different Shopify blogs based on language or category."
+msgstr "Ohjaa WordPress-julkaisut eri Shopify-blogeihin kielen tai kategorian perusteella."
+
+msgid "Higher priority rules are matched first. Default rule is used when no other rule matches."
+msgstr "Korkeamman prioriteetin säännöt täsmätään ensin. Oletussääntöä käytetään, kun mikään muu sääntö ei täsmää."
+
+msgid "Connect to Shopify first to configure blog mappings."
+msgstr "Yhdistä ensin Shopifyyn määrittääksesi blogikartoitukset."
+
+msgid "Loading mappings..."
+msgstr "Ladataan kartoituksia..."
+
+msgid "Add Mapping Rule"
+msgstr "Lisää kartoitussääntö"
+
+msgid "Rule Type"
+msgstr "Sääntötyyppi"
+
+msgid "Default (catch-all)"
+msgstr "Oletus (catch-all)"
+
+msgid "By Language"
+msgstr "Kielen mukaan"
+
+msgid "By Category"
+msgstr "Kategorian mukaan"
+
+msgid "Value"
+msgstr "Arvo"
+
+msgid "Language code (en, de, pl) or category slug"
+msgstr "Kielikoodi (en, de, pl) tai kategoria-slug"
+
+msgid "Target Shopify Blog"
+msgstr "Kohde Shopify-blogi"
+
+msgid "Select a blog..."
+msgstr "Valitse blogi..."
+
+msgid "Create new blog"
+msgstr "Luo uusi blogi"
+
+msgid "New blog name (e.g., blog-en)"
+msgstr "Uuden blogin nimi (esim. blogi-fi)"
+
+msgid "Priority"
+msgstr "Prioriteetti"
+
+msgid "Higher priority rules are matched first (0-100)"
+msgstr "Korkeamman prioriteetin säännöt täsmätään ensin (0-100)"
+
+msgid "Save Mapping"
+msgstr "Tallenna kartoitus"
+
+msgid "Cancel"
+msgstr "Peruuta"
+
+msgid "URL Redirections Management"
+msgstr "URL-uudelleenohjaushallinta"
+
+msgid "Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration."
+msgstr "Hallitse 301-uudelleenohjauksia WordPress-URL-osoitteista Shopify-URL-osoitteisiin SEO:n säilyttämiseksi migraation aikana."
+
+msgid "Redirections Manager"
+msgstr "Uudelleenohjaushallinta"
+
+msgid "Loading redirect stats..."
+msgstr "Ladataan uudelleenohjauksen tilastoja..."
+
+msgid "Sync from Old Website"
+msgstr "Synkronoi vanhalta sivustolta"
+
+msgid "Generate from Synced Posts"
+msgstr "Luo synkronoiduista julkaisuista"
+
+msgid "Load from Shopify"
+msgstr "Lataa Shopifysta"
+
+msgid "Fix Session Scopes"
+msgstr "Korjaa istunnon laajuudet"
+
+msgid "Redirections List"
+msgstr "Uudelleenohjaluettelo"
+
+msgid "format: /old-path -> /new-path"
+msgstr "muoto: /vanha-polku -> /uusi-polku"
+
+msgid "Enter one redirection per line. You can use ->, =>, or → as separator. Lines starting with # are ignored."
+msgstr "Syötä yksi uudelleenohjaus per rivi. Voit käyttää ->, => tai → erottimena. #-merkillä alkavat rivit ohitetaan."
+
+msgid "Sync Redirections to Shopify"
+msgstr "Synkronoi uudelleenohjaukset Shopifyyn"
+
+msgid "Sync Complete"
+msgstr "Synkronointi valmis"
+
+msgid "Connect to Shopify first to manage redirections."
+msgstr "Yhdistä ensin Shopifyyn hallitaksesi uudelleenohjauksia."
+
+msgid "URL Structure Guide"
+msgstr "URL-rakenneopas"
+
+msgid "WordPress URL Structure (Current)"
+msgstr "WordPress URL-rakenne (Nykyinen)"
+
+msgid "Your WordPress site currently serves content with these URL patterns:"
+msgstr "WordPress-sivustosi tarjoilee sisältöä näillä URL-malleilla:"
+
+msgid "Blog Posts"
+msgstr "Blogikirjoitukset"
+
+msgid "Permalink structure depends on Settings → Permalinks"
+msgstr "Permalink-rakenne riippuu kohdasta Asetukset → Osoiterakenteet"
+
+msgid "Pages"
+msgstr "Sivut"
+
+msgid "Page slug becomes the URL"
+msgstr "Sivun slug tulee URL-osoitteeksi"
+
+msgid "Categories"
+msgstr "Kategoriat"
+
+msgid "Category archives with pagination"
+msgstr "Kategoria-arkistot sivutuksella"
+
+msgid "Images"
+msgstr "Kuvat"
+
+msgid "Served from your WordPress server"
+msgstr "Tarjoillaan WordPress-palvelimeltasi"
+
+msgid "Shopify URL Structure (After Sync)"
+msgstr "Shopify URL-rakenne (Synkronoinnin jälkeen)"
+
+msgid "After syncing, your content will be available on Shopify with these URL patterns:"
+msgstr "Synkronoinnin jälkeen sisältösi on saatavilla Shopifyssa näillä URL-malleilla:"
+
+msgid "Blog handle is required in Shopify URLs. Configure in Blogs tab."
+msgstr "Blogin tunniste vaaditaan Shopify-URL-osoitteissa. Määritä Blogit-välilehdessä."
+
+msgid "Multi-language Posts"
+msgstr "Monikieliset julkaisut"
+
+msgid "English"
+msgstr "Englanti"
+
+msgid "German"
+msgstr "Saksa"
+
+msgid "Polish"
+msgstr "Puola"
+
+msgid "Each language gets its own blog with routing rules."
+msgstr "Jokainen kieli saa oman bloginsa reitityssäännöillä."
+
+msgid "Pages are prefixed with /pages/ in Shopify."
+msgstr "Sivuilla on etuliite /pages/ Shopifyssa."
+
+msgid "Images are uploaded to Shopify CDN for faster global delivery."
+msgstr "Kuvat ladataan Shopify CDN:ään nopeampaa maailmanlaajuista toimitusta varten."
+
+msgid "Image Handling"
+msgstr "Kuvankäsittely"
+
+msgid "Image Type"
+msgstr "Kuvatyyppi"
+
+msgid "What Happens"
+msgstr "Mitä tapahtuu"
+
+msgid "Featured Image"
+msgstr "Artikkelikuva"
+
+msgid "Uploaded to Shopify and set as article image. Displayed in blog listings and article headers."
+msgstr "Ladataan Shopifyyn ja asetetaan artikkelikuvaksi. Näytetään blogilistoissa ja artikkeliotsikoissa."
+
+msgid "Inline Images"
+msgstr "Rivikuvat"
+
+msgid "Uploaded to Shopify CDN. URLs in content are automatically rewritten."
+msgstr "Ladataan Shopify CDN:ään. Sisällön URL-osoitteet kirjoitetaan automaattisesti uudelleen."
+
+msgid "Gallery Images"
+msgstr "Galleriakuvat"
+
+msgid "Uploaded to Shopify CDN. Gallery shortcodes converted to HTML."
+msgstr "Ladataan Shopify CDN:ään. Galleria-lyhytkoodit muunnetaan HTML:ksi."
+
+msgid "Requires %s plan"
+msgstr "Vaatii %s-tilauksen"
+
+msgid "None detected"
+msgstr "Ei havaittu"
+
+msgid "Settings"
+msgstr "Asetukset"
+
+msgid "Sync Now"
+msgstr "Synkronoi nyt"
+
+msgid "Sync in progress..."
+msgstr "Synkronointi käynnissä..."
+
+msgid "Synced successfully"
+msgstr "Synkronoitu onnistuneesti"
+
+msgid "Sync failed"
+msgstr "Synkronointi epäonnistui"
+
+msgid "Last synced:"
+msgstr "Viimeksi synkronoitu:"
+
+msgid "Never synced"
+msgstr "Ei koskaan synkronoitu"
+
+msgid "Error:"
+msgstr "Virhe:"
+
+msgid "Success:"
+msgstr "Onnistui:"
+
+msgid "Hreflang Synchronization"
+msgstr "Hreflang-synkronointi"
+
+msgid "Enable hreflang synchronization"
+msgstr "Ota hreflang-synkronointi käyttöön"
+
+msgid "Detected multilingual plugin:"
+msgstr "Havaittu monikielinen lisäosa:"
+
+msgid "Automatically sync hreflang tags for multilingual content."
+msgstr "Synkronoi hreflang-tagit automaattisesti monikieliselle sisällölle."
+
+msgid "Custom Fields Sync"
+msgstr "Mukautettujen kenttien synkronointi"
+
+msgid "Enable custom fields sync"
+msgstr "Ota mukautettujen kenttien synkronointi käyttöön"
+
+msgid "Sync ACF and custom meta fields as Shopify metafields."
+msgstr "Synkronoi ACF ja mukautetut metakentät Shopify-metakenttinä."
+
+msgid "Author Mapping"
+msgstr "Kirjoittajakartoitus"
+
+msgid "Map WordPress authors to Shopify staff accounts."
+msgstr "Kartoita WordPress-kirjoittajat Shopify-henkilöstötileihin."
+
+msgid "WordPress Author"
+msgstr "WordPress-kirjoittaja"
+
+msgid "Shopify Staff"
+msgstr "Shopify-henkilöstö"
+
+msgid "Select staff member"
+msgstr "Valitse henkilöstön jäsen"
+
+msgid "Save Author Mappings"
+msgstr "Tallenna kirjoittajakartoitukset"
+
+msgid "Post Types to Sync"
+msgstr "Synkronoitavat julkaisutyypit"
+
+msgid "Select which post types should be synced to Shopify."
+msgstr "Valitse mitkä julkaisutyypit synkronoidaan Shopifyyn."
+
+msgid "Automatic Sync"
+msgstr "Automaattinen synkronointi"
+
+msgid "Automatically sync content when published or updated."
+msgstr "Synkronoi sisältö automaattisesti julkaistaessa tai päivitettäessä."
+
+msgid "Sync on Publish"
+msgstr "Synkronoi julkaistaessa"
+
+msgid "Sync on Update"
+msgstr "Synkronoi päivitettäessä"
+
+msgid "Sync on Delete"
+msgstr "Synkronoi poistettaessa"
+
+msgid "Delete from Shopify when trashed in WordPress."
+msgstr "Poista Shopifysta kun siirretään roskakoriin WordPressissä."
+
+msgid "Debug Mode"
+msgstr "Virheenkorjaustila"
+
+msgid "Enable debug logging"
+msgstr "Ota virheenkorjausloki käyttöön"
+
+msgid "Log detailed sync information for troubleshooting."
+msgstr "Kirjaa yksityiskohtaiset synkronointitiedot vianetsintää varten."
+
+msgid "Clear All Data"
+msgstr "Tyhjennä kaikki tiedot"
+
+msgid "Remove all sync data and mappings"
+msgstr "Poista kaikki synkronointitiedot ja kartoitukset"
+
+msgid "This will clear all sync history and Shopify article IDs. Use with caution."
+msgstr "Tämä tyhjentää kaiken synkronointihistorian ja Shopify-artikkelitunnukset. Käytä varoen."
+
+msgid "Save Settings"
+msgstr "Tallenna asetukset"

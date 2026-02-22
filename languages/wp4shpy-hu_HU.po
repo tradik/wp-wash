@@ -1,0 +1,424 @@
+# Hungarian translation for WP4Shpy
+# Copyright (C) 2026 Tradik
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: WP4Shpy 1.8.0\n"
+"Report-Msgid-Bugs-To: https://github.com/tradik/wp4shopify/issues\n"
+"POT-Creation-Date: 2026-02-22T12:00:00+00:00\n"
+"PO-Revision-Date: 2026-02-22T12:00:00+00:00\n"
+"Last-Translator: Tradik Team <hello@tradik.com>\n"
+"Language-Team: Hungarian <hu@li.org>\n"
+"Language: hu_HU\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "wp4shpy Settings"
+msgstr "wp4shpy beállítások"
+
+msgid "Articles:"
+msgstr "Cikkek:"
+
+msgid "(unlimited)"
+msgstr "(korlátlan)"
+
+msgid "Edits:"
+msgstr "Szerkesztések:"
+
+msgid "Upgrade Plan"
+msgstr "Csomag frissítése"
+
+msgid "Connection"
+msgstr "Kapcsolat"
+
+msgid "Blogs"
+msgstr "Blogok"
+
+msgid "Redirections"
+msgstr "Átirányítások"
+
+msgid "Hreflangs"
+msgstr "Hreflangs"
+
+msgid "Meta Fields"
+msgstr "Meta mezők"
+
+msgid "Authors"
+msgstr "Szerzők"
+
+msgid "Files & Media"
+msgstr "Fájlok és média"
+
+msgid "Sync Settings"
+msgstr "Szinkronizálási beállítások"
+
+msgid "Advanced"
+msgstr "Haladó"
+
+msgid "Shopify Store Connection"
+msgstr "Shopify áruház kapcsolat"
+
+msgid "Connected"
+msgstr "Kapcsolódva"
+
+msgid "Shopify Store"
+msgstr "Shopify áruház"
+
+msgid "Your Shopify store handle (e.g., \"my-store\" from my-store.myshopify.com)"
+msgstr "Shopify áruháza azonosítója (pl. \"sajat-aruhaz\" a sajat-aruhaz.myshopify.com címből)"
+
+msgid "Connect to Shopify"
+msgstr "Csatlakozás a Shopifyhoz"
+
+msgid "Disconnect"
+msgstr "Leválasztás"
+
+msgid "Manual Configuration"
+msgstr "Manuális konfiguráció"
+
+msgid "If automatic connection fails, you can enter credentials manually."
+msgstr "Ha az automatikus kapcsolódás sikertelen, manuálisan adhatja meg a hitelesítő adatokat."
+
+msgid "API Key"
+msgstr "API kulcs"
+
+msgid "API Secret"
+msgstr "API titok"
+
+msgid "Hide manual configuration"
+msgstr "Manuális konfiguráció elrejtése"
+
+msgid "Enter credentials manually"
+msgstr "Hitelesítő adatok manuális megadása"
+
+msgid "HTTP Authentication (Optional)"
+msgstr "HTTP hitelesítés (opcionális)"
+
+msgid "For apps behind Basic Auth"
+msgstr "Basic Auth mögötti alkalmazásokhoz"
+
+msgid "HTTP Username"
+msgstr "HTTP felhasználónév"
+
+msgid "HTTP Password"
+msgstr "HTTP jelszó"
+
+msgid "Test Connection"
+msgstr "Kapcsolat tesztelése"
+
+msgid "Debug Session"
+msgstr "Debug munkamenet"
+
+msgid "Reset Session"
+msgstr "Munkamenet visszaállítása"
+
+msgid "Blog Routing Rules"
+msgstr "Blog útvonalszabályok"
+
+msgid "Route WordPress posts to different Shopify blogs based on language or category."
+msgstr "WordPress bejegyzések irányítása különböző Shopify blogokba nyelv vagy kategória alapján."
+
+msgid "Higher priority rules are matched first. Default rule is used when no other rule matches."
+msgstr "A magasabb prioritású szabályok elsőként kerülnek egyeztetésre. Az alapértelmezett szabály akkor kerül alkalmazásra, ha más szabály nem egyezik."
+
+msgid "Connect to Shopify first to configure blog mappings."
+msgstr "Először csatlakozzon a Shopifyhoz a blog leképezések konfigurálásához."
+
+msgid "Loading mappings..."
+msgstr "Leképezések betöltése..."
+
+msgid "Add Mapping Rule"
+msgstr "Leképezési szabály hozzáadása"
+
+msgid "Rule Type"
+msgstr "Szabálytípus"
+
+msgid "Default (catch-all)"
+msgstr "Alapértelmezett (catch-all)"
+
+msgid "By Language"
+msgstr "Nyelv szerint"
+
+msgid "By Category"
+msgstr "Kategória szerint"
+
+msgid "Value"
+msgstr "Érték"
+
+msgid "Language code (en, de, pl) or category slug"
+msgstr "Nyelvkód (en, de, pl) vagy kategória slug"
+
+msgid "Target Shopify Blog"
+msgstr "Cél Shopify blog"
+
+msgid "Select a blog..."
+msgstr "Blog kiválasztása..."
+
+msgid "Create new blog"
+msgstr "Új blog létrehozása"
+
+msgid "New blog name (e.g., blog-en)"
+msgstr "Új blog neve (pl. blog-hu)"
+
+msgid "Priority"
+msgstr "Prioritás"
+
+msgid "Higher priority rules are matched first (0-100)"
+msgstr "A magasabb prioritású szabályok elsőként kerülnek egyeztetésre (0-100)"
+
+msgid "Save Mapping"
+msgstr "Leképezés mentése"
+
+msgid "Cancel"
+msgstr "Mégse"
+
+msgid "URL Redirections Management"
+msgstr "URL átirányítások kezelése"
+
+msgid "Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration."
+msgstr "301 átirányítások kezelése WordPress URL-ekről Shopify URL-ekre a SEO megőrzése érdekében a migráció során."
+
+msgid "Redirections Manager"
+msgstr "Átirányítás kezelő"
+
+msgid "Loading redirect stats..."
+msgstr "Átirányítási statisztikák betöltése..."
+
+msgid "Sync from Old Website"
+msgstr "Szinkronizálás régi weboldalról"
+
+msgid "Generate from Synced Posts"
+msgstr "Generálás szinkronizált bejegyzésekből"
+
+msgid "Load from Shopify"
+msgstr "Betöltés Shopifyból"
+
+msgid "Fix Session Scopes"
+msgstr "Munkamenet hatókörök javítása"
+
+msgid "Redirections List"
+msgstr "Átirányítások listája"
+
+msgid "format: /old-path -> /new-path"
+msgstr "formátum: /regi-utvonal -> /uj-utvonal"
+
+msgid "Enter one redirection per line. You can use ->, =>, or → as separator. Lines starting with # are ignored."
+msgstr "Soronként egy átirányítást adjon meg. Használhatja a ->, => vagy → elválasztókat. A #-tel kezdődő sorok figyelmen kívül maradnak."
+
+msgid "Sync Redirections to Shopify"
+msgstr "Átirányítások szinkronizálása Shopifyba"
+
+msgid "Sync Complete"
+msgstr "Szinkronizálás kész"
+
+msgid "Connect to Shopify first to manage redirections."
+msgstr "Először csatlakozzon a Shopifyhoz az átirányítások kezeléséhez."
+
+msgid "URL Structure Guide"
+msgstr "URL struktúra útmutató"
+
+msgid "WordPress URL Structure (Current)"
+msgstr "WordPress URL struktúra (jelenlegi)"
+
+msgid "Your WordPress site currently serves content with these URL patterns:"
+msgstr "WordPress oldala jelenleg ezekkel az URL mintákkal szolgál ki tartalmat:"
+
+msgid "Blog Posts"
+msgstr "Blog bejegyzések"
+
+msgid "Permalink structure depends on Settings → Permalinks"
+msgstr "A permalink struktúra a Beállítások → Állandó hivatkozások beállítástól függ"
+
+msgid "Pages"
+msgstr "Oldalak"
+
+msgid "Page slug becomes the URL"
+msgstr "Az oldal slug lesz az URL"
+
+msgid "Categories"
+msgstr "Kategóriák"
+
+msgid "Category archives with pagination"
+msgstr "Kategória archívumok lapozással"
+
+msgid "Images"
+msgstr "Képek"
+
+msgid "Served from your WordPress server"
+msgstr "WordPress szerverről szolgáltatva"
+
+msgid "Shopify URL Structure (After Sync)"
+msgstr "Shopify URL struktúra (szinkronizálás után)"
+
+msgid "After syncing, your content will be available on Shopify with these URL patterns:"
+msgstr "A szinkronizálás után tartalma ezekkel az URL mintákkal lesz elérhető a Shopifyban:"
+
+msgid "Blog handle is required in Shopify URLs. Configure in Blogs tab."
+msgstr "A blog azonosító szükséges a Shopify URL-ekben. Konfigurálja a Blogok fülön."
+
+msgid "Multi-language Posts"
+msgstr "Többnyelvű bejegyzések"
+
+msgid "English"
+msgstr "Angol"
+
+msgid "German"
+msgstr "Német"
+
+msgid "Polish"
+msgstr "Lengyel"
+
+msgid "Each language gets its own blog with routing rules."
+msgstr "Minden nyelv saját blogot kap útvonalszabályokkal."
+
+msgid "Pages are prefixed with /pages/ in Shopify."
+msgstr "Az oldalak /pages/ előtaggal rendelkeznek a Shopifyban."
+
+msgid "Images are uploaded to Shopify CDN for faster global delivery."
+msgstr "A képek feltöltésre kerülnek a Shopify CDN-re a gyorsabb globális kézbesítés érdekében."
+
+msgid "Image Handling"
+msgstr "Képkezelés"
+
+msgid "Image Type"
+msgstr "Kép típusa"
+
+msgid "What Happens"
+msgstr "Mi történik"
+
+msgid "Featured Image"
+msgstr "Kiemelt kép"
+
+msgid "Uploaded to Shopify and set as article image. Displayed in blog listings and article headers."
+msgstr "Feltöltve a Shopifyba és beállítva cikképként. Megjelenik a blog listákban és cikkfejlécekben."
+
+msgid "Inline Images"
+msgstr "Beágyazott képek"
+
+msgid "Uploaded to Shopify CDN. URLs in content are automatically rewritten."
+msgstr "Feltöltve a Shopify CDN-re. A tartalomban lévő URL-ek automatikusan átíródnak."
+
+msgid "Gallery Images"
+msgstr "Galéria képek"
+
+msgid "Uploaded to Shopify CDN. Gallery shortcodes converted to HTML."
+msgstr "Feltöltve a Shopify CDN-re. A galéria shortcode-ok HTML-re konvertálódnak."
+
+msgid "Requires %s plan"
+msgstr "%s csomag szükséges"
+
+msgid "None detected"
+msgstr "Nem észlelhető"
+
+msgid "Settings"
+msgstr "Beállítások"
+
+msgid "Sync Now"
+msgstr "Szinkronizálás most"
+
+msgid "Sync in progress..."
+msgstr "Szinkronizálás folyamatban..."
+
+msgid "Synced successfully"
+msgstr "Sikeresen szinkronizálva"
+
+msgid "Sync failed"
+msgstr "Szinkronizálás sikertelen"
+
+msgid "Last synced:"
+msgstr "Utoljára szinkronizálva:"
+
+msgid "Never synced"
+msgstr "Soha nem szinkronizálva"
+
+msgid "Error:"
+msgstr "Hiba:"
+
+msgid "Success:"
+msgstr "Sikeres:"
+
+msgid "Hreflang Synchronization"
+msgstr "Hreflang szinkronizálás"
+
+msgid "Enable hreflang synchronization"
+msgstr "Hreflang szinkronizálás engedélyezése"
+
+msgid "Detected multilingual plugin:"
+msgstr "Észlelt többnyelvű bővítmény:"
+
+msgid "Automatically sync hreflang tags for multilingual content."
+msgstr "Hreflang tagek automatikus szinkronizálása többnyelvű tartalomhoz."
+
+msgid "Custom Fields Sync"
+msgstr "Egyéni mezők szinkronizálása"
+
+msgid "Enable custom fields sync"
+msgstr "Egyéni mezők szinkronizálásának engedélyezése"
+
+msgid "Sync ACF and custom meta fields as Shopify metafields."
+msgstr "ACF és egyéni meta mezők szinkronizálása Shopify metamezőként."
+
+msgid "Author Mapping"
+msgstr "Szerző leképezés"
+
+msgid "Map WordPress authors to Shopify staff accounts."
+msgstr "WordPress szerzők leképezése Shopify személyzeti fiókokra."
+
+msgid "WordPress Author"
+msgstr "WordPress szerző"
+
+msgid "Shopify Staff"
+msgstr "Shopify személyzet"
+
+msgid "Select staff member"
+msgstr "Személyzeti tag kiválasztása"
+
+msgid "Save Author Mappings"
+msgstr "Szerző leképezések mentése"
+
+msgid "Post Types to Sync"
+msgstr "Szinkronizálandó bejegyzéstípusok"
+
+msgid "Select which post types should be synced to Shopify."
+msgstr "Válassza ki, mely bejegyzéstípusokat kell szinkronizálni a Shopifyba."
+
+msgid "Automatic Sync"
+msgstr "Automatikus szinkronizálás"
+
+msgid "Automatically sync content when published or updated."
+msgstr "Tartalom automatikus szinkronizálása közzétételkor vagy frissítéskor."
+
+msgid "Sync on Publish"
+msgstr "Szinkronizálás közzétételkor"
+
+msgid "Sync on Update"
+msgstr "Szinkronizálás frissítéskor"
+
+msgid "Sync on Delete"
+msgstr "Szinkronizálás törléskor"
+
+msgid "Delete from Shopify when trashed in WordPress."
+msgstr "Törlés a Shopifyból, amikor a kukába kerül a WordPressben."
+
+msgid "Debug Mode"
+msgstr "Debug mód"
+
+msgid "Enable debug logging"
+msgstr "Debug naplózás engedélyezése"
+
+msgid "Log detailed sync information for troubleshooting."
+msgstr "Részletes szinkronizálási információk naplózása hibaelhárításhoz."
+
+msgid "Clear All Data"
+msgstr "Összes adat törlése"
+
+msgid "Remove all sync data and mappings"
+msgstr "Összes szinkronizálási adat és leképezés eltávolítása"
+
+msgid "This will clear all sync history and Shopify article IDs. Use with caution."
+msgstr "Ez törli az összes szinkronizálási előzményt és Shopify cikk azonosítót. Óvatosan használja."
+
+msgid "Save Settings"
+msgstr "Beállítások mentése"

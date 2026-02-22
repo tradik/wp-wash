@@ -1,0 +1,424 @@
+# Dutch translation for WP4Shpy
+# Copyright (C) 2026 Tradik
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: WP4Shpy 1.8.0\n"
+"Report-Msgid-Bugs-To: https://github.com/tradik/wp4shopify/issues\n"
+"POT-Creation-Date: 2026-02-22T12:00:00+00:00\n"
+"PO-Revision-Date: 2026-02-22T12:00:00+00:00\n"
+"Last-Translator: Tradik Team <hello@tradik.com>\n"
+"Language-Team: Dutch <nl@li.org>\n"
+"Language: nl_NL\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "wp4shpy Settings"
+msgstr "wp4shpy-instellingen"
+
+msgid "Articles:"
+msgstr "Artikelen:"
+
+msgid "(unlimited)"
+msgstr "(onbeperkt)"
+
+msgid "Edits:"
+msgstr "Bewerkingen:"
+
+msgid "Upgrade Plan"
+msgstr "Plan upgraden"
+
+msgid "Connection"
+msgstr "Verbinding"
+
+msgid "Blogs"
+msgstr "Blogs"
+
+msgid "Redirections"
+msgstr "Doorverwijzingen"
+
+msgid "Hreflangs"
+msgstr "Hreflangs"
+
+msgid "Meta Fields"
+msgstr "Metavelden"
+
+msgid "Authors"
+msgstr "Auteurs"
+
+msgid "Files & Media"
+msgstr "Bestanden en media"
+
+msgid "Sync Settings"
+msgstr "Synchronisatie-instellingen"
+
+msgid "Advanced"
+msgstr "Geavanceerd"
+
+msgid "Shopify Store Connection"
+msgstr "Shopify-winkelverbinding"
+
+msgid "Connected"
+msgstr "Verbonden"
+
+msgid "Shopify Store"
+msgstr "Shopify-winkel"
+
+msgid "Your Shopify store handle (e.g., \"my-store\" from my-store.myshopify.com)"
+msgstr "Uw Shopify-winkelidentificatie (bijv. \"mijn-winkel\" van mijn-winkel.myshopify.com)"
+
+msgid "Connect to Shopify"
+msgstr "Verbinden met Shopify"
+
+msgid "Disconnect"
+msgstr "Loskoppelen"
+
+msgid "Manual Configuration"
+msgstr "Handmatige configuratie"
+
+msgid "If automatic connection fails, you can enter credentials manually."
+msgstr "Als automatische verbinding mislukt, kunt u de inloggegevens handmatig invoeren."
+
+msgid "API Key"
+msgstr "API-sleutel"
+
+msgid "API Secret"
+msgstr "API-geheim"
+
+msgid "Hide manual configuration"
+msgstr "Handmatige configuratie verbergen"
+
+msgid "Enter credentials manually"
+msgstr "Inloggegevens handmatig invoeren"
+
+msgid "HTTP Authentication (Optional)"
+msgstr "HTTP-authenticatie (Optioneel)"
+
+msgid "For apps behind Basic Auth"
+msgstr "Voor apps achter Basic Auth"
+
+msgid "HTTP Username"
+msgstr "HTTP-gebruikersnaam"
+
+msgid "HTTP Password"
+msgstr "HTTP-wachtwoord"
+
+msgid "Test Connection"
+msgstr "Verbinding testen"
+
+msgid "Debug Session"
+msgstr "Debug-sessie"
+
+msgid "Reset Session"
+msgstr "Sessie resetten"
+
+msgid "Blog Routing Rules"
+msgstr "Blog-routeringsregels"
+
+msgid "Route WordPress posts to different Shopify blogs based on language or category."
+msgstr "Routeer WordPress-berichten naar verschillende Shopify-blogs op basis van taal of categorie."
+
+msgid "Higher priority rules are matched first. Default rule is used when no other rule matches."
+msgstr "Regels met hogere prioriteit worden eerst verwerkt. De standaardregel wordt gebruikt wanneer geen andere regel overeenkomt."
+
+msgid "Connect to Shopify first to configure blog mappings."
+msgstr "Maak eerst verbinding met Shopify om blogmappings te configureren."
+
+msgid "Loading mappings..."
+msgstr "Mappings laden..."
+
+msgid "Add Mapping Rule"
+msgstr "Mappingregel toevoegen"
+
+msgid "Rule Type"
+msgstr "Regeltype"
+
+msgid "Default (catch-all)"
+msgstr "Standaard (catch-all)"
+
+msgid "By Language"
+msgstr "Op taal"
+
+msgid "By Category"
+msgstr "Op categorie"
+
+msgid "Value"
+msgstr "Waarde"
+
+msgid "Language code (en, de, pl) or category slug"
+msgstr "Taalcode (en, de, pl) of categorie-slug"
+
+msgid "Target Shopify Blog"
+msgstr "Doel Shopify-blog"
+
+msgid "Select a blog..."
+msgstr "Selecteer een blog..."
+
+msgid "Create new blog"
+msgstr "Nieuwe blog maken"
+
+msgid "New blog name (e.g., blog-en)"
+msgstr "Nieuwe blognaam (bijv. blog-nl)"
+
+msgid "Priority"
+msgstr "Prioriteit"
+
+msgid "Higher priority rules are matched first (0-100)"
+msgstr "Regels met hogere prioriteit worden eerst verwerkt (0-100)"
+
+msgid "Save Mapping"
+msgstr "Mapping opslaan"
+
+msgid "Cancel"
+msgstr "Annuleren"
+
+msgid "URL Redirections Management"
+msgstr "URL-doorverwijzingenbeheer"
+
+msgid "Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration."
+msgstr "Beheer 301-doorverwijzingen van WordPress-URLs naar Shopify-URLs voor SEO-behoud tijdens migratie."
+
+msgid "Redirections Manager"
+msgstr "Doorverwijzingenbeheerder"
+
+msgid "Loading redirect stats..."
+msgstr "Doorverwijzingsstatistieken laden..."
+
+msgid "Sync from Old Website"
+msgstr "Synchroniseren vanaf oude website"
+
+msgid "Generate from Synced Posts"
+msgstr "Genereren uit gesynchroniseerde berichten"
+
+msgid "Load from Shopify"
+msgstr "Laden vanaf Shopify"
+
+msgid "Fix Session Scopes"
+msgstr "Sessiebereiken repareren"
+
+msgid "Redirections List"
+msgstr "Doorverwijzingenlijst"
+
+msgid "format: /old-path -> /new-path"
+msgstr "formaat: /oud-pad -> /nieuw-pad"
+
+msgid "Enter one redirection per line. You can use ->, =>, or → as separator. Lines starting with # are ignored."
+msgstr "Voer één doorverwijzing per regel in. U kunt ->, => of → gebruiken als scheidingsteken. Regels die beginnen met # worden genegeerd."
+
+msgid "Sync Redirections to Shopify"
+msgstr "Doorverwijzingen synchroniseren naar Shopify"
+
+msgid "Sync Complete"
+msgstr "Synchronisatie voltooid"
+
+msgid "Connect to Shopify first to manage redirections."
+msgstr "Maak eerst verbinding met Shopify om doorverwijzingen te beheren."
+
+msgid "URL Structure Guide"
+msgstr "URL-structuurgids"
+
+msgid "WordPress URL Structure (Current)"
+msgstr "WordPress URL-structuur (Huidig)"
+
+msgid "Your WordPress site currently serves content with these URL patterns:"
+msgstr "Uw WordPress-site serveert momenteel content met deze URL-patronen:"
+
+msgid "Blog Posts"
+msgstr "Blogberichten"
+
+msgid "Permalink structure depends on Settings → Permalinks"
+msgstr "Permalinkstructuur hangt af van Instellingen → Permalinks"
+
+msgid "Pages"
+msgstr "Pagina's"
+
+msgid "Page slug becomes the URL"
+msgstr "Pagina-slug wordt de URL"
+
+msgid "Categories"
+msgstr "Categorieën"
+
+msgid "Category archives with pagination"
+msgstr "Categorie-archieven met paginering"
+
+msgid "Images"
+msgstr "Afbeeldingen"
+
+msgid "Served from your WordPress server"
+msgstr "Geserveerd vanaf uw WordPress-server"
+
+msgid "Shopify URL Structure (After Sync)"
+msgstr "Shopify URL-structuur (Na synchronisatie)"
+
+msgid "After syncing, your content will be available on Shopify with these URL patterns:"
+msgstr "Na synchronisatie is uw content beschikbaar op Shopify met deze URL-patronen:"
+
+msgid "Blog handle is required in Shopify URLs. Configure in Blogs tab."
+msgstr "Blog-identificatie is vereist in Shopify-URLs. Configureer in het tabblad Blogs."
+
+msgid "Multi-language Posts"
+msgstr "Meertalige berichten"
+
+msgid "English"
+msgstr "Engels"
+
+msgid "German"
+msgstr "Duits"
+
+msgid "Polish"
+msgstr "Pools"
+
+msgid "Each language gets its own blog with routing rules."
+msgstr "Elke taal krijgt zijn eigen blog met routeringsregels."
+
+msgid "Pages are prefixed with /pages/ in Shopify."
+msgstr "Pagina's hebben het voorvoegsel /pages/ in Shopify."
+
+msgid "Images are uploaded to Shopify CDN for faster global delivery."
+msgstr "Afbeeldingen worden geüpload naar Shopify CDN voor snellere wereldwijde levering."
+
+msgid "Image Handling"
+msgstr "Afbeeldingsverwerking"
+
+msgid "Image Type"
+msgstr "Afbeeldingstype"
+
+msgid "What Happens"
+msgstr "Wat gebeurt er"
+
+msgid "Featured Image"
+msgstr "Uitgelichte afbeelding"
+
+msgid "Uploaded to Shopify and set as article image. Displayed in blog listings and article headers."
+msgstr "Geüpload naar Shopify en ingesteld als artikelafbeelding. Weergegeven in bloglijsten en artikelkoppen."
+
+msgid "Inline Images"
+msgstr "Inline afbeeldingen"
+
+msgid "Uploaded to Shopify CDN. URLs in content are automatically rewritten."
+msgstr "Geüpload naar Shopify CDN. URLs in content worden automatisch herschreven."
+
+msgid "Gallery Images"
+msgstr "Gallerij-afbeeldingen"
+
+msgid "Uploaded to Shopify CDN. Gallery shortcodes converted to HTML."
+msgstr "Geüpload naar Shopify CDN. Gallerij-shortcodes omgezet naar HTML."
+
+msgid "Requires %s plan"
+msgstr "Vereist %s-plan"
+
+msgid "None detected"
+msgstr "Geen gedetecteerd"
+
+msgid "Settings"
+msgstr "Instellingen"
+
+msgid "Sync Now"
+msgstr "Nu synchroniseren"
+
+msgid "Sync in progress..."
+msgstr "Synchronisatie bezig..."
+
+msgid "Synced successfully"
+msgstr "Succesvol gesynchroniseerd"
+
+msgid "Sync failed"
+msgstr "Synchronisatie mislukt"
+
+msgid "Last synced:"
+msgstr "Laatst gesynchroniseerd:"
+
+msgid "Never synced"
+msgstr "Nooit gesynchroniseerd"
+
+msgid "Error:"
+msgstr "Fout:"
+
+msgid "Success:"
+msgstr "Succes:"
+
+msgid "Hreflang Synchronization"
+msgstr "Hreflang-synchronisatie"
+
+msgid "Enable hreflang synchronization"
+msgstr "Hreflang-synchronisatie inschakelen"
+
+msgid "Detected multilingual plugin:"
+msgstr "Meertalige plugin gedetecteerd:"
+
+msgid "Automatically sync hreflang tags for multilingual content."
+msgstr "Automatisch hreflang-tags synchroniseren voor meertalige content."
+
+msgid "Custom Fields Sync"
+msgstr "Aangepaste velden synchronisatie"
+
+msgid "Enable custom fields sync"
+msgstr "Aangepaste velden synchronisatie inschakelen"
+
+msgid "Sync ACF and custom meta fields as Shopify metafields."
+msgstr "ACF en aangepaste metavelden synchroniseren als Shopify-metavelden."
+
+msgid "Author Mapping"
+msgstr "Auteurmapping"
+
+msgid "Map WordPress authors to Shopify staff accounts."
+msgstr "Map WordPress-auteurs naar Shopify-personeelsaccounts."
+
+msgid "WordPress Author"
+msgstr "WordPress-auteur"
+
+msgid "Shopify Staff"
+msgstr "Shopify-personeel"
+
+msgid "Select staff member"
+msgstr "Selecteer personeelslid"
+
+msgid "Save Author Mappings"
+msgstr "Auteurmappings opslaan"
+
+msgid "Post Types to Sync"
+msgstr "Berichttypen om te synchroniseren"
+
+msgid "Select which post types should be synced to Shopify."
+msgstr "Selecteer welke berichttypen gesynchroniseerd moeten worden naar Shopify."
+
+msgid "Automatic Sync"
+msgstr "Automatische synchronisatie"
+
+msgid "Automatically sync content when published or updated."
+msgstr "Content automatisch synchroniseren bij publicatie of update."
+
+msgid "Sync on Publish"
+msgstr "Synchroniseren bij publicatie"
+
+msgid "Sync on Update"
+msgstr "Synchroniseren bij update"
+
+msgid "Sync on Delete"
+msgstr "Synchroniseren bij verwijdering"
+
+msgid "Delete from Shopify when trashed in WordPress."
+msgstr "Verwijderen uit Shopify wanneer verplaatst naar prullenbak in WordPress."
+
+msgid "Debug Mode"
+msgstr "Debug-modus"
+
+msgid "Enable debug logging"
+msgstr "Debug-logging inschakelen"
+
+msgid "Log detailed sync information for troubleshooting."
+msgstr "Gedetailleerde synchronisatie-informatie loggen voor probleemoplossing."
+
+msgid "Clear All Data"
+msgstr "Alle gegevens wissen"
+
+msgid "Remove all sync data and mappings"
+msgstr "Alle synchronisatiegegevens en mappings verwijderen"
+
+msgid "This will clear all sync history and Shopify article IDs. Use with caution."
+msgstr "Dit wist alle synchronisatiegeschiedenis en Shopify-artikel-IDs. Gebruik met voorzichtigheid."
+
+msgid "Save Settings"
+msgstr "Instellingen opslaan"

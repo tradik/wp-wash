@@ -1,0 +1,424 @@
+# German translation for WP4Shpy
+# Copyright (C) 2026 Tradik
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: WP4Shpy 1.8.0\n"
+"Report-Msgid-Bugs-To: https://github.com/tradik/wp4shopify/issues\n"
+"POT-Creation-Date: 2026-02-22T12:00:00+00:00\n"
+"PO-Revision-Date: 2026-02-22T12:00:00+00:00\n"
+"Last-Translator: Tradik Team <hello@tradik.com>\n"
+"Language-Team: German <de@li.org>\n"
+"Language: de_DE\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "wp4shpy Settings"
+msgstr "wp4shpy Einstellungen"
+
+msgid "Articles:"
+msgstr "Artikel:"
+
+msgid "(unlimited)"
+msgstr "(unbegrenzt)"
+
+msgid "Edits:"
+msgstr "Bearbeitungen:"
+
+msgid "Upgrade Plan"
+msgstr "Plan upgraden"
+
+msgid "Connection"
+msgstr "Verbindung"
+
+msgid "Blogs"
+msgstr "Blogs"
+
+msgid "Redirections"
+msgstr "Weiterleitungen"
+
+msgid "Hreflangs"
+msgstr "Hreflangs"
+
+msgid "Meta Fields"
+msgstr "Meta-Felder"
+
+msgid "Authors"
+msgstr "Autoren"
+
+msgid "Files & Media"
+msgstr "Dateien & Medien"
+
+msgid "Sync Settings"
+msgstr "Sync-Einstellungen"
+
+msgid "Advanced"
+msgstr "Erweitert"
+
+msgid "Shopify Store Connection"
+msgstr "Shopify Store Verbindung"
+
+msgid "Connected"
+msgstr "Verbunden"
+
+msgid "Shopify Store"
+msgstr "Shopify Store"
+
+msgid "Your Shopify store handle (e.g., \"my-store\" from my-store.myshopify.com)"
+msgstr "Ihr Shopify Store Handle (z.B. \"mein-shop\" von mein-shop.myshopify.com)"
+
+msgid "Connect to Shopify"
+msgstr "Mit Shopify verbinden"
+
+msgid "Disconnect"
+msgstr "Trennen"
+
+msgid "Manual Configuration"
+msgstr "Manuelle Konfiguration"
+
+msgid "If automatic connection fails, you can enter credentials manually."
+msgstr "Wenn die automatische Verbindung fehlschlägt, können Sie die Anmeldedaten manuell eingeben."
+
+msgid "API Key"
+msgstr "API-Schlüssel"
+
+msgid "API Secret"
+msgstr "API-Geheimnis"
+
+msgid "Hide manual configuration"
+msgstr "Manuelle Konfiguration ausblenden"
+
+msgid "Enter credentials manually"
+msgstr "Anmeldedaten manuell eingeben"
+
+msgid "HTTP Authentication (Optional)"
+msgstr "HTTP-Authentifizierung (Optional)"
+
+msgid "For apps behind Basic Auth"
+msgstr "Für Apps hinter Basic Auth"
+
+msgid "HTTP Username"
+msgstr "HTTP-Benutzername"
+
+msgid "HTTP Password"
+msgstr "HTTP-Passwort"
+
+msgid "Test Connection"
+msgstr "Verbindung testen"
+
+msgid "Debug Session"
+msgstr "Sitzung debuggen"
+
+msgid "Reset Session"
+msgstr "Sitzung zurücksetzen"
+
+msgid "Blog Routing Rules"
+msgstr "Blog-Routing-Regeln"
+
+msgid "Route WordPress posts to different Shopify blogs based on language or category."
+msgstr "Leiten Sie WordPress-Beiträge basierend auf Sprache oder Kategorie an verschiedene Shopify-Blogs weiter."
+
+msgid "Higher priority rules are matched first. Default rule is used when no other rule matches."
+msgstr "Regeln mit höherer Priorität werden zuerst abgeglichen. Die Standardregel wird verwendet, wenn keine andere Regel passt."
+
+msgid "Connect to Shopify first to configure blog mappings."
+msgstr "Verbinden Sie sich zuerst mit Shopify, um Blog-Zuordnungen zu konfigurieren."
+
+msgid "Loading mappings..."
+msgstr "Zuordnungen werden geladen..."
+
+msgid "Add Mapping Rule"
+msgstr "Zuordnungsregel hinzufügen"
+
+msgid "Rule Type"
+msgstr "Regeltyp"
+
+msgid "Default (catch-all)"
+msgstr "Standard (catch-all)"
+
+msgid "By Language"
+msgstr "Nach Sprache"
+
+msgid "By Category"
+msgstr "Nach Kategorie"
+
+msgid "Value"
+msgstr "Wert"
+
+msgid "Language code (en, de, pl) or category slug"
+msgstr "Sprachcode (en, de, pl) oder Kategorie-Slug"
+
+msgid "Target Shopify Blog"
+msgstr "Ziel-Shopify-Blog"
+
+msgid "Select a blog..."
+msgstr "Blog auswählen..."
+
+msgid "Create new blog"
+msgstr "Neuen Blog erstellen"
+
+msgid "New blog name (e.g., blog-en)"
+msgstr "Name des neuen Blogs (z.B. blog-de)"
+
+msgid "Priority"
+msgstr "Priorität"
+
+msgid "Higher priority rules are matched first (0-100)"
+msgstr "Regeln mit höherer Priorität werden zuerst abgeglichen (0-100)"
+
+msgid "Save Mapping"
+msgstr "Zuordnung speichern"
+
+msgid "Cancel"
+msgstr "Abbrechen"
+
+msgid "URL Redirections Management"
+msgstr "URL-Weiterleitungsverwaltung"
+
+msgid "Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration."
+msgstr "Verwalten Sie 301-Weiterleitungen von WordPress-URLs zu Shopify-URLs zur SEO-Erhaltung während der Migration."
+
+msgid "Redirections Manager"
+msgstr "Weiterleitungsmanager"
+
+msgid "Loading redirect stats..."
+msgstr "Weiterleitungsstatistiken werden geladen..."
+
+msgid "Sync from Old Website"
+msgstr "Von alter Website synchronisieren"
+
+msgid "Generate from Synced Posts"
+msgstr "Aus synchronisierten Beiträgen generieren"
+
+msgid "Load from Shopify"
+msgstr "Von Shopify laden"
+
+msgid "Fix Session Scopes"
+msgstr "Sitzungsbereiche reparieren"
+
+msgid "Redirections List"
+msgstr "Weiterleitungsliste"
+
+msgid "format: /old-path -> /new-path"
+msgstr "Format: /alter-pfad -> /neuer-pfad"
+
+msgid "Enter one redirection per line. You can use ->, =>, or → as separator. Lines starting with # are ignored."
+msgstr "Geben Sie eine Weiterleitung pro Zeile ein. Sie können ->, => oder → als Trennzeichen verwenden. Zeilen, die mit # beginnen, werden ignoriert."
+
+msgid "Sync Redirections to Shopify"
+msgstr "Weiterleitungen zu Shopify synchronisieren"
+
+msgid "Sync Complete"
+msgstr "Synchronisierung abgeschlossen"
+
+msgid "Connect to Shopify first to manage redirections."
+msgstr "Verbinden Sie sich zuerst mit Shopify, um Weiterleitungen zu verwalten."
+
+msgid "URL Structure Guide"
+msgstr "URL-Struktur-Anleitung"
+
+msgid "WordPress URL Structure (Current)"
+msgstr "WordPress URL-Struktur (aktuell)"
+
+msgid "Your WordPress site currently serves content with these URL patterns:"
+msgstr "Ihre WordPress-Site stellt derzeit Inhalte mit diesen URL-Mustern bereit:"
+
+msgid "Blog Posts"
+msgstr "Blog-Beiträge"
+
+msgid "Permalink structure depends on Settings → Permalinks"
+msgstr "Permalink-Struktur hängt von Einstellungen → Permalinks ab"
+
+msgid "Pages"
+msgstr "Seiten"
+
+msgid "Page slug becomes the URL"
+msgstr "Seiten-Slug wird zur URL"
+
+msgid "Categories"
+msgstr "Kategorien"
+
+msgid "Category archives with pagination"
+msgstr "Kategoriearchive mit Paginierung"
+
+msgid "Images"
+msgstr "Bilder"
+
+msgid "Served from your WordPress server"
+msgstr "Von Ihrem WordPress-Server bereitgestellt"
+
+msgid "Shopify URL Structure (After Sync)"
+msgstr "Shopify URL-Struktur (nach Synchronisierung)"
+
+msgid "After syncing, your content will be available on Shopify with these URL patterns:"
+msgstr "Nach der Synchronisierung sind Ihre Inhalte auf Shopify mit diesen URL-Mustern verfügbar:"
+
+msgid "Blog handle is required in Shopify URLs. Configure in Blogs tab."
+msgstr "Blog-Handle ist in Shopify-URLs erforderlich. Konfigurieren Sie im Blogs-Tab."
+
+msgid "Multi-language Posts"
+msgstr "Mehrsprachige Beiträge"
+
+msgid "English"
+msgstr "Englisch"
+
+msgid "German"
+msgstr "Deutsch"
+
+msgid "Polish"
+msgstr "Polnisch"
+
+msgid "Each language gets its own blog with routing rules."
+msgstr "Jede Sprache bekommt ihren eigenen Blog mit Routing-Regeln."
+
+msgid "Pages are prefixed with /pages/ in Shopify."
+msgstr "Seiten haben in Shopify das Präfix /pages/."
+
+msgid "Images are uploaded to Shopify CDN for faster global delivery."
+msgstr "Bilder werden zum Shopify CDN hochgeladen für schnellere globale Bereitstellung."
+
+msgid "Image Handling"
+msgstr "Bildverarbeitung"
+
+msgid "Image Type"
+msgstr "Bildtyp"
+
+msgid "What Happens"
+msgstr "Was passiert"
+
+msgid "Featured Image"
+msgstr "Beitragsbild"
+
+msgid "Uploaded to Shopify and set as article image. Displayed in blog listings and article headers."
+msgstr "Zu Shopify hochgeladen und als Artikelbild gesetzt. Angezeigt in Blog-Listen und Artikelüberschriften."
+
+msgid "Inline Images"
+msgstr "Inline-Bilder"
+
+msgid "Uploaded to Shopify CDN. URLs in content are automatically rewritten."
+msgstr "Zum Shopify CDN hochgeladen. URLs im Inhalt werden automatisch umgeschrieben."
+
+msgid "Gallery Images"
+msgstr "Galerie-Bilder"
+
+msgid "Uploaded to Shopify CDN. Gallery shortcodes converted to HTML."
+msgstr "Zum Shopify CDN hochgeladen. Galerie-Shortcodes werden in HTML konvertiert."
+
+msgid "Requires %s plan"
+msgstr "Erfordert %s-Plan"
+
+msgid "None detected"
+msgstr "Keine erkannt"
+
+msgid "Settings"
+msgstr "Einstellungen"
+
+msgid "Sync Now"
+msgstr "Jetzt synchronisieren"
+
+msgid "Sync in progress..."
+msgstr "Synchronisierung läuft..."
+
+msgid "Synced successfully"
+msgstr "Erfolgreich synchronisiert"
+
+msgid "Sync failed"
+msgstr "Synchronisierung fehlgeschlagen"
+
+msgid "Last synced:"
+msgstr "Zuletzt synchronisiert:"
+
+msgid "Never synced"
+msgstr "Nie synchronisiert"
+
+msgid "Error:"
+msgstr "Fehler:"
+
+msgid "Success:"
+msgstr "Erfolg:"
+
+msgid "Hreflang Synchronization"
+msgstr "Hreflang-Synchronisierung"
+
+msgid "Enable hreflang synchronization"
+msgstr "Hreflang-Synchronisierung aktivieren"
+
+msgid "Detected multilingual plugin:"
+msgstr "Erkanntes mehrsprachiges Plugin:"
+
+msgid "Automatically sync hreflang tags for multilingual content."
+msgstr "Hreflang-Tags für mehrsprachige Inhalte automatisch synchronisieren."
+
+msgid "Custom Fields Sync"
+msgstr "Benutzerdefinierte Felder synchronisieren"
+
+msgid "Enable custom fields sync"
+msgstr "Synchronisierung benutzerdefinierter Felder aktivieren"
+
+msgid "Sync ACF and custom meta fields as Shopify metafields."
+msgstr "ACF und benutzerdefinierte Meta-Felder als Shopify-Metafelder synchronisieren."
+
+msgid "Author Mapping"
+msgstr "Autorenzuordnung"
+
+msgid "Map WordPress authors to Shopify staff accounts."
+msgstr "WordPress-Autoren zu Shopify-Mitarbeiterkonten zuordnen."
+
+msgid "WordPress Author"
+msgstr "WordPress-Autor"
+
+msgid "Shopify Staff"
+msgstr "Shopify-Mitarbeiter"
+
+msgid "Select staff member"
+msgstr "Mitarbeiter auswählen"
+
+msgid "Save Author Mappings"
+msgstr "Autorenzuordnungen speichern"
+
+msgid "Post Types to Sync"
+msgstr "Zu synchronisierende Beitragstypen"
+
+msgid "Select which post types should be synced to Shopify."
+msgstr "Wählen Sie, welche Beitragstypen zu Shopify synchronisiert werden sollen."
+
+msgid "Automatic Sync"
+msgstr "Automatische Synchronisierung"
+
+msgid "Automatically sync content when published or updated."
+msgstr "Inhalte beim Veröffentlichen oder Aktualisieren automatisch synchronisieren."
+
+msgid "Sync on Publish"
+msgstr "Bei Veröffentlichung synchronisieren"
+
+msgid "Sync on Update"
+msgstr "Bei Aktualisierung synchronisieren"
+
+msgid "Sync on Delete"
+msgstr "Bei Löschung synchronisieren"
+
+msgid "Delete from Shopify when trashed in WordPress."
+msgstr "Aus Shopify löschen, wenn in WordPress in den Papierkorb verschoben."
+
+msgid "Debug Mode"
+msgstr "Debug-Modus"
+
+msgid "Enable debug logging"
+msgstr "Debug-Protokollierung aktivieren"
+
+msgid "Log detailed sync information for troubleshooting."
+msgstr "Detaillierte Sync-Informationen zur Fehlerbehebung protokollieren."
+
+msgid "Clear All Data"
+msgstr "Alle Daten löschen"
+
+msgid "Remove all sync data and mappings"
+msgstr "Alle Sync-Daten und Zuordnungen entfernen"
+
+msgid "This will clear all sync history and Shopify article IDs. Use with caution."
+msgstr "Dies löscht den gesamten Sync-Verlauf und Shopify-Artikel-IDs. Mit Vorsicht verwenden."
+
+msgid "Save Settings"
+msgstr "Einstellungen speichern"

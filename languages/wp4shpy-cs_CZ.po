@@ -1,0 +1,424 @@
+# Czech translation for WP4Shpy
+# Copyright (C) 2026 Tradik
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: WP4Shpy 1.8.0\n"
+"Report-Msgid-Bugs-To: https://github.com/tradik/wp4shopify/issues\n"
+"POT-Creation-Date: 2026-02-22T12:00:00+00:00\n"
+"PO-Revision-Date: 2026-02-22T12:00:00+00:00\n"
+"Last-Translator: Tradik Team <hello@tradik.com>\n"
+"Language-Team: Czech <cs@li.org>\n"
+"Language: cs_CZ\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+
+msgid "wp4shpy Settings"
+msgstr "Nastavení wp4shpy"
+
+msgid "Articles:"
+msgstr "Články:"
+
+msgid "(unlimited)"
+msgstr "(neomezeně)"
+
+msgid "Edits:"
+msgstr "Úpravy:"
+
+msgid "Upgrade Plan"
+msgstr "Upgradovat plán"
+
+msgid "Connection"
+msgstr "Připojení"
+
+msgid "Blogs"
+msgstr "Blogy"
+
+msgid "Redirections"
+msgstr "Přesměrování"
+
+msgid "Hreflangs"
+msgstr "Hreflangs"
+
+msgid "Meta Fields"
+msgstr "Meta pole"
+
+msgid "Authors"
+msgstr "Autoři"
+
+msgid "Files & Media"
+msgstr "Soubory a média"
+
+msgid "Sync Settings"
+msgstr "Nastavení synchronizace"
+
+msgid "Advanced"
+msgstr "Pokročilé"
+
+msgid "Shopify Store Connection"
+msgstr "Připojení k Shopify obchodu"
+
+msgid "Connected"
+msgstr "Připojeno"
+
+msgid "Shopify Store"
+msgstr "Shopify obchod"
+
+msgid "Your Shopify store handle (e.g., \"my-store\" from my-store.myshopify.com)"
+msgstr "Identifikátor vašeho Shopify obchodu (např. \"muj-obchod\" z muj-obchod.myshopify.com)"
+
+msgid "Connect to Shopify"
+msgstr "Připojit k Shopify"
+
+msgid "Disconnect"
+msgstr "Odpojit"
+
+msgid "Manual Configuration"
+msgstr "Ruční konfigurace"
+
+msgid "If automatic connection fails, you can enter credentials manually."
+msgstr "Pokud automatické připojení selže, můžete zadat přihlašovací údaje ručně."
+
+msgid "API Key"
+msgstr "API klíč"
+
+msgid "API Secret"
+msgstr "API tajemství"
+
+msgid "Hide manual configuration"
+msgstr "Skrýt ruční konfiguraci"
+
+msgid "Enter credentials manually"
+msgstr "Zadat přihlašovací údaje ručně"
+
+msgid "HTTP Authentication (Optional)"
+msgstr "HTTP autentizace (volitelné)"
+
+msgid "For apps behind Basic Auth"
+msgstr "Pro aplikace za Basic Auth"
+
+msgid "HTTP Username"
+msgstr "HTTP uživatelské jméno"
+
+msgid "HTTP Password"
+msgstr "HTTP heslo"
+
+msgid "Test Connection"
+msgstr "Otestovat připojení"
+
+msgid "Debug Session"
+msgstr "Debug relace"
+
+msgid "Reset Session"
+msgstr "Resetovat relaci"
+
+msgid "Blog Routing Rules"
+msgstr "Pravidla směrování blogu"
+
+msgid "Route WordPress posts to different Shopify blogs based on language or category."
+msgstr "Směrovat WordPress příspěvky do různých Shopify blogů na základě jazyka nebo kategorie."
+
+msgid "Higher priority rules are matched first. Default rule is used when no other rule matches."
+msgstr "Pravidla s vyšší prioritou jsou zpracována jako první. Výchozí pravidlo se použije, když žádné jiné pravidlo neodpovídá."
+
+msgid "Connect to Shopify first to configure blog mappings."
+msgstr "Nejprve se připojte k Shopify pro konfiguraci mapování blogů."
+
+msgid "Loading mappings..."
+msgstr "Načítání mapování..."
+
+msgid "Add Mapping Rule"
+msgstr "Přidat pravidlo mapování"
+
+msgid "Rule Type"
+msgstr "Typ pravidla"
+
+msgid "Default (catch-all)"
+msgstr "Výchozí (catch-all)"
+
+msgid "By Language"
+msgstr "Podle jazyka"
+
+msgid "By Category"
+msgstr "Podle kategorie"
+
+msgid "Value"
+msgstr "Hodnota"
+
+msgid "Language code (en, de, pl) or category slug"
+msgstr "Kód jazyka (en, de, pl) nebo slug kategorie"
+
+msgid "Target Shopify Blog"
+msgstr "Cílový Shopify blog"
+
+msgid "Select a blog..."
+msgstr "Vyberte blog..."
+
+msgid "Create new blog"
+msgstr "Vytvořit nový blog"
+
+msgid "New blog name (e.g., blog-en)"
+msgstr "Název nového blogu (např. blog-cs)"
+
+msgid "Priority"
+msgstr "Priorita"
+
+msgid "Higher priority rules are matched first (0-100)"
+msgstr "Pravidla s vyšší prioritou jsou zpracována jako první (0-100)"
+
+msgid "Save Mapping"
+msgstr "Uložit mapování"
+
+msgid "Cancel"
+msgstr "Zrušit"
+
+msgid "URL Redirections Management"
+msgstr "Správa URL přesměrování"
+
+msgid "Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration."
+msgstr "Spravovat 301 přesměrování z WordPress URL na Shopify URL pro zachování SEO během migrace."
+
+msgid "Redirections Manager"
+msgstr "Správce přesměrování"
+
+msgid "Loading redirect stats..."
+msgstr "Načítání statistik přesměrování..."
+
+msgid "Sync from Old Website"
+msgstr "Synchronizovat ze starého webu"
+
+msgid "Generate from Synced Posts"
+msgstr "Generovat ze synchronizovaných příspěvků"
+
+msgid "Load from Shopify"
+msgstr "Načíst ze Shopify"
+
+msgid "Fix Session Scopes"
+msgstr "Opravit rozsahy relace"
+
+msgid "Redirections List"
+msgstr "Seznam přesměrování"
+
+msgid "format: /old-path -> /new-path"
+msgstr "formát: /stara-cesta -> /nova-cesta"
+
+msgid "Enter one redirection per line. You can use ->, =>, or → as separator. Lines starting with # are ignored."
+msgstr "Zadejte jedno přesměrování na řádek. Můžete použít ->, => nebo → jako oddělovač. Řádky začínající # jsou ignorovány."
+
+msgid "Sync Redirections to Shopify"
+msgstr "Synchronizovat přesměrování do Shopify"
+
+msgid "Sync Complete"
+msgstr "Synchronizace dokončena"
+
+msgid "Connect to Shopify first to manage redirections."
+msgstr "Nejprve se připojte k Shopify pro správu přesměrování."
+
+msgid "URL Structure Guide"
+msgstr "Průvodce strukturou URL"
+
+msgid "WordPress URL Structure (Current)"
+msgstr "Struktura URL WordPressu (aktuální)"
+
+msgid "Your WordPress site currently serves content with these URL patterns:"
+msgstr "Váš WordPress web aktuálně poskytuje obsah s těmito URL vzory:"
+
+msgid "Blog Posts"
+msgstr "Příspěvky blogu"
+
+msgid "Permalink structure depends on Settings → Permalinks"
+msgstr "Struktura trvalých odkazů závisí na Nastavení → Trvalé odkazy"
+
+msgid "Pages"
+msgstr "Stránky"
+
+msgid "Page slug becomes the URL"
+msgstr "Slug stránky se stává URL"
+
+msgid "Categories"
+msgstr "Kategorie"
+
+msgid "Category archives with pagination"
+msgstr "Archivy kategorií se stránkováním"
+
+msgid "Images"
+msgstr "Obrázky"
+
+msgid "Served from your WordPress server"
+msgstr "Poskytovány z vašeho WordPress serveru"
+
+msgid "Shopify URL Structure (After Sync)"
+msgstr "Struktura URL Shopify (po synchronizaci)"
+
+msgid "After syncing, your content will be available on Shopify with these URL patterns:"
+msgstr "Po synchronizaci bude váš obsah dostupný na Shopify s těmito URL vzory:"
+
+msgid "Blog handle is required in Shopify URLs. Configure in Blogs tab."
+msgstr "Identifikátor blogu je vyžadován v Shopify URL. Nakonfigurujte v záložce Blogy."
+
+msgid "Multi-language Posts"
+msgstr "Vícejazyčné příspěvky"
+
+msgid "English"
+msgstr "Angličtina"
+
+msgid "German"
+msgstr "Němčina"
+
+msgid "Polish"
+msgstr "Polština"
+
+msgid "Each language gets its own blog with routing rules."
+msgstr "Každý jazyk má svůj vlastní blog s pravidly směrování."
+
+msgid "Pages are prefixed with /pages/ in Shopify."
+msgstr "Stránky mají prefix /pages/ v Shopify."
+
+msgid "Images are uploaded to Shopify CDN for faster global delivery."
+msgstr "Obrázky jsou nahrány na Shopify CDN pro rychlejší globální doručení."
+
+msgid "Image Handling"
+msgstr "Zpracování obrázků"
+
+msgid "Image Type"
+msgstr "Typ obrázku"
+
+msgid "What Happens"
+msgstr "Co se stane"
+
+msgid "Featured Image"
+msgstr "Náhledový obrázek"
+
+msgid "Uploaded to Shopify and set as article image. Displayed in blog listings and article headers."
+msgstr "Nahrán do Shopify a nastaven jako obrázek článku. Zobrazen v seznamech blogu a záhlavích článků."
+
+msgid "Inline Images"
+msgstr "Vložené obrázky"
+
+msgid "Uploaded to Shopify CDN. URLs in content are automatically rewritten."
+msgstr "Nahrány na Shopify CDN. URL v obsahu jsou automaticky přepsány."
+
+msgid "Gallery Images"
+msgstr "Obrázky galerie"
+
+msgid "Uploaded to Shopify CDN. Gallery shortcodes converted to HTML."
+msgstr "Nahrány na Shopify CDN. Shortcodes galerie převedeny na HTML."
+
+msgid "Requires %s plan"
+msgstr "Vyžaduje plán %s"
+
+msgid "None detected"
+msgstr "Nedetekováno"
+
+msgid "Settings"
+msgstr "Nastavení"
+
+msgid "Sync Now"
+msgstr "Synchronizovat nyní"
+
+msgid "Sync in progress..."
+msgstr "Synchronizace probíhá..."
+
+msgid "Synced successfully"
+msgstr "Úspěšně synchronizováno"
+
+msgid "Sync failed"
+msgstr "Synchronizace selhala"
+
+msgid "Last synced:"
+msgstr "Naposledy synchronizováno:"
+
+msgid "Never synced"
+msgstr "Nikdy nesynchronizováno"
+
+msgid "Error:"
+msgstr "Chyba:"
+
+msgid "Success:"
+msgstr "Úspěch:"
+
+msgid "Hreflang Synchronization"
+msgstr "Synchronizace hreflang"
+
+msgid "Enable hreflang synchronization"
+msgstr "Povolit synchronizaci hreflang"
+
+msgid "Detected multilingual plugin:"
+msgstr "Detekovaný vícejazyčný plugin:"
+
+msgid "Automatically sync hreflang tags for multilingual content."
+msgstr "Automaticky synchronizovat hreflang tagy pro vícejazyčný obsah."
+
+msgid "Custom Fields Sync"
+msgstr "Synchronizace vlastních polí"
+
+msgid "Enable custom fields sync"
+msgstr "Povolit synchronizaci vlastních polí"
+
+msgid "Sync ACF and custom meta fields as Shopify metafields."
+msgstr "Synchronizovat ACF a vlastní meta pole jako Shopify metapole."
+
+msgid "Author Mapping"
+msgstr "Mapování autorů"
+
+msgid "Map WordPress authors to Shopify staff accounts."
+msgstr "Mapovat WordPress autory na Shopify účty zaměstnanců."
+
+msgid "WordPress Author"
+msgstr "WordPress autor"
+
+msgid "Shopify Staff"
+msgstr "Shopify zaměstnanec"
+
+msgid "Select staff member"
+msgstr "Vyberte zaměstnance"
+
+msgid "Save Author Mappings"
+msgstr "Uložit mapování autorů"
+
+msgid "Post Types to Sync"
+msgstr "Typy příspěvků k synchronizaci"
+
+msgid "Select which post types should be synced to Shopify."
+msgstr "Vyberte, které typy příspěvků mají být synchronizovány do Shopify."
+
+msgid "Automatic Sync"
+msgstr "Automatická synchronizace"
+
+msgid "Automatically sync content when published or updated."
+msgstr "Automaticky synchronizovat obsah při publikování nebo aktualizaci."
+
+msgid "Sync on Publish"
+msgstr "Synchronizovat při publikování"
+
+msgid "Sync on Update"
+msgstr "Synchronizovat při aktualizaci"
+
+msgid "Sync on Delete"
+msgstr "Synchronizovat při smazání"
+
+msgid "Delete from Shopify when trashed in WordPress."
+msgstr "Smazat ze Shopify při přesunutí do koše ve WordPress."
+
+msgid "Debug Mode"
+msgstr "Debug režim"
+
+msgid "Enable debug logging"
+msgstr "Povolit debug logování"
+
+msgid "Log detailed sync information for troubleshooting."
+msgstr "Zaznamenat podrobné informace o synchronizaci pro řešení problémů."
+
+msgid "Clear All Data"
+msgstr "Vymazat všechna data"
+
+msgid "Remove all sync data and mappings"
+msgstr "Odstranit všechna synchronizační data a mapování"
+
+msgid "This will clear all sync history and Shopify article IDs. Use with caution."
+msgstr "Toto vymaže celou historii synchronizace a Shopify ID článků. Používejte opatrně."
+
+msgid "Save Settings"
+msgstr "Uložit nastavení"
