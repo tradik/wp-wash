@@ -1537,7 +1537,7 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
                     </th>
                     <td>
                         <input type="text" id="wash_post_types" name="wash_post_types"
-                               value="<?php echo esc_attr(get_option('wash_post_types', 'post')); ?>"
+                               value="<?php echo esc_attr(get_option('wash_post_types', 'post,page')); ?>"
                                class="regular-text" />
                         <p class="description"><?php esc_html_e('Comma-separated list of post types to sync (e.g. post,page,custom_type)', 'wash'); ?></p>
                     </td>

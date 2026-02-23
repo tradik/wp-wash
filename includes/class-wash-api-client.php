@@ -563,7 +563,7 @@ class WashApiClient {
             'syncOnPublish'    => get_option('wash_sync_on_publish', '1'),
             'syncImages'       => get_option('wash_sync_images', '1'),
             'syncMetafields'   => get_option('wash_sync_metafields', '1'),
-            'postTypes'        => get_option('wash_post_types', 'post'),
+            'postTypes'        => get_option('wash_post_types', 'post,page'),
             'blockRobots'      => get_option('wash_block_robots', '1'),
             'metaWpCore'       => get_option('wash_meta_wp_core', '1'),
             'metaYoast'        => get_option('wash_meta_yoast', '0'),

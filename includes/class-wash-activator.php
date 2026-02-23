@@ -17,7 +17,7 @@ class WashActivator {
             'wash_sync_on_publish' => '1',
             'wash_sync_images'     => '1',
             'wash_sync_metafields' => '1',
-            'wash_post_types'      => 'post',
+            'wash_post_types'      => 'post,page',
             'wash_blog_name'       => get_bloginfo('name'),
         ];
 
