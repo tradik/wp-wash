@@ -13,7 +13,7 @@ msgstr ""
 "Language-Team: LANGUAGE <LL@li.org>\n"
 
 #: admin/views/settings-page.php
-msgid "wp4shpy Settings"
+msgid "wash Settings"
 msgstr ""
 
 #: admin/views/settings-page.php
@@ -404,43 +404,43 @@ msgstr ""
 msgid "Requires %s plan"
 msgstr ""
 
-#: includes/class-wp4shpy-hreflangs.php
+#: includes/class-wash-hreflangs.php
 msgid "None detected"
 msgstr ""
 
-#: includes/class-wp4shpy-admin.php
+#: includes/class-wash-admin.php
 msgid "Settings"
 msgstr ""
 
-#: includes/class-wp4shpy-admin.php
+#: includes/class-wash-admin.php
 msgid "Sync Now"
 msgstr ""
 
-#: includes/class-wp4shpy-admin.php
+#: includes/class-wash-admin.php
 msgid "Sync in progress..."
 msgstr ""
 
-#: includes/class-wp4shpy-admin.php
+#: includes/class-wash-admin.php
 msgid "Synced successfully"
 msgstr ""
 
-#: includes/class-wp4shpy-admin.php
+#: includes/class-wash-admin.php
 msgid "Sync failed"
 msgstr ""
 
-#: includes/class-wp4shpy-admin.php
+#: includes/class-wash-admin.php
 msgid "Last synced:"
 msgstr ""
 
-#: includes/class-wp4shpy-admin.php
+#: includes/class-wash-admin.php
 msgid "Never synced"
 msgstr ""
 
-#: includes/class-wp4shpy-admin.php
+#: includes/class-wash-admin.php
 msgid "Error:"
 msgstr ""
 
-#: includes/class-wp4shpy-admin.php
+#: includes/class-wash-admin.php
 msgid "Success:"
 msgstr ""
 

@@ -1,5 +1,5 @@
 /**
- * wp4shpy Admin JavaScript
+ * wash Admin JavaScript
  * Handles connection testing and UI interactions.
  * Note: Tab switching is handled inline in settings-page.php for better form integration.
  */
@@ -8,40 +8,40 @@
 
     $(document).ready(function () {
         // Connection test
-        const testButton = $("#wp4shpy-test-connection");
-        const statusContainer = $("#wp4shpy-connection-status");
-        const noticeEl = $("#wp4shpy-notice");
-        const noticeText = $("#wp4shpy-notice-text");
+        const testButton = $("#wash-test-connection");
+        const statusContainer = $("#wash-connection-status");
+        const noticeEl = $("#wash-notice");
+        const noticeText = $("#wash-notice-text");
 
         testButton.on("click", function () {
             testButton.addClass("is-loading");
-            testButton.text(wp4shpyAdmin.i18n.testing);
+            testButton.text(washAdmin.i18n.testing);
             statusContainer.hide();
 
             $.ajax({
-                url: wp4shpyAdmin.ajaxUrl,
+                url: washAdmin.ajaxUrl,
                 type: "POST",
                 data: {
-                    action: "wp4shpy_test_connection",
-                    nonce: wp4shpyAdmin.nonce,
+                    action: "wash_test_connection",
+                    nonce: washAdmin.nonce,
                 },
                 success: function (response) {
                     statusContainer.show();
                     if (response.success) {
                         noticeEl.removeClass("notice-error").addClass("notice-success");
                         noticeText.text(
-                            wp4shpyAdmin.i18n.success +
+                            washAdmin.i18n.success +
                             " (v" + (response.data.version || "?") + ")"
                         );
                     } else {
                         noticeEl.removeClass("notice-success").addClass("notice-error");
-                        noticeText.text(wp4shpyAdmin.i18n.error + response.data);
+                        noticeText.text(washAdmin.i18n.error + response.data);
                     }
                 },
                 error: function () {
                     statusContainer.show();
                     noticeEl.removeClass("notice-success").addClass("notice-error");
-                    noticeText.text(wp4shpyAdmin.i18n.error + "Network error");
+                    noticeText.text(washAdmin.i18n.error + "Network error");
                 },
                 complete: function () {
                     testButton.removeClass("is-loading");
@@ -53,17 +53,17 @@
         });
 
         // Disconnect handler
-        $("#wp4shpy-disconnect-btn").on("click", function () {
-            if (!confirm(wp4shpyAdmin.i18n.confirmDisconnect || "Are you sure you want to disconnect from Shopify?")) {
+        $("#wash-disconnect-btn").on("click", function () {
+            if (!confirm(washAdmin.i18n.confirmDisconnect || "Are you sure you want to disconnect from Shopify?")) {
                 return;
             }
 
             $.ajax({
-                url: wp4shpyAdmin.ajaxUrl,
+                url: washAdmin.ajaxUrl,
                 type: "POST",
                 data: {
-                    action: "wp4shpy_disconnect",
-                    nonce: wp4shpyAdmin.disconnectNonce,
+                    action: "wash_disconnect",
+                    nonce: washAdmin.disconnectNonce,
                 },
                 success: function () {
                     window.location.reload();
@@ -75,20 +75,20 @@
         });
 
         // Debug Session handler
-        const debugOutput = $("#wp4shpy-debug-output");
+        const debugOutput = $("#wash-debug-output");
         const debugPre = debugOutput.find("pre");
 
-        $("#wp4shpy-debug-session").on("click", function () {
+        $("#wash-debug-session").on("click", function () {
             const btn = $(this);
             btn.prop("disabled", true).text("Checking...");
             debugOutput.hide();
 
             $.ajax({
-                url: wp4shpyAdmin.ajaxUrl,
+                url: washAdmin.ajaxUrl,
                 type: "POST",
                 data: {
-                    action: "wp4shpy_debug_session",
-                    nonce: wp4shpyAdmin.nonce,
+                    action: "wash_debug_session",
+                    nonce: washAdmin.nonce,
                 },
                 success: function (response) {
                     debugOutput.show();
@@ -111,7 +111,7 @@
         });
 
         // Reset Session handler
-        $("#wp4shpy-reset-session").on("click", function () {
+        $("#wash-reset-session").on("click", function () {
             if (!confirm("This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?")) {
                 return;
             }
@@ -121,11 +121,11 @@
             debugOutput.hide();
 
             $.ajax({
-                url: wp4shpyAdmin.ajaxUrl,
+                url: washAdmin.ajaxUrl,
                 type: "POST",
                 data: {
-                    action: "wp4shpy_reset_session",
-                    nonce: wp4shpyAdmin.nonce,
+                    action: "wash_reset_session",
+                    nonce: washAdmin.nonce,
                 },
                 success: function (response) {
                     debugOutput.show();
@@ -153,12 +153,12 @@
         // =====================
         // Redirections Management
         // =====================
-        const textarea = $("#wp4shpy-redirections-textarea");
-        const statsText = $("#wp4shpy-stats-text");
-        const syncStatus = $("#wp4shpy-sync-status");
-        const syncResults = $("#wp4shpy-sync-results");
-        const syncResultsList = $("#wp4shpy-sync-results-list");
-        const fixSessionBtn = $("#wp4shpy-fix-session");
+        const textarea = $("#wash-redirections-textarea");
+        const statsText = $("#wash-stats-text");
+        const syncStatus = $("#wash-sync-status");
+        const syncResults = $("#wash-sync-results");
+        const syncResultsList = $("#wash-sync-results-list");
+        const fixSessionBtn = $("#wash-fix-session");
 
         // Show fix session button when access denied error occurs
         function showFixSessionButton() {
@@ -173,11 +173,11 @@
         // Load redirect stats on page load (if on redirections tab)
         function loadRedirectStats() {
             $.ajax({
-                url: wp4shpyAdmin.ajaxUrl,
+                url: washAdmin.ajaxUrl,
                 type: "POST",
                 data: {
-                    action: "wp4shpy_get_shopify_redirections",
-                    nonce: wp4shpyAdmin.redirectionsNonce,
+                    action: "wash_get_shopify_redirections",
+                    nonce: washAdmin.redirectionsNonce,
                 },
                 success: function (response) {
                     if (response.success && response.data.stats) {
@@ -203,16 +203,16 @@
         });
 
         // Fetch WordPress redirections from plugins
-        $("#wp4shpy-fetch-wp-redirections").on("click", function () {
+        $("#wash-fetch-wp-redirections").on("click", function () {
             const btn = $(this);
-            btn.prop("disabled", true).text(wp4shpyAdmin.i18n.fetchingWp || "Fetching...");
+            btn.prop("disabled", true).text(washAdmin.i18n.fetchingWp || "Fetching...");
 
             $.ajax({
-                url: wp4shpyAdmin.ajaxUrl,
+                url: washAdmin.ajaxUrl,
                 type: "POST",
                 data: {
-                    action: "wp4shpy_fetch_wp_redirections",
-                    nonce: wp4shpyAdmin.redirectionsNonce,
+                    action: "wash_fetch_wp_redirections",
+                    nonce: washAdmin.redirectionsNonce,
                 },
                 success: function (response) {
                     if (response.success && response.data.redirections) {
@@ -247,16 +247,16 @@
         });
 
         // Generate redirections from synced posts
-        $("#wp4shpy-generate-redirections").on("click", function () {
+        $("#wash-generate-redirections").on("click", function () {
             const btn = $(this);
-            btn.prop("disabled", true).text(wp4shpyAdmin.i18n.generating || "Generating...");
+            btn.prop("disabled", true).text(washAdmin.i18n.generating || "Generating...");
 
             $.ajax({
-                url: wp4shpyAdmin.ajaxUrl,
+                url: washAdmin.ajaxUrl,
                 type: "POST",
                 data: {
-                    action: "wp4shpy_generate_redirections",
-                    nonce: wp4shpyAdmin.redirectionsNonce,
+                    action: "wash_generate_redirections",
+                    nonce: washAdmin.redirectionsNonce,
                 },
                 success: function (response) {
                     if (response.success && response.data.redirections) {
@@ -289,16 +289,16 @@
         });
 
         // Load existing Shopify redirections
-        $("#wp4shpy-load-shopify-redirections").on("click", function () {
+        $("#wash-load-shopify-redirections").on("click", function () {
             const btn = $(this);
-            btn.prop("disabled", true).text(wp4shpyAdmin.i18n.loading || "Loading...");
+            btn.prop("disabled", true).text(washAdmin.i18n.loading || "Loading...");
 
             $.ajax({
-                url: wp4shpyAdmin.ajaxUrl,
+                url: washAdmin.ajaxUrl,
                 type: "POST",
                 data: {
-                    action: "wp4shpy_get_shopify_redirections",
-                    nonce: wp4shpyAdmin.redirectionsNonce,
+                    action: "wash_get_shopify_redirections",
+                    nonce: washAdmin.redirectionsNonce,
                 },
                 success: function (response) {
                     if (response.success && response.data.redirects) {
@@ -346,11 +346,11 @@
             btn.prop("disabled", true).text("Fixing...");
 
             $.ajax({
-                url: wp4shpyAdmin.ajaxUrl,
+                url: washAdmin.ajaxUrl,
                 type: "POST",
                 data: {
-                    action: "wp4shpy_fix_session",
-                    nonce: wp4shpyAdmin.redirectionsNonce,
+                    action: "wash_fix_session",
+                    nonce: washAdmin.redirectionsNonce,
                 },
                 success: function (response) {
                     if (response.success) {
@@ -379,7 +379,7 @@
         });
 
         // Sync redirections to Shopify
-        $("#wp4shpy-sync-redirections").on("click", function () {
+        $("#wash-sync-redirections").on("click", function () {
             const btn = $(this);
             const content = textarea.val().trim();
 
@@ -391,16 +391,16 @@
             btn.prop("disabled", true);
             syncStatus.show().html(
                 '<span class="spinner is-active" style="float: none; margin: 0 5px 0 0;"></span> ' +
-                (wp4shpyAdmin.i18n.syncing || "Syncing redirections...")
+                (washAdmin.i18n.syncing || "Syncing redirections...")
             );
             syncResults.hide();
 
             $.ajax({
-                url: wp4shpyAdmin.ajaxUrl,
+                url: washAdmin.ajaxUrl,
                 type: "POST",
                 data: {
-                    action: "wp4shpy_sync_redirections",
-                    nonce: wp4shpyAdmin.redirectionsNonce,
+                    action: "wash_sync_redirections",
+                    nonce: washAdmin.redirectionsNonce,
                     redirections: content,
                 },
                 success: function (response) {
@@ -438,7 +438,7 @@
                         if (errorMsg.indexOf && errorMsg.indexOf('Access denied') !== -1) {
                             showFixSessionButton();
                         }
-                        alert((wp4shpyAdmin.i18n.syncError || "Failed to sync redirections: ") + errorMsg);
+                        alert((washAdmin.i18n.syncError || "Failed to sync redirections: ") + errorMsg);
                     }
                 },
                 error: function () {

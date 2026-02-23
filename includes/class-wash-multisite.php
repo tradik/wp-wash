@@ -3,7 +3,7 @@
  * WordPress Multisite support.
  * Handles per-site blog mappings and network admin settings.
  */
-class wp4shpyMultisite {
+class WashMultisite {
 
     /**
      * Initialize multisite hooks.
@@ -12,18 +12,18 @@ class wp4shpyMultisite {
         add_action('network_admin_menu', [$this, 'addNetworkMenu']);
         add_action('wp_initialize_site', [$this, 'onSiteCreated'], 10, 1);
         add_action('wp_delete_site', [$this, 'onSiteDeleted'], 10, 1);
-        add_filter('wp4shpy_sync_data', [$this, 'injectSiteData'], 10, 2);
+        add_filter('wash_sync_data', [$this, 'injectSiteData'], 10, 2);
     }
 
     /**
-     * Add wp4shpy menu to network admin.
+     * Add Wash menu to network admin.
      */
     public function addNetworkMenu() {
         add_menu_page(
-            __('wp4shpy Network', 'wp4shpy'),
-            __('wp4shpy', 'wp4shpy'),
+            __('Wash Network', 'wash'),
+            __('wash', 'wash'),
             'manage_network_options',
-            'wp4shpy-network',
+            'wash-network',
             [$this, 'renderNetworkSettingsPage'],
             'dashicons-update',
             80
@@ -39,14 +39,14 @@ class wp4shpyMultisite {
         $siteId = $newSite->blog_id;
         $blogName = get_blog_details($siteId)->blogname;
 
-        $apiClient = new wp4shpyApiClient();
+        $apiClient = new WashApiClient();
         $apiClient->post('/api/content-sync', [
             'action'     => 'register_blog',
             'wpSiteId'   => $siteId,
             'wpBlogName' => $blogName,
         ]);
 
-        update_blog_option($siteId, 'wp4shpy_blog_name', $blogName);
+        update_blog_option($siteId, 'wash_blog_name', $blogName);
     }
 
     /**
@@ -69,7 +69,7 @@ class wp4shpyMultisite {
     public function injectSiteData($data, $postId) {
         $siteId = get_current_blog_id();
         $data['wpSiteId']   = $siteId;
-        $data['wpBlogName'] = get_blog_option($siteId, 'wp4shpy_blog_name', get_bloginfo('name'));
+        $data['wpBlogName'] = get_blog_option($siteId, 'wash_blog_name', get_bloginfo('name'));
 
         return $data;
     }
@@ -77,7 +77,7 @@ class wp4shpyMultisite {
     /**
      * Get all sites in the network with their sync configuration.
      *
-     * @return array List of sites with wp4shpy config
+     * @return array List of sites with Wash config
      */
     public function getNetworkSites() {
         $sites = get_sites(['number' => 100]);
@@ -89,8 +89,8 @@ class wp4shpyMultisite {
                 'siteId'    => $site->blog_id,
                 'blogName'  => get_bloginfo('name'),
                 'siteUrl'   => get_site_url(),
-                'isActive'  => get_option('wp4shpy_sync_on_publish') === '1',
-                'blogMapping' => get_option('wp4shpy_blog_name', ''),
+                'isActive'  => get_option('wash_sync_on_publish') === '1',
+                'blogMapping' => get_option('wash_blog_name', ''),
             ];
             restore_current_blog();
         }
@@ -109,17 +109,17 @@ class wp4shpyMultisite {
         $sites = $this->getNetworkSites();
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('wp4shpy Network Settings', 'wp4shpy'); ?></h1>
-            <p><?php esc_html_e('Manage blog-to-Shopify mappings for all sites in the network.', 'wp4shpy'); ?></p>
+            <h1><?php esc_html_e('Wash Network Settings', 'wash'); ?></h1>
+            <p><?php esc_html_e('Manage blog-to-Shopify mappings for all sites in the network.', 'wash'); ?></p>
 
             <table class="widefat fixed striped" role="grid">
                 <thead>
                     <tr>
-                        <th><?php esc_html_e('Site ID', 'wp4shpy'); ?></th>
-                        <th><?php esc_html_e('Blog Name', 'wp4shpy'); ?></th>
-                        <th><?php esc_html_e('URL', 'wp4shpy'); ?></th>
-                        <th><?php esc_html_e('Sync Active', 'wp4shpy'); ?></th>
-                        <th><?php esc_html_e('Shopify Blog', 'wp4shpy'); ?></th>
+                        <th><?php esc_html_e('Site ID', 'wash'); ?></th>
+                        <th><?php esc_html_e('Blog Name', 'wash'); ?></th>
+                        <th><?php esc_html_e('URL', 'wash'); ?></th>
+                        <th><?php esc_html_e('Sync Active', 'wash'); ?></th>
+                        <th><?php esc_html_e('Shopify Blog', 'wash'); ?></th>
                     </tr>
                 </thead>
                 <tbody>

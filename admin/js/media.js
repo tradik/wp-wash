@@ -1,5 +1,5 @@
 /**
- * wp4shpy Media Library Scripts
+ * wash Media Library Scripts
  * Handles Shopify sync functionality in WordPress media library.
  */
 (function($) {
@@ -9,13 +9,13 @@
      * Handle sync button click in attachment details.
      */
     function initSyncButtons() {
-        $(document).on('click', '.wp4shpy-sync-btn', function(e) {
+        $(document).on('click', '.wash-sync-btn', function(e) {
             e.preventDefault();
 
             var $btn = $(this);
-            var $container = $btn.closest('.wp4shpy-attachment-sync');
+            var $container = $btn.closest('.wash-attachment-sync');
             var $spinner = $container.find('.spinner');
-            var $info = $container.find('.wp4shpy-sync-info');
+            var $info = $container.find('.wash-sync-info');
             var attachmentId = $btn.data('attachment-id');
 
             if ($btn.hasClass('syncing')) {
@@ -27,22 +27,22 @@
             $spinner.addClass('is-active');
 
             $.ajax({
-                url: wp4shpyMedia.ajaxUrl,
+                url: washMedia.ajaxUrl,
                 type: 'POST',
                 data: {
-                    action: 'wp4shpy_sync_media',
-                    nonce: wp4shpyMedia.nonce,
+                    action: 'wash_sync_media',
+                    nonce: washMedia.nonce,
                     attachment_id: attachmentId
                 },
                 success: function(response) {
                     if (response.success) {
                         updateSyncStatus($info, $btn, response.data);
                     } else {
-                        showSyncError($info, response.data || wp4shpyMedia.i18n.syncError);
+                        showSyncError($info, response.data || washMedia.i18n.syncError);
                     }
                 },
                 error: function() {
-                    showSyncError($info, wp4shpyMedia.i18n.syncError);
+                    showSyncError($info, washMedia.i18n.syncError);
                 },
                 complete: function() {
                     $btn.removeClass('syncing').prop('disabled', false);
@@ -61,19 +61,19 @@
      * @param {Object} data  Response data with cdnUrl.
      */
     function updateSyncStatus($info, $btn, data) {
-        var html = '<span class="wp4shpy-sync-status synced">' +
+        var html = '<span class="wash-sync-status synced">' +
             '<span class="dashicons dashicons-yes-alt"></span> ' +
-            wp4shpyMedia.i18n.synced +
+            washMedia.i18n.synced +
             '</span>';
 
         if (data.cdnUrl) {
-            html += ' <a href="' + data.cdnUrl + '" target="_blank" rel="noopener noreferrer" class="wp4shpy-cdn-link">' +
-                wp4shpyMedia.i18n.viewOnCdn +
+            html += ' <a href="' + data.cdnUrl + '" target="_blank" rel="noopener noreferrer" class="wash-cdn-link">' +
+                washMedia.i18n.viewOnCdn +
                 '</a>';
         }
 
         $info.html(html);
-        $btn.html('<span class="dashicons dashicons-store"></span> ' + wp4shpyMedia.i18n.resyncBtn);
+        $btn.html('<span class="dashicons dashicons-store"></span> ' + washMedia.i18n.resyncBtn);
     }
 
     /**
@@ -84,7 +84,7 @@
      */
     function showSyncError($info, message) {
         var currentHtml = $info.html();
-        $info.html('<span class="wp4shpy-sync-status" style="color: #dc3232;">' +
+        $info.html('<span class="wash-sync-status" style="color: #dc3232;">' +
             '<span class="dashicons dashicons-warning"></span> ' +
             message +
             '</span>');

@@ -15,8 +15,8 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
 
-msgid "wp4shpy Settings"
-msgstr "Nastavení wp4shpy"
+msgid "wash Settings"
+msgstr "Nastavení wash"
 
 msgid "Articles:"
 msgstr "Články:"

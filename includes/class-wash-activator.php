@@ -3,7 +3,7 @@
  * Handles plugin activation and deactivation.
  * Creates required database tables and default options.
  */
-class wp4shpyActivator {
+class WashActivator {
 
     /**
      * Run on plugin activation.
@@ -11,14 +11,14 @@ class wp4shpyActivator {
      */
     public static function activate() {
         $defaults = [
-            'wp4shpy_app_url'    => '',
-            'wp4shpy_api_key'    => '',
-            'wp4shpy_api_secret' => '',
-            'wp4shpy_sync_on_publish' => '1',
-            'wp4shpy_sync_images'     => '1',
-            'wp4shpy_sync_metafields' => '1',
-            'wp4shpy_post_types'      => 'post',
-            'wp4shpy_blog_name'       => get_bloginfo('name'),
+            'wash_app_url'    => '',
+            'wash_api_key'    => '',
+            'wash_api_secret' => '',
+            'wash_sync_on_publish' => '1',
+            'wash_sync_images'     => '1',
+            'wash_sync_metafields' => '1',
+            'wash_post_types'      => 'post',
+            'wash_blog_name'       => get_bloginfo('name'),
         ];
 
         foreach ($defaults as $key => $value) {
@@ -43,7 +43,7 @@ class wp4shpyActivator {
      */
     private static function createSyncTable() {
         global $wpdb;
-        $tableName = $wpdb->prefix . 'wp4shpy_sync';
+        $tableName = $wpdb->prefix . 'wash_sync';
         $charsetCollate = 'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
 
         $sql = "CREATE TABLE IF NOT EXISTS {$tableName} (

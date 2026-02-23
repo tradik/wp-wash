@@ -3,16 +3,16 @@
  * Content synchronization handler.
  * Hooks into WordPress save/delete actions to sync posts to Shopify.
  */
-class wp4shpySync {
+class WashSync {
 
-    /** @var wp4shpyApiClient */
+    /** @var WashApiClient */
     private $apiClient;
 
     /** @var bool Prevents recursive sync calls */
     private $isSyncing = false;
 
     public function __construct() {
-        $this->apiClient = new wp4shpyApiClient();
+        $this->apiClient = new WashApiClient();
     }
 
     /**
@@ -32,29 +32,29 @@ class wp4shpySync {
      * @param bool     $update  Whether this is an update
      */
     public function onSavePost($postId, $post, $update) {
-        error_log("[wp4shpy] onSavePost called for post {$postId}, type: {$post->post_type}, status: {$post->post_status}");
+        error_log("[wash] onSavePost called for post {$postId}, type: {$post->post_type}, status: {$post->post_status}");
 
         if ($this->shouldSkipSync($postId, $post)) {
-            error_log("[wp4shpy] Skipping sync - shouldSkipSync returned true");
+            error_log("[wash] Skipping sync - shouldSkipSync returned true");
             return;
         }
 
-        if (get_option('wp4shpy_sync_on_publish') !== '1') {
-            error_log("[wp4shpy] Skipping sync - wp4shpy_sync_on_publish is not '1', value: " . get_option('wp4shpy_sync_on_publish'));
+        if (get_option('wash_sync_on_publish') !== '1') {
+            error_log("[wash] Skipping sync - wash_sync_on_publish is not '1', value: " . get_option('wash_sync_on_publish'));
             return;
         }
 
         if ($post->post_status !== 'publish') {
-            error_log("[wp4shpy] Skipping sync - post_status is not 'publish', status: {$post->post_status}");
+            error_log("[wash] Skipping sync - post_status is not 'publish', status: {$post->post_status}");
             return;
         }
 
-        error_log("[wp4shpy] Starting sync for post {$postId}");
+        error_log("[wash] Starting sync for post {$postId}");
         $this->isSyncing = true;
         $action = $update ? 'update' : 'create';
         $this->syncPost($postId, $post, $action);
         $this->isSyncing = false;
-        error_log("[wp4shpy] Sync completed for post {$postId}");
+        error_log("[wash] Sync completed for post {$postId}");
     }
 
     /**
@@ -88,7 +88,7 @@ class wp4shpySync {
         }
 
         if ($oldStatus === 'publish' && $newStatus !== 'publish') {
-            error_log("[wp4shpy] onStatusTransition: {$oldStatus} → {$newStatus} for post {$post->ID}");
+            error_log("[wash] onStatusTransition: {$oldStatus} → {$newStatus} for post {$post->ID}");
             $endpoint = $this->resolveEndpoint($post->post_type);
             $result = $this->apiClient->post($endpoint, [
                 'action'   => 'delete',
@@ -98,7 +98,7 @@ class wp4shpySync {
 
             // Clear local sync meta so republishing creates a fresh article
             $this->clearSyncMeta($post->ID);
-            error_log("[wp4shpy] onStatusTransition: Cleared sync meta for post {$post->ID}");
+            error_log("[wash] onStatusTransition: Cleared sync meta for post {$post->ID}");
         }
     }
 
@@ -109,42 +109,42 @@ class wp4shpySync {
      * @param int $postId Post ID
      */
     private function clearSyncMeta($postId) {
-        delete_post_meta($postId, '_wp4shpy_article_id');
-        delete_post_meta($postId, '_wp4shpy_blog_id');
-        delete_post_meta($postId, '_wp4shpy_blog_handle');
-        delete_post_meta($postId, '_wp4shpy_synced_at');
+        delete_post_meta($postId, '_wash_article_id');
+        delete_post_meta($postId, '_wash_blog_id');
+        delete_post_meta($postId, '_wash_blog_handle');
+        delete_post_meta($postId, '_wash_synced_at');
     }
 
     /**
      * Sync a WordPress post to Shopify.
      */
     private function syncPost($postId, $post, $action) {
-        error_log("[wp4shpy] syncPost() - Starting sync for post {$postId}");
+        error_log("[wash] syncPost() - Starting sync for post {$postId}");
 
         // Sync images in content first (if Files & Media enabled)
-        if (get_option('wp4shpy_files_enabled', '1') === '1') {
+        if (get_option('wash_files_enabled', '1') === '1') {
             $this->syncContentImages($post->post_content);
         }
 
         // Sync featured image if set
         $thumbnailId = get_post_thumbnail_id($postId);
-        if ($thumbnailId && get_option('wp4shpy_files_enabled', '1') === '1') {
+        if ($thumbnailId && get_option('wash_files_enabled', '1') === '1') {
             $this->syncFeaturedImage($thumbnailId);
         }
 
-        error_log("[wp4shpy] syncPost() - Building post data for post {$postId}");
+        error_log("[wash] syncPost() - Building post data for post {$postId}");
         $postData = $this->buildPostData($postId, $post, $action);
         $endpoint = $this->resolveEndpoint($post->post_type);
-        error_log("[wp4shpy] syncPost() - Endpoint: {$endpoint}, Action: {$action}");
-        error_log("[wp4shpy] syncPost() - Post title: {$postData['title']}, slug: {$postData['slug']}");
-        error_log("[wp4shpy] syncPost() - Tags being sent: " . json_encode($postData['tags']));
+        error_log("[wash] syncPost() - Endpoint: {$endpoint}, Action: {$action}");
+        error_log("[wash] syncPost() - Post title: {$postData['title']}, slug: {$postData['slug']}");
+        error_log("[wash] syncPost() - Tags being sent: " . json_encode($postData['tags']));
 
         $result = $this->apiClient->post($endpoint, $postData);
 
         if (is_wp_error($result)) {
-            error_log("[wp4shpy] syncPost() - API returned error: " . $result->get_error_message());
+            error_log("[wash] syncPost() - API returned error: " . $result->get_error_message());
         } else {
-            error_log("[wp4shpy] syncPost() - API returned success, shopifyArticleId: " . ($result['shopifyArticleId'] ?? 'null'));
+            error_log("[wash] syncPost() - API returned success, shopifyArticleId: " . ($result['shopifyArticleId'] ?? 'null'));
         }
 
         $this->logSync($postId, $action, $result);
@@ -152,11 +152,11 @@ class wp4shpySync {
         if (!is_wp_error($result)) {
             $shopifyId = $result['shopifyArticleId'] ?? $result['shopifyPageId'] ?? null;
             if ($shopifyId) {
-                error_log("[wp4shpy] syncPost() - Updating post meta with Shopify ID: {$shopifyId}");
-                update_post_meta($postId, '_wp4shpy_article_id', $shopifyId);
-                update_post_meta($postId, '_wp4shpy_blog_id', $result['shopifyBlogId'] ?? '');
-                update_post_meta($postId, '_wp4shpy_blog_handle', $result['shopifyBlogHandle'] ?? '');
-                update_post_meta($postId, '_wp4shpy_synced_at', current_time('mysql'));
+                error_log("[wash] syncPost() - Updating post meta with Shopify ID: {$shopifyId}");
+                update_post_meta($postId, '_wash_article_id', $shopifyId);
+                update_post_meta($postId, '_wash_blog_id', $result['shopifyBlogId'] ?? '');
+                update_post_meta($postId, '_wash_blog_handle', $result['shopifyBlogHandle'] ?? '');
+                update_post_meta($postId, '_wash_synced_at', current_time('mysql'));
 
                 // Sync metafields (ACF, custom fields, SEO)
                 $this->syncMetafields($postId, $shopifyId);
@@ -165,7 +165,7 @@ class wp4shpySync {
                 $this->syncHreflangs($postId, $shopifyId);
 
                 // Fire action for extensibility
-                do_action('wp4shpy_post_synced', $postId, $shopifyId);
+                do_action('wash_post_synced', $postId, $shopifyId);
             }
         }
     }
@@ -177,18 +177,18 @@ class wp4shpySync {
      * @param string $shopifyId Shopify resource GID
      */
     private function syncMetafields($postId, $shopifyId) {
-        if (get_option('wp4shpy_sync_metafields') !== '1') {
+        if (get_option('wash_sync_metafields') !== '1') {
             return;
         }
 
-        $metafieldsHandler = new wp4shpyMetafields();
+        $metafieldsHandler = new WashMetafields();
         $result = $metafieldsHandler->syncAllMetafields($postId, $shopifyId);
 
         if (is_wp_error($result)) {
-            error_log("[wp4shpy] syncMetafields() - Error: " . $result->get_error_message());
+            error_log("[wash] syncMetafields() - Error: " . $result->get_error_message());
         } else {
             $count = $result['count'] ?? 0;
-            error_log("[wp4shpy] syncMetafields() - Synced {$count} metafields for post {$postId}");
+            error_log("[wash] syncMetafields() - Synced {$count} metafields for post {$postId}");
         }
     }
 
@@ -200,21 +200,21 @@ class wp4shpySync {
      * @param string $shopifyId Shopify resource GID
      */
     private function syncHreflangs($postId, $shopifyId) {
-        if (get_option('wp4shpy_hreflangs_enabled') !== '1') {
+        if (get_option('wash_hreflangs_enabled') !== '1') {
             return;
         }
 
-        $hreflangsHandler = new wp4shpyHreflangs();
+        $hreflangsHandler = new WashHreflangs();
         $result = $hreflangsHandler->syncHreflangs($postId, $shopifyId);
 
         if (is_wp_error($result)) {
-            error_log("[wp4shpy] syncHreflangs() - Error: " . $result->get_error_message());
+            error_log("[wash] syncHreflangs() - Error: " . $result->get_error_message());
         } else {
             $count = $result['count'] ?? 0;
             if (isset($result['cleared']) && $result['cleared']) {
-                error_log("[wp4shpy] syncHreflangs() - Cleared hreflangs (no translations) for post {$postId}");
+                error_log("[wash] syncHreflangs() - Cleared hreflangs (no translations) for post {$postId}");
             } else {
-                error_log("[wp4shpy] syncHreflangs() - Synced {$count} hreflang entries for post {$postId}");
+                error_log("[wash] syncHreflangs() - Synced {$count} hreflang entries for post {$postId}");
             }
         }
     }
@@ -226,21 +226,21 @@ class wp4shpySync {
         $content = apply_filters('the_content', $post->post_content);
 
         // Rewrite WordPress image URLs to Shopify CDN URLs
-        if (get_option('wp4shpy_files_enabled', '1') === '1') {
+        if (get_option('wash_files_enabled', '1') === '1') {
             $content = $this->rewriteImageUrls($content);
         }
 
         // Rewrite internal WordPress links to Shopify URL format
-        if (get_option('wp4shpy_rewrite_internal_urls', '1') === '1') {
+        if (get_option('wash_rewrite_internal_urls', '1') === '1') {
             $content = $this->rewriteInternalUrls($content);
         }
 
         // Debug: log if content contains WordPress or Shopify CDN URLs
         if (strpos($content, 'cdn.shopify.com') !== false) {
-            error_log("[wp4shpy] buildPostData() - Content CONTAINS cdn.shopify.com URLs (good!)");
+            error_log("[wash] buildPostData() - Content CONTAINS cdn.shopify.com URLs (good!)");
         }
         if (strpos($content, 'wp-content/uploads') !== false) {
-            error_log("[wp4shpy] buildPostData() - WARNING: Content still contains wp-content/uploads URLs!");
+            error_log("[wash] buildPostData() - WARNING: Content still contains wp-content/uploads URLs!");
         }
 
         $data = [
@@ -266,7 +266,7 @@ class wp4shpySync {
         $thumbnailId = get_post_thumbnail_id($postId);
         if ($thumbnailId) {
             // Try to use Shopify CDN URL if image was synced, otherwise use WordPress URL
-            $cdnUrl = wp4shpyImages::getShopifyCdnUrl($thumbnailId);
+            $cdnUrl = WashImages::getShopifyCdnUrl($thumbnailId);
             $wpUrl = wp_get_attachment_url($thumbnailId);
 
             // Validate CDN URL - must be a real Shopify CDN URL, not a temp staged URL
@@ -274,12 +274,12 @@ class wp4shpySync {
 
             if ($isValidCdnUrl) {
                 $data['featuredImage'] = $cdnUrl;
-                error_log("[wp4shpy] buildPostData() - Featured image using CDN URL: {$cdnUrl}");
+                error_log("[wash] buildPostData() - Featured image using CDN URL: {$cdnUrl}");
             } else {
                 $data['featuredImage'] = $wpUrl;
-                error_log("[wp4shpy] buildPostData() - Featured image using WordPress URL: {$wpUrl}");
+                error_log("[wash] buildPostData() - Featured image using WordPress URL: {$wpUrl}");
                 if ($cdnUrl) {
-                    error_log("[wp4shpy] buildPostData() - WARNING: Invalid CDN URL stored: {$cdnUrl}");
+                    error_log("[wash] buildPostData() - WARNING: Invalid CDN URL stored: {$cdnUrl}");
                 }
             }
         }
@@ -311,7 +311,7 @@ class wp4shpySync {
      */
     private function rewriteFileUrls($content) {
         $siteUrl = get_site_url();
-        error_log("[wp4shpy] rewriteFileUrls() - Site URL: {$siteUrl}");
+        error_log("[wash] rewriteFileUrls() - Site URL: {$siteUrl}");
 
         // Step 1: Remove srcset and sizes attributes (Shopify handles responsive images)
         $content = preg_replace('/\s+srcset=["\'][^"\']*["\']/', '', $content);
@@ -322,9 +322,9 @@ class wp4shpySync {
         $pattern = '/(' . preg_quote($siteUrl, '/') . '\/wp-content\/uploads\/[^"\'<>\s\)]+)/i';
         preg_match_all($pattern, $content, $allMatches);
         if (!empty($allMatches[1])) {
-            error_log("[wp4shpy] rewriteFileUrls() - Found " . count($allMatches[1]) . " URLs to process:");
+            error_log("[wash] rewriteFileUrls() - Found " . count($allMatches[1]) . " URLs to process:");
             foreach (array_unique($allMatches[1]) as $url) {
-                error_log("[wp4shpy] rewriteFileUrls() - URL: {$url}");
+                error_log("[wash] rewriteFileUrls() - URL: {$url}");
             }
         }
 
@@ -336,15 +336,15 @@ class wp4shpySync {
                 $attachmentId = $this->getAttachmentIdFromUrl($wpUrl);
 
                 if ($attachmentId) {
-                    $cdnUrl = wp4shpyImages::getShopifyCdnUrl($attachmentId);
+                    $cdnUrl = WashImages::getShopifyCdnUrl($attachmentId);
                     if ($cdnUrl && strpos($cdnUrl, 'cdn.shopify.com') !== false) {
-                        error_log("[wp4shpy] rewriteFileUrls() - REWRITING: {$wpUrl} -> {$cdnUrl}");
+                        error_log("[wash] rewriteFileUrls() - REWRITING: {$wpUrl} -> {$cdnUrl}");
                         return $cdnUrl;
                     } else {
-                        error_log("[wp4shpy] rewriteFileUrls() - Attachment {$attachmentId} has no valid CDN URL (got: " . ($cdnUrl ?: 'null') . ")");
+                        error_log("[wash] rewriteFileUrls() - Attachment {$attachmentId} has no valid CDN URL (got: " . ($cdnUrl ?: 'null') . ")");
                     }
                 } else {
-                    error_log("[wp4shpy] rewriteFileUrls() - Could not find attachment for: {$wpUrl}");
+                    error_log("[wash] rewriteFileUrls() - Could not find attachment for: {$wpUrl}");
                 }
                 return $wpUrl;
             },
@@ -353,9 +353,9 @@ class wp4shpySync {
 
         // Check if any replacements were made
         if ($rewrittenContent !== $content) {
-            error_log("[wp4shpy] rewriteFileUrls() - Content was modified");
+            error_log("[wash] rewriteFileUrls() - Content was modified");
         } else {
-            error_log("[wp4shpy] rewriteFileUrls() - Content was NOT modified");
+            error_log("[wash] rewriteFileUrls() - Content was NOT modified");
         }
 
         return $rewrittenContent;
@@ -384,7 +384,7 @@ class wp4shpySync {
             return $content;
         }
 
-        error_log("[wp4shpy] rewriteInternalUrls() - Site URL: {$siteUrl}, Host: {$siteHost}");
+        error_log("[wash] rewriteInternalUrls() - Site URL: {$siteUrl}, Host: {$siteHost}");
 
         // Find all internal links in href attributes
         $pattern = '/href=["\'](' . preg_quote($siteUrl, '/') . '\/[^"\'<>\s]*)["\']|href=["\'](\/[^"\'<>\s]*)["\']|href=["\']https?:\/\/' . preg_quote($siteHost, '/') . '(\/[^"\'<>\s]*)["\']|href=["\']http?:\/\/' . preg_quote($siteHost, '/') . '(\/[^"\'<>\s]*)["\']/i';
@@ -434,7 +434,7 @@ class wp4shpySync {
                 }
 
                 if (!$postId) {
-                    error_log("[wp4shpy] rewriteInternalUrls() - No post found for URL: {$matchedUrl}");
+                    error_log("[wash] rewriteInternalUrls() - No post found for URL: {$matchedUrl}");
                     return $fullMatch;
                 }
 
@@ -445,7 +445,7 @@ class wp4shpySync {
 
                 // Check if this post type is allowed for syncing
                 if (!$this->isAllowedPostType($post->post_type)) {
-                    error_log("[wp4shpy] rewriteInternalUrls() - Post type '{$post->post_type}' not allowed for syncing");
+                    error_log("[wash] rewriteInternalUrls() - Post type '{$post->post_type}' not allowed for syncing");
                     return $fullMatch;
                 }
 
@@ -454,14 +454,14 @@ class wp4shpySync {
                     $shopifyPath = '/pages/' . $post->post_name;
                 } else {
                     // For posts, use blog handle from meta or default
-                    $blogHandle = get_post_meta($postId, '_wp4shpy_blog_handle', true);
+                    $blogHandle = get_post_meta($postId, '_wash_blog_handle', true);
                     if (empty($blogHandle)) {
                         $blogHandle = 'news'; // Default blog handle
                     }
                     $shopifyPath = '/blogs/' . $blogHandle . '/' . $post->post_name;
                 }
 
-                error_log("[wp4shpy] rewriteInternalUrls() - Rewriting: {$matchedUrl} -> {$shopifyPath}");
+                error_log("[wash] rewriteInternalUrls() - Rewriting: {$matchedUrl} -> {$shopifyPath}");
                 return 'href="' . $shopifyPath . '"';
             },
             $content
@@ -484,7 +484,7 @@ class wp4shpySync {
         // First try direct lookup
         $attachmentId = attachment_url_to_postid($cleanUrl);
         if ($attachmentId) {
-            error_log("[wp4shpy] getAttachmentIdFromUrl() - Found attachment {$attachmentId} for URL: {$cleanUrl}");
+            error_log("[wash] getAttachmentIdFromUrl() - Found attachment {$attachmentId} for URL: {$cleanUrl}");
             return $attachmentId;
         }
 
@@ -496,12 +496,12 @@ class wp4shpySync {
         if ($baseUrl !== $cleanUrl) {
             $attachmentId = attachment_url_to_postid($baseUrl);
             if ($attachmentId) {
-                error_log("[wp4shpy] getAttachmentIdFromUrl() - Found attachment {$attachmentId} for resized URL: {$cleanUrl}");
+                error_log("[wash] getAttachmentIdFromUrl() - Found attachment {$attachmentId} for resized URL: {$cleanUrl}");
                 return $attachmentId;
             }
         }
 
-        error_log("[wp4shpy] getAttachmentIdFromUrl() - No attachment found for: {$cleanUrl}");
+        error_log("[wash] getAttachmentIdFromUrl() - No attachment found for: {$cleanUrl}");
         return false;
     }
 
@@ -513,7 +513,7 @@ class wp4shpySync {
      */
     private function syncContentFiles($content) {
         $siteUrl = get_site_url();
-        $fileHandler = new wp4shpyImages();
+        $fileHandler = new WashImages();
         $syncedCount = 0;
 
         // Find all WordPress file URLs in content (images, PDFs, links, etc.)
@@ -521,51 +521,51 @@ class wp4shpySync {
         preg_match_all($pattern, $content, $matches);
 
         if (empty($matches[1])) {
-            error_log("[wp4shpy] syncContentFiles() - No wp-content/uploads URLs found in content");
+            error_log("[wash] syncContentFiles() - No wp-content/uploads URLs found in content");
             return;
         }
 
         $uniqueUrls = array_unique($matches[1]);
-        error_log("[wp4shpy] syncContentFiles() - Found " . count($uniqueUrls) . " unique file URLs to sync");
+        error_log("[wash] syncContentFiles() - Found " . count($uniqueUrls) . " unique file URLs to sync");
 
         foreach ($uniqueUrls as $fileUrl) {
-            error_log("[wp4shpy] syncContentFiles() - Processing: {$fileUrl}");
+            error_log("[wash] syncContentFiles() - Processing: {$fileUrl}");
             $attachmentId = $this->getAttachmentIdFromUrl($fileUrl);
 
             if (!$attachmentId) {
-                error_log("[wp4shpy] syncContentFiles() - Could not find attachment for URL: {$fileUrl}");
+                error_log("[wash] syncContentFiles() - Could not find attachment for URL: {$fileUrl}");
                 continue;
             }
 
             // Skip if already synced with valid CDN URL
-            $cdnUrl = wp4shpyImages::getShopifyCdnUrl($attachmentId);
+            $cdnUrl = WashImages::getShopifyCdnUrl($attachmentId);
             $isValidCdnUrl = $cdnUrl && strpos($cdnUrl, 'cdn.shopify.com') !== false;
             if ($isValidCdnUrl) {
-                error_log("[wp4shpy] syncContentFiles() - File {$attachmentId} already synced to: {$cdnUrl}");
+                error_log("[wash] syncContentFiles() - File {$attachmentId} already synced to: {$cdnUrl}");
                 continue;
             }
 
             // Clear invalid CDN URL if present
             if ($cdnUrl && !$isValidCdnUrl) {
-                error_log("[wp4shpy] syncContentFiles() - Clearing invalid CDN URL for file {$attachmentId}: {$cdnUrl}");
-                delete_post_meta($attachmentId, '_wp4shpy_cdn_url');
-                delete_post_meta($attachmentId, '_wp4shpy_file_id');
+                error_log("[wash] syncContentFiles() - Clearing invalid CDN URL for file {$attachmentId}: {$cdnUrl}");
+                delete_post_meta($attachmentId, '_wash_cdn_url');
+                delete_post_meta($attachmentId, '_wash_file_id');
             }
 
             // Sync the file
-            error_log("[wp4shpy] syncContentFiles() - Syncing file {$attachmentId} from URL: {$fileUrl}");
+            error_log("[wash] syncContentFiles() - Syncing file {$attachmentId} from URL: {$fileUrl}");
             $result = $fileHandler->syncFile($attachmentId);
 
             if ($result) {
                 $syncedCount++;
-                error_log("[wp4shpy] syncContentFiles() - Successfully synced file {$attachmentId}");
+                error_log("[wash] syncContentFiles() - Successfully synced file {$attachmentId}");
             } else {
-                error_log("[wp4shpy] syncContentFiles() - Failed to sync file {$attachmentId}");
+                error_log("[wash] syncContentFiles() - Failed to sync file {$attachmentId}");
             }
         }
 
         if ($syncedCount > 0) {
-            error_log("[wp4shpy] syncContentFiles() - Synced {$syncedCount} new files to Shopify");
+            error_log("[wash] syncContentFiles() - Synced {$syncedCount} new files to Shopify");
         }
     }
 
@@ -587,29 +587,29 @@ class wp4shpySync {
         }
 
         // Skip if already synced with valid CDN URL
-        $cdnUrl = wp4shpyImages::getShopifyCdnUrl($attachmentId);
+        $cdnUrl = WashImages::getShopifyCdnUrl($attachmentId);
         $isValidCdnUrl = $cdnUrl && strpos($cdnUrl, 'cdn.shopify.com') !== false;
         if ($isValidCdnUrl) {
-            error_log("[wp4shpy] syncFeaturedImage() - Featured image {$attachmentId} already synced to: {$cdnUrl}");
+            error_log("[wash] syncFeaturedImage() - Featured image {$attachmentId} already synced to: {$cdnUrl}");
             return;
         }
 
         // Clear invalid CDN URL if present
         if ($cdnUrl && !$isValidCdnUrl) {
-            error_log("[wp4shpy] syncFeaturedImage() - Clearing invalid CDN URL for featured image {$attachmentId}: {$cdnUrl}");
-            delete_post_meta($attachmentId, '_wp4shpy_cdn_url');
-            delete_post_meta($attachmentId, '_wp4shpy_file_id');
+            error_log("[wash] syncFeaturedImage() - Clearing invalid CDN URL for featured image {$attachmentId}: {$cdnUrl}");
+            delete_post_meta($attachmentId, '_wash_cdn_url');
+            delete_post_meta($attachmentId, '_wash_file_id');
         }
 
         // Sync the featured image
-        error_log("[wp4shpy] syncFeaturedImage() - Syncing featured image {$attachmentId}");
-        $imagesHandler = new wp4shpyImages();
+        error_log("[wash] syncFeaturedImage() - Syncing featured image {$attachmentId}");
+        $imagesHandler = new WashImages();
         $result = $imagesHandler->syncImage($attachmentId);
 
         if ($result) {
-            error_log("[wp4shpy] syncFeaturedImage() - Successfully synced featured image {$attachmentId}");
+            error_log("[wash] syncFeaturedImage() - Successfully synced featured image {$attachmentId}");
         } else {
-            error_log("[wp4shpy] syncFeaturedImage() - Failed to sync featured image {$attachmentId}");
+            error_log("[wash] syncFeaturedImage() - Failed to sync featured image {$attachmentId}");
         }
     }
 
@@ -619,11 +619,11 @@ class wp4shpySync {
     private function getPostTags($postId) {
         $tags = get_the_tags($postId);
         if (!$tags || is_wp_error($tags)) {
-            error_log("[wp4shpy] getPostTags() - No tags found for post {$postId}");
+            error_log("[wash] getPostTags() - No tags found for post {$postId}");
             return [];
         }
         $tagNames = array_map(fn($tag) => $tag->name, $tags);
-        error_log("[wp4shpy] getPostTags() - Found " . count($tagNames) . " tags: " . implode(', ', $tagNames));
+        error_log("[wash] getPostTags() - Found " . count($tagNames) . " tags: " . implode(', ', $tagNames));
         return $tagNames;
     }
 
@@ -637,12 +637,12 @@ class wp4shpySync {
         $defaultName = get_the_author_meta('display_name', $authorId);
 
         // Check if author mapping is enabled
-        if (get_option('wp4shpy_authors_enabled', '0') !== '1') {
+        if (get_option('wash_authors_enabled', '0') !== '1') {
             return $defaultName;
         }
 
         // Get custom author mappings
-        $authorMappings = get_option('wp4shpy_author_mappings', []);
+        $authorMappings = get_option('wash_author_mappings', []);
         if (!is_array($authorMappings)) {
             return $defaultName;
         }
@@ -677,7 +677,7 @@ class wp4shpySync {
      */
     private function getPostLanguage($postId) {
         // Manual override via custom field (highest priority)
-        $manualLang = get_post_meta($postId, '_wp4shpy_language', true);
+        $manualLang = get_post_meta($postId, '_wash_language', true);
         if ($manualLang) {
             return strtolower(trim($manualLang));
         }
@@ -754,31 +754,31 @@ class wp4shpySync {
      */
     private function shouldSkipSync($postId, $post) {
         if ($this->isSyncing) {
-            error_log("[wp4shpy] shouldSkipSync: isSyncing=true");
+            error_log("[wash] shouldSkipSync: isSyncing=true");
             return true;
         }
         if (wp_is_post_revision($postId)) {
-            error_log("[wp4shpy] shouldSkipSync: is revision");
+            error_log("[wash] shouldSkipSync: is revision");
             return true;
         }
         if (wp_is_post_autosave($postId)) {
-            error_log("[wp4shpy] shouldSkipSync: is autosave");
+            error_log("[wash] shouldSkipSync: is autosave");
             return true;
         }
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
-            error_log("[wp4shpy] shouldSkipSync: DOING_AUTOSAVE constant");
+            error_log("[wash] shouldSkipSync: DOING_AUTOSAVE constant");
             return true;
         }
         if (!$this->isAllowedPostType($post->post_type)) {
-            error_log("[wp4shpy] shouldSkipSync: post_type '{$post->post_type}' not allowed");
+            error_log("[wash] shouldSkipSync: post_type '{$post->post_type}' not allowed");
             return true;
         }
         if (!$this->apiClient->isConfigured()) {
-            error_log("[wp4shpy] shouldSkipSync: API client not configured (missing api_key or api_secret)");
+            error_log("[wash] shouldSkipSync: API client not configured (missing api_key or api_secret)");
             return true;
         }
 
-        error_log("[wp4shpy] shouldSkipSync: all checks passed, will sync");
+        error_log("[wash] shouldSkipSync: all checks passed, will sync");
         return false;
     }
 
@@ -786,7 +786,7 @@ class wp4shpySync {
      * Check if the post type is allowed for syncing.
      */
     private function isAllowedPostType($postType) {
-        $allowedTypes = array_map('trim', explode(',', get_option('wp4shpy_post_types', 'post,page')));
+        $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
         return in_array($postType, $allowedTypes, true);
     }
 
@@ -814,7 +814,7 @@ class wp4shpySync {
      */
     private function logSync($postId, $action, $result) {
         global $wpdb;
-        $tableName = $wpdb->prefix . 'wp4shpy_sync';
+        $tableName = $wpdb->prefix . 'wash_sync';
 
         $isError = is_wp_error($result);
         $data = [

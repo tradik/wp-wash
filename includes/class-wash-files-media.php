@@ -3,20 +3,20 @@
  * Files & Media handler.
  * Manages media library integration and sync buttons for WordPress attachments.
  */
-class wp4shpyFilesMedia {
+class WashFilesMedia {
 
-    /** @var wp4shpyApiClient */
+    /** @var WashApiClient */
     private $apiClient;
 
     public function __construct() {
-        $this->apiClient = new wp4shpyApiClient();
+        $this->apiClient = new WashApiClient();
     }
 
     /**
      * Initialize hooks if Files & Media feature is enabled.
      */
     public function init() {
-        if (get_option('wp4shpy_files_enabled', '1') !== '1') {
+        if (get_option('wash_files_enabled', '1') !== '1') {
             return;
         }
 
@@ -31,7 +31,7 @@ class wp4shpyFilesMedia {
         add_action('admin_init', [$this, 'handleMediaSync']);
 
         // AJAX handler for media sync
-        add_action('wp_ajax_wp4shpy_sync_media', [$this, 'ajaxSyncMedia']);
+        add_action('wp_ajax_wash_sync_media', [$this, 'ajaxSyncMedia']);
 
         // Add bulk action for media
         add_filter('bulk_actions-upload', [$this, 'addBulkSyncAction']);
@@ -57,7 +57,7 @@ class wp4shpyFilesMedia {
      * @return array Modified columns.
      */
     public function addSyncColumn($columns) {
-        $columns['wp4shpy_sync'] = '<span class="dashicons dashicons-store" title="' . esc_attr__('Shopify Sync', 'wp4shpy') . '" style="color: #96bf48;"></span>';
+        $columns['wash_sync'] = '<span class="dashicons dashicons-store" title="' . esc_attr__('Shopify Sync', 'wash') . '" style="color: #96bf48;"></span>';
         return $columns;
     }
 
@@ -68,25 +68,25 @@ class wp4shpyFilesMedia {
      * @param int    $attachmentId Attachment ID.
      */
     public function renderSyncColumn($columnName, $attachmentId) {
-        if ($columnName !== 'wp4shpy_sync') {
+        if ($columnName !== 'wash_sync') {
             return;
         }
 
         // Only show for images
         if (!wp_attachment_is_image($attachmentId)) {
-            echo '<span class="dashicons dashicons-minus" style="color: #ddd;" title="' . esc_attr__('Not an image', 'wp4shpy') . '"></span>';
+            echo '<span class="dashicons dashicons-minus" style="color: #ddd;" title="' . esc_attr__('Not an image', 'wash') . '"></span>';
             return;
         }
 
-        $shopifyFileId = get_post_meta($attachmentId, '_wp4shpy_file_id', true);
-        $cdnUrl = get_post_meta($attachmentId, '_wp4shpy_cdn_url', true);
+        $shopifyFileId = get_post_meta($attachmentId, '_wash_file_id', true);
+        $cdnUrl = get_post_meta($attachmentId, '_wash_cdn_url', true);
 
         if (!empty($shopifyFileId) && !empty($cdnUrl)) {
-            echo '<a href="' . esc_url($cdnUrl) . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr__('Synced to Shopify CDN', 'wp4shpy') . '">';
+            echo '<a href="' . esc_url($cdnUrl) . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr__('Synced to Shopify CDN', 'wash') . '">';
             echo '<span class="dashicons dashicons-yes-alt" style="color: #46b450;"></span>';
             echo '</a>';
         } else {
-            echo '<span class="dashicons dashicons-upload" style="color: #ccc;" title="' . esc_attr__('Not synced to Shopify', 'wp4shpy') . '"></span>';
+            echo '<span class="dashicons dashicons-upload" style="color: #ccc;" title="' . esc_attr__('Not synced to Shopify', 'wash') . '"></span>';
         }
     }
 
@@ -106,17 +106,17 @@ class wp4shpyFilesMedia {
             return $actions;
         }
 
-        $shopifyFileId = get_post_meta($post->ID, '_wp4shpy_file_id', true);
+        $shopifyFileId = get_post_meta($post->ID, '_wash_file_id', true);
         $syncUrl = wp_nonce_url(
             add_query_arg([
-                'action' => 'wp4shpy_sync_media',
+                'action' => 'wash_sync_media',
                 'attachment_id' => $post->ID,
             ], admin_url('upload.php')),
-            'wp4shpy_sync_media_' . $post->ID
+            'wash_sync_media_' . $post->ID
         );
 
-        $label = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wp4shpy') : __('Sync to Shopify', 'wp4shpy');
-        $actions['wp4shpy_sync'] = sprintf(
+        $label = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wash') : __('Sync to Shopify', 'wash');
+        $actions['wash_sync'] = sprintf(
             '<a href="%s" style="color: #96bf48;">%s</a>',
             esc_url($syncUrl),
             $label
@@ -124,12 +124,12 @@ class wp4shpyFilesMedia {
 
         // Show CDN link if synced
         if (!empty($shopifyFileId)) {
-            $cdnUrl = get_post_meta($post->ID, '_wp4shpy_cdn_url', true);
+            $cdnUrl = get_post_meta($post->ID, '_wash_cdn_url', true);
             if ($cdnUrl) {
-                $actions['wp4shpy_view'] = sprintf(
+                $actions['wash_view'] = sprintf(
                     '<a href="%s" target="_blank" rel="noopener noreferrer" style="color: #5c6ac4;">%s</a>',
                     esc_url($cdnUrl),
-                    __('View on Shopify CDN', 'wp4shpy')
+                    __('View on Shopify CDN', 'wash')
                 );
             }
         }
@@ -141,7 +141,7 @@ class wp4shpyFilesMedia {
      * Handle manual media sync from upload.php.
      */
     public function handleMediaSync() {
-        if (!isset($_GET['action']) || $_GET['action'] !== 'wp4shpy_sync_media') {
+        if (!isset($_GET['action']) || $_GET['action'] !== 'wash_sync_media') {
             return;
         }
         if (!isset($_GET['attachment_id'])) {
@@ -149,18 +149,18 @@ class wp4shpyFilesMedia {
         }
 
         $attachmentId = absint($_GET['attachment_id']);
-        if (!wp_verify_nonce($_GET['_wpnonce'] ?? '', 'wp4shpy_sync_media_' . $attachmentId)) {
-            wp_die(__('Security check failed', 'wp4shpy'));
+        if (!wp_verify_nonce($_GET['_wpnonce'] ?? '', 'wash_sync_media_' . $attachmentId)) {
+            wp_die(__('Security check failed', 'wash'));
         }
 
         if (!current_user_can('upload_files')) {
-            wp_die(__('You do not have permission to sync media', 'wp4shpy'));
+            wp_die(__('You do not have permission to sync media', 'wash'));
         }
 
         // Trigger sync
         $result = $this->syncAttachment($attachmentId);
 
-        $queryArg = $result ? 'wp4shpy_media_synced' : 'wp4shpy_media_error';
+        $queryArg = $result ? 'wash_media_synced' : 'wash_media_error';
         wp_redirect(add_query_arg($queryArg, '1', admin_url('upload.php')));
         exit;
     }
@@ -169,27 +169,27 @@ class wp4shpyFilesMedia {
      * AJAX handler for media sync.
      */
     public function ajaxSyncMedia() {
-        check_ajax_referer('wp4shpy_nonce', 'nonce');
+        check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('upload_files')) {
-            wp_send_json_error(__('Unauthorized', 'wp4shpy'));
+            wp_send_json_error(__('Unauthorized', 'wash'));
         }
 
         $attachmentId = absint($_POST['attachment_id'] ?? 0);
         if (!$attachmentId) {
-            wp_send_json_error(__('Invalid attachment ID', 'wp4shpy'));
+            wp_send_json_error(__('Invalid attachment ID', 'wash'));
         }
 
         $result = $this->syncAttachment($attachmentId);
 
         if ($result) {
-            $cdnUrl = get_post_meta($attachmentId, '_wp4shpy_cdn_url', true);
+            $cdnUrl = get_post_meta($attachmentId, '_wash_cdn_url', true);
             wp_send_json_success([
                 'cdnUrl' => $cdnUrl,
-                'fileId' => get_post_meta($attachmentId, '_wp4shpy_file_id', true),
+                'fileId' => get_post_meta($attachmentId, '_wash_file_id', true),
             ]);
         } else {
-            wp_send_json_error(__('Sync failed', 'wp4shpy'));
+            wp_send_json_error(__('Sync failed', 'wash'));
         }
     }
 
@@ -204,7 +204,7 @@ class wp4shpyFilesMedia {
             return false;
         }
 
-        $imagesHandler = new wp4shpyImages();
+        $imagesHandler = new WashImages();
         return $imagesHandler->syncImage($attachmentId);
     }
 
@@ -216,7 +216,7 @@ class wp4shpyFilesMedia {
      */
     public function addBulkSyncAction($actions) {
         if ($this->apiClient->isConfigured()) {
-            $actions['wp4shpy_bulk_sync'] = __('Sync to Shopify', 'wp4shpy');
+            $actions['wash_bulk_sync'] = __('Sync to Shopify', 'wash');
         }
         return $actions;
     }
@@ -230,7 +230,7 @@ class wp4shpyFilesMedia {
      * @return string Modified redirect URL.
      */
     public function handleBulkSync($redirectTo, $action, $postIds) {
-        if ($action !== 'wp4shpy_bulk_sync') {
+        if ($action !== 'wash_bulk_sync') {
             return $redirectTo;
         }
 
@@ -248,8 +248,8 @@ class wp4shpyFilesMedia {
         }
 
         return add_query_arg([
-            'wp4shpy_bulk_synced' => $synced,
-            'wp4shpy_bulk_failed' => $failed,
+            'wash_bulk_synced' => $synced,
+            'wash_bulk_failed' => $failed,
         ], $redirectTo);
     }
 
@@ -262,24 +262,24 @@ class wp4shpyFilesMedia {
             return;
         }
 
-        if (isset($_GET['wp4shpy_media_synced'])) {
+        if (isset($_GET['wash_media_synced'])) {
             echo '<div class="notice notice-success is-dismissible"><p>';
-            esc_html_e('Image synced to Shopify successfully!', 'wp4shpy');
+            esc_html_e('Image synced to Shopify successfully!', 'wash');
             echo '</p></div>';
         }
 
-        if (isset($_GET['wp4shpy_media_error'])) {
+        if (isset($_GET['wash_media_error'])) {
             echo '<div class="notice notice-error is-dismissible"><p>';
-            esc_html_e('Failed to sync image to Shopify.', 'wp4shpy');
+            esc_html_e('Failed to sync image to Shopify.', 'wash');
             echo '</p></div>';
         }
 
-        if (isset($_GET['wp4shpy_bulk_synced'])) {
-            $synced = absint($_GET['wp4shpy_bulk_synced']);
-            $failed = absint($_GET['wp4shpy_bulk_failed'] ?? 0);
+        if (isset($_GET['wash_bulk_synced'])) {
+            $synced = absint($_GET['wash_bulk_synced']);
+            $failed = absint($_GET['wash_bulk_failed'] ?? 0);
             echo '<div class="notice notice-success is-dismissible"><p>';
             printf(
-                esc_html__('Bulk sync completed: %d images synced, %d failed.', 'wp4shpy'),
+                esc_html__('Bulk sync completed: %d images synced, %d failed.', 'wash'),
                 $synced,
                 $failed
             );
@@ -303,31 +303,31 @@ class wp4shpyFilesMedia {
             return $formFields;
         }
 
-        $shopifyFileId = get_post_meta($post->ID, '_wp4shpy_file_id', true);
-        $cdnUrl = get_post_meta($post->ID, '_wp4shpy_cdn_url', true);
+        $shopifyFileId = get_post_meta($post->ID, '_wash_file_id', true);
+        $cdnUrl = get_post_meta($post->ID, '_wash_cdn_url', true);
 
-        $buttonLabel = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wp4shpy') : __('Sync to Shopify', 'wp4shpy');
+        $buttonLabel = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wash') : __('Sync to Shopify', 'wash');
         $statusHtml = '';
 
         if (!empty($shopifyFileId) && !empty($cdnUrl)) {
             $statusHtml = sprintf(
-                '<span class="wp4shpy-sync-status synced"><span class="dashicons dashicons-yes-alt"></span> %s</span>
-                <a href="%s" target="_blank" rel="noopener noreferrer" class="wp4shpy-cdn-link">%s</a>',
-                esc_html__('Synced', 'wp4shpy'),
+                '<span class="wash-sync-status synced"><span class="dashicons dashicons-yes-alt"></span> %s</span>
+                <a href="%s" target="_blank" rel="noopener noreferrer" class="wash-cdn-link">%s</a>',
+                esc_html__('Synced', 'wash'),
                 esc_url($cdnUrl),
-                esc_html__('View on CDN', 'wp4shpy')
+                esc_html__('View on CDN', 'wash')
             );
         } else {
             $statusHtml = sprintf(
-                '<span class="wp4shpy-sync-status not-synced"><span class="dashicons dashicons-upload"></span> %s</span>',
-                esc_html__('Not synced', 'wp4shpy')
+                '<span class="wash-sync-status not-synced"><span class="dashicons dashicons-upload"></span> %s</span>',
+                esc_html__('Not synced', 'wash')
             );
         }
 
         $html = sprintf(
-            '<div class="wp4shpy-attachment-sync" data-attachment-id="%d">
-                <div class="wp4shpy-sync-info">%s</div>
-                <button type="button" class="button wp4shpy-sync-btn" data-attachment-id="%d">
+            '<div class="wash-attachment-sync" data-attachment-id="%d">
+                <div class="wash-sync-info">%s</div>
+                <button type="button" class="button wash-sync-btn" data-attachment-id="%d">
                     <span class="dashicons dashicons-store"></span> %s
                 </button>
                 <span class="spinner"></span>
@@ -338,8 +338,8 @@ class wp4shpyFilesMedia {
             esc_html($buttonLabel)
         );
 
-        $formFields['wp4shpy_sync'] = [
-            'label' => __('Shopify', 'wp4shpy'),
+        $formFields['wash_sync'] = [
+            'label' => __('Shopify', 'wash'),
             'input' => 'html',
             'html'  => $html,
         ];
@@ -361,31 +361,31 @@ class wp4shpyFilesMedia {
             return;
         }
 
-        $shopifyFileId = get_post_meta($post->ID, '_wp4shpy_file_id', true);
-        $cdnUrl = get_post_meta($post->ID, '_wp4shpy_cdn_url', true);
+        $shopifyFileId = get_post_meta($post->ID, '_wash_file_id', true);
+        $cdnUrl = get_post_meta($post->ID, '_wash_cdn_url', true);
 
         $syncUrl = wp_nonce_url(
             add_query_arg([
-                'action' => 'wp4shpy_sync_media',
+                'action' => 'wash_sync_media',
                 'attachment_id' => $post->ID,
             ], admin_url('upload.php')),
-            'wp4shpy_sync_media_' . $post->ID
+            'wash_sync_media_' . $post->ID
         );
 
-        $buttonLabel = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wp4shpy') : __('Sync to Shopify', 'wp4shpy');
+        $buttonLabel = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wash') : __('Sync to Shopify', 'wash');
         ?>
-        <div class="misc-pub-section wp4shpy-attachment-sync-section">
+        <div class="misc-pub-section wash-attachment-sync-section">
             <span class="dashicons dashicons-store" style="color: #96bf48;"></span>
-            <strong><?php esc_html_e('Shopify:', 'wp4shpy'); ?></strong>
+            <strong><?php esc_html_e('Shopify:', 'wash'); ?></strong>
             <?php if (!empty($shopifyFileId) && !empty($cdnUrl)) : ?>
-                <span style="color: #46b450;"><?php esc_html_e('Synced', 'wp4shpy'); ?></span>
+                <span style="color: #46b450;"><?php esc_html_e('Synced', 'wash'); ?></span>
                 <br>
                 <a href="<?php echo esc_url($cdnUrl); ?>" target="_blank" rel="noopener noreferrer" style="color: #5c6ac4;">
-                    <?php esc_html_e('View on Shopify CDN', 'wp4shpy'); ?>
+                    <?php esc_html_e('View on Shopify CDN', 'wash'); ?>
                     <span class="dashicons dashicons-external" style="font-size: 14px; vertical-align: text-bottom;"></span>
                 </a>
             <?php else : ?>
-                <span style="color: #ddd;"><?php esc_html_e('Not synced', 'wp4shpy'); ?></span>
+                <span style="color: #ddd;"><?php esc_html_e('Not synced', 'wash'); ?></span>
             <?php endif; ?>
             <br>
             <a href="<?php echo esc_url($syncUrl); ?>" class="button button-small" style="margin-top: 5px;">
@@ -409,34 +409,34 @@ class wp4shpyFilesMedia {
             return;
         }
 
-        $pluginUrl = wp4shpy_plugin_url();
+        $pluginUrl = washPluginUrl();
 
         wp_enqueue_style(
-            'wp4shpy-media',
+            'wash-media',
             $pluginUrl . 'admin/css/media.css',
             [],
-            wp4shpy_VERSION . '.' . filemtime(wp4shpy_PLUGIN_DIR . 'admin/css/media.css')
+            WASH_VERSION . '.' . filemtime(WASH_PLUGIN_DIR . 'admin/css/media.css')
         );
 
         wp_enqueue_script(
-            'wp4shpy-media',
+            'wash-media',
             $pluginUrl . 'admin/js/media.js',
             ['jquery', 'media-views'],
-            wp4shpy_VERSION . '.' . filemtime(wp4shpy_PLUGIN_DIR . 'admin/js/media.js'),
+            WASH_VERSION . '.' . filemtime(WASH_PLUGIN_DIR . 'admin/js/media.js'),
             true
         );
 
-        wp_localize_script('wp4shpy-media', 'wp4shpyMedia', [
+        wp_localize_script('wash-media', 'washMedia', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce'   => wp_create_nonce('wp4shpy_nonce'),
+            'nonce'   => wp_create_nonce('wash_nonce'),
             'i18n'    => [
-                'syncing'     => __('Syncing...', 'wp4shpy'),
-                'synced'      => __('Synced', 'wp4shpy'),
-                'syncError'   => __('Sync failed', 'wp4shpy'),
-                'syncBtn'     => __('Sync to Shopify', 'wp4shpy'),
-                'resyncBtn'   => __('Re-sync to Shopify', 'wp4shpy'),
-                'viewOnCdn'   => __('View on CDN', 'wp4shpy'),
-                'notSynced'   => __('Not synced', 'wp4shpy'),
+                'syncing'     => __('Syncing...', 'wash'),
+                'synced'      => __('Synced', 'wash'),
+                'syncError'   => __('Sync failed', 'wash'),
+                'syncBtn'     => __('Sync to Shopify', 'wash'),
+                'resyncBtn'   => __('Re-sync to Shopify', 'wash'),
+                'viewOnCdn'   => __('View on CDN', 'wash'),
+                'notSynced'   => __('Not synced', 'wash'),
             ],
         ]);
     }

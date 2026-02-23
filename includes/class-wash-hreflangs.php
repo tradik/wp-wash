@@ -11,31 +11,31 @@
  * - Weglot (API-based, limited support)
  * - Lokalise (requires WPML)
  */
-class wp4shpyHreflangs {
+class WashHreflangs {
 
-    /** @var wp4shpyApiClient */
+    /** @var WashApiClient */
     private $apiClient;
 
     /** @var string Metafield namespace for hreflangs */
-    private const NAMESPACE = 'wp4shopify_hreflang';
+    private const NAMESPACE = 'wash_hreflang';
 
     /** @var array Cached active plugin detection */
     private static $activePlugin = null;
 
     public function __construct() {
-        $this->apiClient = new wp4shpyApiClient();
+        $this->apiClient = new WashApiClient();
     }
 
     /**
      * Initialize hreflang hooks.
      */
     public function init() {
-        if (get_option('wp4shpy_hreflangs_enabled') !== '1') {
+        if (get_option('wash_hreflangs_enabled') !== '1') {
             return;
         }
 
         // Hook after main sync completes
-        add_action('wp4shpy_post_synced', [$this, 'onPostSynced'], 10, 2);
+        add_action('wash_post_synced', [$this, 'onPostSynced'], 10, 2);
     }
 
     /**
@@ -61,7 +61,7 @@ class wp4shpyHreflangs {
      * @return array|WP_Error Sync result
      */
     public function syncHreflangs($postId, $shopifyId) {
-        if (get_option('wp4shpy_hreflangs_enabled') !== '1') {
+        if (get_option('wash_hreflangs_enabled') !== '1') {
             return ['skipped' => true, 'reason' => 'Hreflangs sync disabled'];
         }
 
@@ -84,11 +84,11 @@ class wp4shpyHreflangs {
         ]);
 
         if (is_wp_error($result)) {
-            error_log("[wp4shpy] Hreflangs sync error: " . $result->get_error_message());
+            error_log("[wash] Hreflangs sync error: " . $result->get_error_message());
             return $result;
         }
 
-        error_log("[wp4shpy] Hreflangs synced successfully. Count: " . count($hreflangs));
+        error_log("[wash] Hreflangs synced successfully. Count: " . count($hreflangs));
         return ['success' => true, 'count' => count($hreflangs)];
     }
 
@@ -436,12 +436,12 @@ class wp4shpyHreflangs {
      * @return string|null Shopify URL or null
      */
     private function getShopifyUrlForPost($postId) {
-        $shopifyStore = get_option('wp4shpy_shopify_store', '');
+        $shopifyStore = get_option('wash_shopify_store', '');
         if (empty($shopifyStore)) {
             return null;
         }
 
-        $shopifyArticleId = get_post_meta($postId, '_wp4shpy_article_id', true);
+        $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
         if (empty($shopifyArticleId)) {
             return null;
         }
@@ -458,7 +458,7 @@ class wp4shpyHreflangs {
             return $baseUrl . '/pages/' . $post->post_name;
         }
 
-        $blogHandle = get_post_meta($postId, '_wp4shpy_blog_handle', true);
+        $blogHandle = get_post_meta($postId, '_wash_blog_handle', true);
         if (empty($blogHandle)) {
             $blogHandle = 'news';
         }
@@ -584,11 +584,11 @@ class wp4shpyHreflangs {
         ]);
 
         if (is_wp_error($result)) {
-            error_log("[wp4shpy] Hreflangs clear error: " . $result->get_error_message());
+            error_log("[wash] Hreflangs clear error: " . $result->get_error_message());
             return $result;
         }
 
-        error_log("[wp4shpy] Hreflangs cleared for article");
+        error_log("[wash] Hreflangs cleared for article");
         return ['success' => true, 'cleared' => true];
     }
 
@@ -637,7 +637,7 @@ class wp4shpyHreflangs {
             'polylang'     => 'Polylang',
             'translatepress' => 'TranslatePress',
             'weglot'       => 'Weglot',
-            default        => __('None detected', 'wp4shpy'),
+            default        => __('None detected', 'wash'),
         };
     }
 
@@ -658,12 +658,12 @@ class wp4shpyHreflangs {
     public static function getTemplateCode() {
         return <<<'LIQUID'
 {% comment %}
-  WP4Shopify Hreflang Tags
+  Wash Hreflang Tags
   Add this snippet to your theme's layout/theme.liquid in the <head> section
 {% endcomment %}
 
 {% if article %}
-  {% assign ns = 'wp4shopify_hreflang' %}
+  {% assign ns = 'wash_hreflang' %}
 
   {% comment %} Loop through all hreflang metafields {% endcomment %}
   {% for metafield in article.metafields[ns] %}

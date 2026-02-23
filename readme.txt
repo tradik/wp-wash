@@ -1,4 +1,4 @@
-=== wp4shpy ===
+=== Wash: Blog Manager ===
 Contributors: tradik
 Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.0
@@ -12,7 +12,7 @@ Synchronize WordPress content, images, and metafields to Shopify blogs in real-t
 
 == Description ==
 
-wp4shpy bridges your WordPress editorial workflow with Shopify's blog platform. 
+Wash: Blog Manager bridges your WordPress editorial workflow with Shopify's blog platform.
 Edit content in WordPress and have it automatically published to your Shopify store.
 
 **Features:**
@@ -28,9 +28,9 @@ Edit content in WordPress and have it automatically published to your Shopify st
 
 == Installation ==
 
-1. Upload the `wp4shpy` folder to `/wp-content/plugins/`
+1. Upload the `wash` folder to `/wp-content/plugins/`
 2. Activate the plugin through the 'Plugins' menu
-3. Go to Settings → wp4shpy
+3. Go to Settings → Wash
 4. Enter your Shopify App URL, API Key, and API Secret
 5. Click "Test Connection" to verify
 

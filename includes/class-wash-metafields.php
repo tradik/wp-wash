@@ -5,9 +5,9 @@
  * to Shopify as metafields on the corresponding article/page.
  * Supports automatic metafield definition creation.
  */
-class wp4shpyMetafields {
+class WashMetafields {
 
-    /** @var wp4shpyApiClient */
+    /** @var WashApiClient */
     private $apiClient;
 
     /** @var array ACF field type to Shopify metafield type mapping */
@@ -51,22 +51,22 @@ class wp4shpyMetafields {
 
     /** @var array Namespace definitions */
     private static $namespaces = [
-        'wordpress'  => 'wp4shopify',
-        'acf'        => 'wp4shopify_acf',
-        'seo'        => 'wp4shopify_seo',
-        'custom'     => 'wp4shopify_custom',
-        'hreflang'   => 'wp4shopify_hreflang',
+        'wordpress'  => 'wash',
+        'acf'        => 'wash_acf',
+        'seo'        => 'wash_seo',
+        'custom'     => 'wash_custom',
+        'hreflang'   => 'wash_hreflang',
     ];
 
     public function __construct() {
-        $this->apiClient = new wp4shpyApiClient();
+        $this->apiClient = new WashApiClient();
     }
 
     /**
      * Register hooks for metafield sync.
      */
     public function init() {
-        if (get_option('wp4shpy_sync_metafields') !== '1') {
+        if (get_option('wash_sync_metafields') !== '1') {
             return;
         }
 
@@ -120,7 +120,7 @@ class wp4shpyMetafields {
      * Handle ACF save_post hook for better field type detection.
      */
     public function onAcfSavePost($postId) {
-        if (get_option('wp4shpy_meta_acf') !== '1') {
+        if (get_option('wash_meta_acf') !== '1') {
             return;
         }
 
@@ -175,24 +175,24 @@ class wp4shpyMetafields {
      * @return array|WP_Error Sync result
      */
     public function syncAllMetafields($postId, $shopifyId) {
-        if (get_option('wp4shpy_sync_metafields') !== '1') {
+        if (get_option('wash_sync_metafields') !== '1') {
             return ['skipped' => true, 'reason' => 'Metafields sync disabled'];
         }
 
         $metafields = [];
 
         // WordPress core meta
-        if (get_option('wp4shpy_meta_wp_core', '1') === '1') {
+        if (get_option('wash_meta_wp_core', '1') === '1') {
             $metafields = array_merge($metafields, $this->buildWordPressMetafields($postId));
         }
 
         // ACF fields
-        if (get_option('wp4shpy_meta_acf', '1') === '1' && function_exists('get_fields')) {
+        if (get_option('wash_meta_acf', '1') === '1' && function_exists('get_fields')) {
             $metafields = array_merge($metafields, $this->buildAcfMetafields($postId));
         }
 
         // SEO fields (Yoast/RankMath)
-        if (get_option('wp4shpy_meta_yoast', '1') === '1' || get_option('wp4shpy_meta_rankmath', '1') === '1') {
+        if (get_option('wash_meta_yoast', '1') === '1' || get_option('wash_meta_rankmath', '1') === '1') {
             $metafields = array_merge($metafields, $this->buildSeoMetafields($postId));
         }
 
@@ -205,7 +205,7 @@ class wp4shpyMetafields {
 
         // First ensure definitions exist
         $definitionsResult = $this->ensureMetafieldDefinitions($metafields);
-        error_log("[wp4shpy] Metafield definitions result: " . wp_json_encode($definitionsResult));
+        error_log("[wash] Metafield definitions result: " . wp_json_encode($definitionsResult));
 
         // Then sync metafields
         $result = $this->apiClient->post('/api/metafields', [
@@ -216,11 +216,11 @@ class wp4shpyMetafields {
         ]);
 
         if (is_wp_error($result)) {
-            error_log("[wp4shpy] Metafields sync error: " . $result->get_error_message());
+            error_log("[wash] Metafields sync error: " . $result->get_error_message());
             return $result;
         }
 
-        error_log("[wp4shpy] Metafields synced successfully. Count: " . count($metafields));
+        error_log("[wash] Metafields synced successfully. Count: " . count($metafields));
         return ['success' => true, 'count' => count($metafields), 'metafields' => $result['metafields'] ?? []];
     }
 
@@ -480,7 +480,7 @@ class wp4shpyMetafields {
         $metafields = [];
 
         // Yoast SEO
-        if (get_option('wp4shpy_meta_yoast', '1') === '1') {
+        if (get_option('wash_meta_yoast', '1') === '1') {
             $yoastTitle = get_post_meta($postId, '_yoast_wpseo_title', true);
             $yoastDesc = get_post_meta($postId, '_yoast_wpseo_metadesc', true);
             $yoastFocusKw = get_post_meta($postId, '_yoast_wpseo_focuskw', true);
@@ -512,7 +512,7 @@ class wp4shpyMetafields {
         }
 
         // Rank Math
-        if (get_option('wp4shpy_meta_rankmath', '1') === '1') {
+        if (get_option('wash_meta_rankmath', '1') === '1') {
             $rankTitle = get_post_meta($postId, 'rank_math_title', true);
             $rankDesc = get_post_meta($postId, 'rank_math_description', true);
             $rankFocusKw = get_post_meta($postId, 'rank_math_focus_keyword', true);
@@ -643,10 +643,10 @@ class wp4shpyMetafields {
      */
     private function generateDefinitionDescription($namespace, $key) {
         $source = match($namespace) {
-            'wp4shopify'        => 'WordPress',
-            'wp4shopify_acf'    => 'ACF',
-            'wp4shopify_seo'    => 'SEO',
-            'wp4shopify_custom' => 'Custom Field',
+            'wash'        => 'WordPress',
+            'wash_acf'    => 'ACF',
+            'wash_seo'    => 'SEO',
+            'wash_custom' => 'Custom Field',
             default             => 'WordPress',
         };
         return "Synced from {$source}: {$key}";
@@ -686,12 +686,12 @@ class wp4shpyMetafields {
      * Get Shopify resource ID (article or page) for a WordPress post.
      */
     private function getShopifyResourceId($postId) {
-        $articleId = get_post_meta($postId, '_wp4shpy_article_id', true);
+        $articleId = get_post_meta($postId, '_wash_article_id', true);
         if ($articleId) {
             return $articleId;
         }
 
-        $pageId = get_post_meta($postId, '_wp4shpy_page_id', true);
+        $pageId = get_post_meta($postId, '_wash_page_id', true);
         return $pageId ?: null;
     }
 
@@ -739,7 +739,7 @@ class wp4shpyMetafields {
      */
     private function shouldSkipMeta($metaKey) {
         $skipPrefixes = [
-            '_wp4shpy_',
+            '_wash_',
             '_edit_',
             '_wp_',
             '_oembed_',

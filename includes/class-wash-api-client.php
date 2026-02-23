@@ -3,7 +3,7 @@
  * REST API client for communicating with the Shopify App.
  * Handles authentication, request signing, and error handling.
  */
-class wp4shpyApiClient {
+class WashApiClient {
 
     /** @var string Shopify App base URL */
     private $appUrl;
@@ -24,11 +24,11 @@ class wp4shpyApiClient {
     private $maxRetries = 3;
 
     public function __construct() {
-        $this->appUrl    = 'https://app-wp4shpy.tradik.com';
-        $this->apiKey    = get_option('wp4shpy_api_key', '');
-        $this->apiSecret = get_option('wp4shpy_api_secret', '');
-        $this->httpUser  = get_option('wp4shpy_http_user', '');
-        $this->httpPass  = get_option('wp4shpy_http_pass', '');
+        $this->appUrl    = 'https://app-wash.tradik.com';
+        $this->apiKey    = get_option('wash_api_key', '');
+        $this->apiSecret = get_option('wash_api_secret', '');
+        $this->httpUser  = get_option('wash_http_user', '');
+        $this->httpPass  = get_option('wash_http_pass', '');
     }
 
     /**
@@ -39,7 +39,7 @@ class wp4shpyApiClient {
      */
     public function get($endpoint) {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wp4shpy_not_configured', __('wp4shpy is not configured.', 'wp4shpy'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
         }
 
         $url = $this->appUrl . $endpoint;
@@ -47,8 +47,8 @@ class wp4shpyApiClient {
 
         $headers = [
             'Accept'                 => 'application/json',
-            'X-WP4Shopify-Key'       => $this->apiKey,
-            'X-WP4Shopify-Timestamp' => $timestamp,
+            'X-Wash-Key'       => $this->apiKey,
+            'X-Wash-Timestamp' => $timestamp,
         ];
 
         // Add HTTP Basic Auth if configured
@@ -71,11 +71,11 @@ class wp4shpyApiClient {
 
         if ($code >= 400) {
             $errorMsg = $this->extractErrorMessage($responseBody, $body, $code);
-            return new \WP_Error('wp4shpy_api_error', $errorMsg, ['status' => $code]);
+            return new \WP_Error('wash_api_error', $errorMsg, ['status' => $code]);
         }
 
         if ($responseBody === null && !empty($body)) {
-            return new \WP_Error('wp4shpy_invalid_response', __('Invalid JSON response from API', 'wp4shpy'));
+            return new \WP_Error('wash_invalid_response', __('Invalid JSON response from API', 'wash'));
         }
 
         return $responseBody;
@@ -89,33 +89,33 @@ class wp4shpyApiClient {
      * @return array|WP_Error  Decoded response or WP_Error
      */
     public function post($endpoint, array $data) {
-        error_log("[wp4shpy API] POST request to endpoint: {$endpoint}");
+        error_log("[wash API] POST request to endpoint: {$endpoint}");
 
         if (empty($this->apiKey)) {
-            error_log("[wp4shpy API] ERROR: API key is empty - not configured");
-            return new \WP_Error('wp4shpy_not_configured', __('wp4shpy is not configured.', 'wp4shpy'));
+            error_log("[wash API] ERROR: API key is empty - not configured");
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
         }
 
         $url = $this->appUrl . $endpoint;
         $body = wp_json_encode($data);
         $timestamp = (string) time();
 
-        error_log("[wp4shpy API] URL: {$url}");
-        error_log("[wp4shpy API] API Key (first 8 chars): " . substr($this->apiKey, 0, 8) . "...");
+        error_log("[wash API] URL: {$url}");
+        error_log("[wash API] API Key (first 8 chars): " . substr($this->apiKey, 0, 8) . "...");
 
         $headers = [
             'Content-Type'           => 'application/json',
-            'X-WP4Shopify-Key'       => $this->apiKey,
-            'X-WP4Shopify-Timestamp' => $timestamp,
-            'X-WP4Shopify-Signature' => $this->signRequest($timestamp, $body),
+            'X-Wash-Key'       => $this->apiKey,
+            'X-Wash-Timestamp' => $timestamp,
+            'X-Wash-Signature' => $this->signRequest($timestamp, $body),
         ];
 
         $result = $this->sendWithRetry($url, $body, $headers);
 
         if (is_wp_error($result)) {
-            error_log("[wp4shpy API] ERROR: " . $result->get_error_message());
+            error_log("[wash API] ERROR: " . $result->get_error_message());
         } else {
-            error_log("[wp4shpy API] SUCCESS: " . wp_json_encode($result));
+            error_log("[wash API] SUCCESS: " . wp_json_encode($result));
         }
 
         return $result;
@@ -129,7 +129,7 @@ class wp4shpyApiClient {
      */
     public function delete($endpoint) {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wp4shpy_not_configured', __('wp4shpy is not configured.', 'wp4shpy'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
         }
 
         $url = $this->appUrl . $endpoint;
@@ -137,8 +137,8 @@ class wp4shpyApiClient {
 
         $headers = [
             'Accept'                 => 'application/json',
-            'X-WP4Shopify-Key'       => $this->apiKey,
-            'X-WP4Shopify-Timestamp' => $timestamp,
+            'X-Wash-Key'       => $this->apiKey,
+            'X-Wash-Timestamp' => $timestamp,
         ];
 
         // Add HTTP Basic Auth if configured
@@ -162,7 +162,7 @@ class wp4shpyApiClient {
 
         if ($code >= 400) {
             $errorMsg = $this->extractErrorMessage($responseBody, $body, $code);
-            return new \WP_Error('wp4shpy_api_error', $errorMsg, ['status' => $code]);
+            return new \WP_Error('wash_api_error', $errorMsg, ['status' => $code]);
         }
 
         return $responseBody ?: ['success' => true];
@@ -192,7 +192,7 @@ class wp4shpyApiClient {
 
         $code = wp_remote_retrieve_response_code($response);
         if ($code !== 200) {
-            return new \WP_Error('wp4shpy_health_fail', sprintf(__('Health check failed with status %d', 'wp4shpy'), $code));
+            return new \WP_Error('wash_health_fail', sprintf(__('Health check failed with status %d', 'wash'), $code));
         }
 
         return json_decode(wp_remote_retrieve_body($response), true);
@@ -206,7 +206,7 @@ class wp4shpyApiClient {
      */
     public function diagnose() {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wp4shpy_not_configured', __('wp4shpy is not configured.', 'wp4shpy'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
         }
 
         $url = $this->appUrl . '/api/diagnose';
@@ -214,8 +214,8 @@ class wp4shpyApiClient {
 
         $headers = [
             'Accept'                 => 'application/json',
-            'X-WP4Shopify-Key'       => $this->apiKey,
-            'X-WP4Shopify-Timestamp' => $timestamp,
+            'X-Wash-Key'       => $this->apiKey,
+            'X-Wash-Timestamp' => $timestamp,
         ];
 
         // Add HTTP Basic Auth if configured
@@ -241,7 +241,7 @@ class wp4shpyApiClient {
             return $responseBody;
         }
 
-        return new \WP_Error('wp4shpy_diagnose_error', sprintf(__('Diagnosis failed (HTTP %d)', 'wp4shpy'), $code));
+        return new \WP_Error('wash_diagnose_error', sprintf(__('Diagnosis failed (HTTP %d)', 'wash'), $code));
     }
 
     /**
@@ -251,7 +251,7 @@ class wp4shpyApiClient {
      */
     public function debugSession() {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wp4shpy_not_configured', __('wp4shpy is not configured.', 'wp4shpy'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
         }
 
         $url = $this->appUrl . '/api/debug-session';
@@ -259,8 +259,8 @@ class wp4shpyApiClient {
 
         $headers = [
             'Accept'                 => 'application/json',
-            'X-WP4Shopify-Key'       => $this->apiKey,
-            'X-WP4Shopify-Timestamp' => $timestamp,
+            'X-Wash-Key'       => $this->apiKey,
+            'X-Wash-Timestamp' => $timestamp,
         ];
 
         if (!empty($this->httpUser) && !empty($this->httpPass)) {
@@ -284,7 +284,7 @@ class wp4shpyApiClient {
         }
 
         $code = wp_remote_retrieve_response_code($response);
-        return new \WP_Error('wp4shpy_debug_error', sprintf(__('Debug failed (HTTP %d)', 'wp4shpy'), $code));
+        return new \WP_Error('wash_debug_error', sprintf(__('Debug failed (HTTP %d)', 'wash'), $code));
     }
 
     /**
@@ -294,7 +294,7 @@ class wp4shpyApiClient {
      */
     public function resetSession() {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wp4shpy_not_configured', __('wp4shpy is not configured.', 'wp4shpy'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
         }
 
         $url = $this->appUrl . '/api/debug-session';
@@ -302,8 +302,8 @@ class wp4shpyApiClient {
 
         $headers = [
             'Accept'                 => 'application/json',
-            'X-WP4Shopify-Key'       => $this->apiKey,
-            'X-WP4Shopify-Timestamp' => $timestamp,
+            'X-Wash-Key'       => $this->apiKey,
+            'X-Wash-Timestamp' => $timestamp,
         ];
 
         if (!empty($this->httpUser) && !empty($this->httpPass)) {
@@ -328,7 +328,7 @@ class wp4shpyApiClient {
         }
 
         $code = wp_remote_retrieve_response_code($response);
-        return new \WP_Error('wp4shpy_reset_error', sprintf(__('Reset failed (HTTP %d)', 'wp4shpy'), $code));
+        return new \WP_Error('wash_reset_error', sprintf(__('Reset failed (HTTP %d)', 'wash'), $code));
     }
 
     /**
@@ -339,7 +339,7 @@ class wp4shpyApiClient {
      */
     public function fixSession() {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wp4shpy_not_configured', __('wp4shpy is not configured.', 'wp4shpy'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
         }
 
         $url = $this->appUrl . '/api/fix-session';
@@ -348,8 +348,8 @@ class wp4shpyApiClient {
         $headers = [
             'Accept'                 => 'application/json',
             'Content-Type'           => 'application/json',
-            'X-WP4Shopify-Key'       => $this->apiKey,
-            'X-WP4Shopify-Timestamp' => $timestamp,
+            'X-Wash-Key'       => $this->apiKey,
+            'X-Wash-Timestamp' => $timestamp,
         ];
 
         if (!empty($this->httpUser) && !empty($this->httpPass)) {
@@ -374,7 +374,7 @@ class wp4shpyApiClient {
         }
 
         $code = wp_remote_retrieve_response_code($response);
-        return new \WP_Error('wp4shpy_fix_error', sprintf(__('Fix session failed (HTTP %d)', 'wp4shpy'), $code));
+        return new \WP_Error('wash_fix_error', sprintf(__('Fix session failed (HTTP %d)', 'wash'), $code));
     }
 
     /**
@@ -384,10 +384,10 @@ class wp4shpyApiClient {
         // Add HTTP Basic Auth if configured
         if (!empty($this->httpUser) && !empty($this->httpPass)) {
             $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
-            error_log("[wp4shpy API] Using HTTP Basic Auth");
+            error_log("[wash API] Using HTTP Basic Auth");
         }
 
-        error_log("[wp4shpy API] Sending POST request (attempt: {$attempt})");
+        error_log("[wash API] Sending POST request (attempt: {$attempt})");
 
         $response = wp_remote_post($url, [
             'timeout' => 30,
@@ -396,29 +396,29 @@ class wp4shpyApiClient {
         ]);
 
         if (is_wp_error($response)) {
-            error_log("[wp4shpy API] wp_remote_post error: " . $response->get_error_message());
+            error_log("[wash API] wp_remote_post error: " . $response->get_error_message());
             return $response;
         }
 
         $code = wp_remote_retrieve_response_code($response);
-        error_log("[wp4shpy API] Response HTTP code: {$code}");
+        error_log("[wash API] Response HTTP code: {$code}");
 
         if ($code === 429 && $attempt < $this->maxRetries) {
             $retryAfter = (int) wp_remote_retrieve_header($response, 'retry-after');
             $delay = $retryAfter > 0 ? $retryAfter : pow(2, $attempt + 1);
-            error_log("[wp4shpy API] Rate limited, retrying in {$delay}s");
+            error_log("[wash API] Rate limited, retrying in {$delay}s");
             sleep($delay);
             return $this->sendWithRetry($url, $body, $headers, $attempt + 1);
         }
 
         $body = wp_remote_retrieve_body($response);
-        error_log("[wp4shpy API] Response body: " . substr($body, 0, 500));
+        error_log("[wash API] Response body: " . substr($body, 0, 500));
         $responseBody = json_decode($body, true);
 
         if ($code >= 400) {
             $errorMsg = $this->extractErrorMessage($responseBody, $body, $code);
-            error_log("[wp4shpy API] Error response: {$errorMsg}");
-            return new \WP_Error('wp4shpy_api_error', $errorMsg, ['status' => $code]);
+            error_log("[wash API] Error response: {$errorMsg}");
+            return new \WP_Error('wash_api_error', $errorMsg, ['status' => $code]);
         }
 
         return $responseBody;
@@ -440,12 +440,12 @@ class wp4shpyApiClient {
 
         // Check for common HTTP errors
         $httpErrors = [
-            401 => __('Unauthorized - check your API credentials', 'wp4shpy'),
-            403 => __('Forbidden - access denied', 'wp4shpy'),
-            404 => __('API endpoint not found', 'wp4shpy'),
-            500 => __('Server error - please try again later', 'wp4shpy'),
-            502 => __('Bad gateway - API server unavailable', 'wp4shpy'),
-            503 => __('Service unavailable - API server down', 'wp4shpy'),
+            401 => __('Unauthorized - check your API credentials', 'wash'),
+            403 => __('Forbidden - access denied', 'wash'),
+            404 => __('API endpoint not found', 'wash'),
+            500 => __('Server error - please try again later', 'wash'),
+            502 => __('Bad gateway - API server unavailable', 'wash'),
+            503 => __('Service unavailable - API server down', 'wash'),
         ];
 
         if (isset($httpErrors[$statusCode])) {
@@ -454,10 +454,10 @@ class wp4shpyApiClient {
 
         // If we have a raw body, include a snippet for debugging
         if (!empty($rawBody) && strlen($rawBody) < 200) {
-            return sprintf(__('API error (HTTP %d): %s', 'wp4shpy'), $statusCode, substr($rawBody, 0, 100));
+            return sprintf(__('API error (HTTP %d): %s', 'wash'), $statusCode, substr($rawBody, 0, 100));
         }
 
-        return sprintf(__('API error (HTTP %d)', 'wp4shpy'), $statusCode);
+        return sprintf(__('API error (HTTP %d)', 'wash'), $statusCode);
     }
 
     /**
@@ -483,7 +483,7 @@ class wp4shpyApiClient {
      * @return array|WP_Error Plan info or error.
      */
     public function getPlanInfo($forceRefresh = false) {
-        $cacheKey = 'wp4shpy_plan_info';
+        $cacheKey = 'wash_plan_info';
         $cached = get_transient($cacheKey);
 
         if ($cached !== false && !$forceRefresh) {
@@ -549,7 +549,7 @@ class wp4shpyApiClient {
      * Clear cached plan info.
      */
     public function clearPlanInfoCache() {
-        delete_transient('wp4shpy_plan_info');
+        delete_transient('wash_plan_info');
     }
 
     /**
@@ -560,22 +560,22 @@ class wp4shpyApiClient {
      */
     public function backupSettings() {
         $settings = [
-            'syncOnPublish'    => get_option('wp4shpy_sync_on_publish', '1'),
-            'syncImages'       => get_option('wp4shpy_sync_images', '1'),
-            'syncMetafields'   => get_option('wp4shpy_sync_metafields', '1'),
-            'postTypes'        => get_option('wp4shpy_post_types', 'post'),
-            'blockRobots'      => get_option('wp4shpy_block_robots', '1'),
-            'metaWpCore'       => get_option('wp4shpy_meta_wp_core', '1'),
-            'metaYoast'        => get_option('wp4shpy_meta_yoast', '0'),
-            'metaRankmath'     => get_option('wp4shpy_meta_rankmath', '0'),
-            'metaAcf'          => get_option('wp4shpy_meta_acf', '0'),
-            'hreflangsEnabled' => get_option('wp4shpy_hreflangs_enabled', '0'),
-            'authorsEnabled'   => get_option('wp4shpy_authors_enabled', '0'),
-            'authorMappings'   => get_option('wp4shpy_author_mappings', []),
-            'filesEnabled'     => get_option('wp4shpy_files_enabled', '1'),
-            'webpConvert'      => get_option('wp4shpy_webp_convert', '0'),
-            'allowedFileTypes' => get_option('wp4shpy_allowed_file_types', ['images']),
-            'rewriteUrls'      => get_option('wp4shpy_rewrite_internal_urls', '0'),
+            'syncOnPublish'    => get_option('wash_sync_on_publish', '1'),
+            'syncImages'       => get_option('wash_sync_images', '1'),
+            'syncMetafields'   => get_option('wash_sync_metafields', '1'),
+            'postTypes'        => get_option('wash_post_types', 'post'),
+            'blockRobots'      => get_option('wash_block_robots', '1'),
+            'metaWpCore'       => get_option('wash_meta_wp_core', '1'),
+            'metaYoast'        => get_option('wash_meta_yoast', '0'),
+            'metaRankmath'     => get_option('wash_meta_rankmath', '0'),
+            'metaAcf'          => get_option('wash_meta_acf', '0'),
+            'hreflangsEnabled' => get_option('wash_hreflangs_enabled', '0'),
+            'authorsEnabled'   => get_option('wash_authors_enabled', '0'),
+            'authorMappings'   => get_option('wash_author_mappings', []),
+            'filesEnabled'     => get_option('wash_files_enabled', '1'),
+            'webpConvert'      => get_option('wash_webp_convert', '0'),
+            'allowedFileTypes' => get_option('wash_allowed_file_types', ['images']),
+            'rewriteUrls'      => get_option('wash_rewrite_internal_urls', '0'),
         ];
 
         return $this->post('/api/settings-sync', $settings);
@@ -603,22 +603,22 @@ class wp4shpyApiClient {
         }
 
         $optionMap = [
-            'syncOnPublish'    => 'wp4shpy_sync_on_publish',
-            'syncImages'       => 'wp4shpy_sync_images',
-            'syncMetafields'   => 'wp4shpy_sync_metafields',
-            'postTypes'        => 'wp4shpy_post_types',
-            'blockRobots'      => 'wp4shpy_block_robots',
-            'metaWpCore'       => 'wp4shpy_meta_wp_core',
-            'metaYoast'        => 'wp4shpy_meta_yoast',
-            'metaRankmath'     => 'wp4shpy_meta_rankmath',
-            'metaAcf'          => 'wp4shpy_meta_acf',
-            'hreflangsEnabled' => 'wp4shpy_hreflangs_enabled',
-            'authorsEnabled'   => 'wp4shpy_authors_enabled',
-            'authorMappings'   => 'wp4shpy_author_mappings',
-            'filesEnabled'     => 'wp4shpy_files_enabled',
-            'webpConvert'      => 'wp4shpy_webp_convert',
-            'allowedFileTypes' => 'wp4shpy_allowed_file_types',
-            'rewriteUrls'      => 'wp4shpy_rewrite_internal_urls',
+            'syncOnPublish'    => 'wash_sync_on_publish',
+            'syncImages'       => 'wash_sync_images',
+            'syncMetafields'   => 'wash_sync_metafields',
+            'postTypes'        => 'wash_post_types',
+            'blockRobots'      => 'wash_block_robots',
+            'metaWpCore'       => 'wash_meta_wp_core',
+            'metaYoast'        => 'wash_meta_yoast',
+            'metaRankmath'     => 'wash_meta_rankmath',
+            'metaAcf'          => 'wash_meta_acf',
+            'hreflangsEnabled' => 'wash_hreflangs_enabled',
+            'authorsEnabled'   => 'wash_authors_enabled',
+            'authorMappings'   => 'wash_author_mappings',
+            'filesEnabled'     => 'wash_files_enabled',
+            'webpConvert'      => 'wash_webp_convert',
+            'allowedFileTypes' => 'wash_allowed_file_types',
+            'rewriteUrls'      => 'wash_rewrite_internal_urls',
         ];
 
         foreach ($optionMap as $key => $option) {

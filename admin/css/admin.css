@@ -1,6 +1,6 @@
-/* wp4shpy Admin Styles */
+/* wash Admin Styles */
 
-.wp4shpy-settings h1 {
+.wash-settings h1 {
   display: flex;
   align-items: center;
   font-size: 23px;
@@ -9,11 +9,11 @@
   margin-bottom: 8px;
 }
 
-.wp4shpy-settings .nav-tab-wrapper {
+.wash-settings .nav-tab-wrapper {
   margin-bottom: 20px;
 }
 
-.wp4shpy-settings .title {
+.wash-settings .title {
   font-size: 16px;
   color: #1d2327;
   padding-top: 20px;
@@ -21,126 +21,126 @@
   margin-top: 24px;
 }
 
-.wp4shpy-settings .title:first-of-type {
+.wash-settings .title:first-of-type {
   border-top: none;
   padding-top: 0;
   margin-top: 0;
 }
 
-.wp4shpy-connection-status .notice {
+.wash-connection-status .notice {
   margin: 16px 0;
   border-left-width: 4px;
 }
 
-.wp4shpy-connection-status .notice-success {
+.wash-connection-status .notice-success {
   border-left-color: #50B83C;
 }
 
-.wp4shpy-connection-status .notice-error {
+.wash-connection-status .notice-error {
   border-left-color: #DE3618;
 }
 
-#wp4shpy-test-connection {
+#wash-test-connection {
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
-#wp4shpy-test-connection .dashicons {
+#wash-test-connection .dashicons {
   font-size: 16px;
   width: 16px;
   height: 16px;
 }
 
-#wp4shpy-test-connection.is-loading {
+#wash-test-connection.is-loading {
   opacity: 0.7;
   pointer-events: none;
 }
 
-.wp4shpy-settings .form-table th {
+.wash-settings .form-table th {
   width: 200px;
 }
 
-.wp4shpy-settings .form-table .description {
+.wash-settings .form-table .description {
   color: #646970;
   font-style: italic;
   margin-top: 4px;
 }
 
 /* Posts list: Shopify sync status column */
-.column-wp4shpy_sync {
+.column-wash_sync {
   width: 40px;
   text-align: center;
 }
 
-.column-wp4shpy_sync .dashicons {
+.column-wash_sync .dashicons {
   font-size: 18px;
   width: 18px;
   height: 18px;
   vertical-align: middle;
 }
 
-.column-wp4shpy_sync a {
+.column-wash_sync a {
   text-decoration: none;
 }
 
-.column-wp4shpy_sync a:hover .dashicons {
+.column-wash_sync a:hover .dashicons {
   color: #135e96 !important;
 }
 
 /* Locked tabs styling */
-.wp4shpy-tabs .nav-tab-locked {
+.wash-tabs .nav-tab-locked {
   opacity: 0.6;
   cursor: not-allowed;
   position: relative;
 }
 
-.wp4shpy-tabs .nav-tab-locked:hover {
+.wash-tabs .nav-tab-locked:hover {
   background: #f0f0f1;
   border-bottom-color: #c3c4c7;
 }
 
-.wp4shpy-tabs .nav-tab-locked .dashicons-lock {
+.wash-tabs .nav-tab-locked .dashicons-lock {
   margin-left: 4px;
   vertical-align: text-bottom;
 }
 
 /* Plan badge in header */
-.wp4shpy-plan-badge {
+.wash-plan-badge {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 /* Usage summary bar */
-.wp4shpy-usage-summary strong {
+.wash-usage-summary strong {
   color: #1d2327;
 }
 
 /* Locked tab content panel */
-.wp4shpy-tab-content--locked {
+.wash-tab-content--locked {
   position: relative;
 }
 
 /* Disabled form elements in locked tabs */
-.wp4shpy-tab-content--locked input:disabled,
-.wp4shpy-tab-content--locked select:disabled,
-.wp4shpy-tab-content--locked textarea:disabled,
-.wp4shpy-tab-content--locked button:disabled {
+.wash-tab-content--locked input:disabled,
+.wash-tab-content--locked select:disabled,
+.wash-tab-content--locked textarea:disabled,
+.wash-tab-content--locked button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   background-color: #f0f0f1;
 }
 
-.wp4shpy-tab-content--locked label {
+.wash-tab-content--locked label {
   opacity: 0.7;
 }
 
-.wp4shpy-tab-content--locked .description {
+.wash-tab-content--locked .description {
   opacity: 0.7;
 }
 
 /* Locked tab upgrade banner */
-.wp4shpy-locked-banner {
+.wash-locked-banner {
   background: linear-gradient(135deg, #96bf48 0%, #7ea63a 100%);
   color: #fff;
   padding: 15px 20px;
@@ -152,43 +152,43 @@
   border-radius: 4px;
 }
 
-.wp4shpy-locked-banner__text {
+.wash-locked-banner__text {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.wp4shpy-locked-banner__text .dashicons {
+.wash-locked-banner__text .dashicons {
   font-size: 24px;
   width: 24px;
   height: 24px;
 }
 
-.wp4shpy-locked-banner__actions {
+.wash-locked-banner__actions {
   display: flex;
   gap: 10px;
 }
 
-.wp4shpy-locked-banner .button {
+.wash-locked-banner .button {
   background: #fff;
   color: #1d2327;
   border: none;
 }
 
-.wp4shpy-locked-banner .button:hover {
+.wash-locked-banner .button:hover {
   background: #f0f0f1;
   color: #1d2327;
 }
 
 /* Accordion / Collapsible sections */
-.wp4shpy-accordion {
+.wash-accordion {
   border: 1px solid #c3c4c7;
   border-radius: 4px;
   margin: 15px 0;
   overflow: hidden;
 }
 
-.wp4shpy-accordion__header {
+.wash-accordion__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -199,11 +199,11 @@
   transition: background-color 0.2s;
 }
 
-.wp4shpy-accordion__header:hover {
+.wash-accordion__header:hover {
   background: #f0f0f1;
 }
 
-.wp4shpy-accordion__title {
+.wash-accordion__title {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -213,99 +213,99 @@
   color: #1d2327;
 }
 
-.wp4shpy-accordion__title .dashicons {
+.wash-accordion__title .dashicons {
   color: #2271b1;
 }
 
-.wp4shpy-accordion__toggle {
+.wash-accordion__toggle {
   transition: transform 0.2s;
 }
 
-.wp4shpy-accordion--open .wp4shpy-accordion__toggle {
+.wash-accordion--open .wash-accordion__toggle {
   transform: rotate(180deg);
 }
 
-.wp4shpy-accordion__content {
+.wash-accordion__content {
   display: none;
   padding: 20px;
   border-top: 1px solid #c3c4c7;
   background: #fff;
 }
 
-.wp4shpy-accordion--open .wp4shpy-accordion__content {
+.wash-accordion--open .wash-accordion__content {
   display: block;
 }
 
 /* Accordion variants */
-.wp4shpy-accordion--info {
+.wash-accordion--info {
   border-color: #c5d9ed;
 }
 
-.wp4shpy-accordion--info .wp4shpy-accordion__header {
+.wash-accordion--info .wash-accordion__header {
   background: #f0f6fc;
 }
 
-.wp4shpy-accordion--info .wp4shpy-accordion__header:hover {
+.wash-accordion--info .wash-accordion__header:hover {
   background: #e5f0fa;
 }
 
-.wp4shpy-accordion--dark {
+.wash-accordion--dark {
   border-color: #3c3c3c;
 }
 
-.wp4shpy-accordion--dark .wp4shpy-accordion__header {
+.wash-accordion--dark .wash-accordion__header {
   background: #2d2d2d;
 }
 
-.wp4shpy-accordion--dark .wp4shpy-accordion__header:hover {
+.wash-accordion--dark .wash-accordion__header:hover {
   background: #3c3c3c;
 }
 
-.wp4shpy-accordion--dark .wp4shpy-accordion__title {
+.wash-accordion--dark .wash-accordion__title {
   color: #fff;
 }
 
-.wp4shpy-accordion--dark .wp4shpy-accordion__title .dashicons {
+.wash-accordion--dark .wash-accordion__title .dashicons {
   color: #96bf48;
 }
 
-.wp4shpy-accordion--dark .wp4shpy-accordion__toggle {
+.wash-accordion--dark .wash-accordion__toggle {
   color: #fff;
 }
 
-.wp4shpy-accordion--dark .wp4shpy-accordion__content {
+.wash-accordion--dark .wash-accordion__content {
   background: #1e1e1e;
   border-color: #3c3c3c;
 }
 
-.wp4shpy-accordion--warning {
+.wash-accordion--warning {
   border-color: #d63638;
 }
 
-.wp4shpy-accordion--warning .wp4shpy-accordion__header {
+.wash-accordion--warning .wash-accordion__header {
   background: #fef0f0;
 }
 
-.wp4shpy-accordion--warning .wp4shpy-accordion__header:hover {
+.wash-accordion--warning .wash-accordion__header:hover {
   background: #fde8e8;
 }
 
-.wp4shpy-accordion--warning .wp4shpy-accordion__title .dashicons {
+.wash-accordion--warning .wash-accordion__title .dashicons {
   color: #d63638;
 }
 
-.wp4shpy-accordion--tip {
+.wash-accordion--tip {
   border-color: #f0c674;
 }
 
-.wp4shpy-accordion--tip .wp4shpy-accordion__header {
+.wash-accordion--tip .wash-accordion__header {
   background: #fff8e5;
 }
 
-.wp4shpy-accordion--tip .wp4shpy-accordion__header:hover {
+.wash-accordion--tip .wash-accordion__header:hover {
   background: #fff3d6;
 }
 
-.wp4shpy-accordion--tip .wp4shpy-accordion__title .dashicons {
+.wash-accordion--tip .wash-accordion__title .dashicons {
   color: #8b5a00;
 }

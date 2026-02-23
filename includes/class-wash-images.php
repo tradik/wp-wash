@@ -3,20 +3,20 @@
  * File synchronization handler.
  * Uploads WordPress media attachments (images, PDFs, documents) to Shopify and handles deletion.
  */
-class wp4shpyImages {
+class WashImages {
 
-    /** @var wp4shpyApiClient */
+    /** @var WashApiClient */
     private $apiClient;
 
     public function __construct() {
-        $this->apiClient = new wp4shpyApiClient();
+        $this->apiClient = new WashApiClient();
     }
 
     /**
      * Register WordPress hooks for file sync.
      */
     public function init() {
-        if (get_option('wp4shpy_sync_images') !== '1') {
+        if (get_option('wash_sync_images') !== '1') {
             return;
         }
 
@@ -48,7 +48,7 @@ class wp4shpyImages {
             return;
         }
 
-        $shopifyFileId = get_post_meta($attachmentId, '_wp4shpy_file_id', true);
+        $shopifyFileId = get_post_meta($attachmentId, '_wash_file_id', true);
         if ($shopifyFileId) {
             $this->deleteFromShopify($attachmentId);
         }
@@ -71,7 +71,7 @@ class wp4shpyImages {
 
     /**
      * Public method to sync a single file (image or document).
-     * Called by wp4shpyFilesMedia for manual sync.
+     * Called by WashFilesMedia for manual sync.
      *
      * @param int $attachmentId Attachment ID.
      * @return bool Success status.
@@ -115,7 +115,7 @@ class wp4shpyImages {
         $processedData = null;
 
         // Check if WebP conversion is enabled
-        if (get_option('wp4shpy_webp_convert') === '1' && $this->isConvertibleToWebp($mimeType)) {
+        if (get_option('wash_webp_convert') === '1' && $this->isConvertibleToWebp($mimeType)) {
             $processed = $this->processImageToWebp($imageUrl, $filename);
             if ($processed) {
                 $processedData = $processed['processedData'];
@@ -142,20 +142,20 @@ class wp4shpyImages {
         $result = $this->apiClient->post('/api/image-sync', $payload);
 
         if (is_wp_error($result)) {
-            error_log("[wp4shpy] uploadToShopify() - API error: " . $result->get_error_message());
+            error_log("[wash] uploadToShopify() - API error: " . $result->get_error_message());
             return false;
         }
 
         if (!isset($result['shopifyFileId'])) {
-            error_log("[wp4shpy] uploadToShopify() - Missing shopifyFileId in response");
+            error_log("[wash] uploadToShopify() - Missing shopifyFileId in response");
             return false;
         }
 
         $cdnUrl = $result['shopifyCdnUrl'] ?? '';
-        error_log("[wp4shpy] uploadToShopify() - Attachment {$attachmentId} synced. CDN URL: " . ($cdnUrl ?: 'EMPTY'));
+        error_log("[wash] uploadToShopify() - Attachment {$attachmentId} synced. CDN URL: " . ($cdnUrl ?: 'EMPTY'));
 
-        update_post_meta($attachmentId, '_wp4shpy_file_id', $result['shopifyFileId']);
-        update_post_meta($attachmentId, '_wp4shpy_cdn_url', $cdnUrl);
+        update_post_meta($attachmentId, '_wash_file_id', $result['shopifyFileId']);
+        update_post_meta($attachmentId, '_wash_cdn_url', $cdnUrl);
 
         return !empty($cdnUrl);
     }
@@ -218,8 +218,8 @@ class wp4shpyImages {
         ]);
 
         if (!is_wp_error($result)) {
-            delete_post_meta($attachmentId, '_wp4shpy_file_id');
-            delete_post_meta($attachmentId, '_wp4shpy_cdn_url');
+            delete_post_meta($attachmentId, '_wash_file_id');
+            delete_post_meta($attachmentId, '_wash_cdn_url');
         }
     }
 
@@ -235,7 +235,7 @@ class wp4shpyImages {
             return false;
         }
 
-        $allowedTypes = get_option('wp4shpy_allowed_file_types', ['images']);
+        $allowedTypes = get_option('wash_allowed_file_types', ['images']);
         if (!is_array($allowedTypes)) {
             $allowedTypes = ['images'];
         }
@@ -327,6 +327,6 @@ class wp4shpyImages {
      * @return string|null Shopify CDN URL or null
      */
     public static function getShopifyCdnUrl($attachmentId) {
-        return get_post_meta($attachmentId, '_wp4shpy_cdn_url', true) ?: null;
+        return get_post_meta($attachmentId, '_wash_cdn_url', true) ?: null;
     }
 }
