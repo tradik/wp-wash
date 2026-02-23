@@ -1,9 +1,9 @@
-# Polish translation for WP4Shpy
+# Polish translation for wash
 # Copyright (C) 2026 Tradik
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WP4Shpy 1.8.0\n"
+"Project-Id-Version: wash 1.8.0\n"
 "Report-Msgid-Bugs-To: https://github.com/tradik/wp4shopify/issues\n"
 "POT-Creation-Date: 2026-02-22T12:00:00+00:00\n"
 "PO-Revision-Date: 2026-02-22T12:00:00+00:00\n"
