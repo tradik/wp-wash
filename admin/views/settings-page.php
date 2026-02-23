@@ -80,6 +80,27 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
         $lockIcon
     );
 }
+
+/**
+ * Get tab content attributes for locked state.
+ */
+function wp4shpy_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans, $upgradeUrl) {
+    $featureName = $tabFeatures[$tab] ?? null;
+    $isLocked = $featureName && wp4shpy_is_feature_locked($featureName, $features);
+    $requiredPlan = $featurePlans[$featureName] ?? 'PRO';
+
+    $class = 'wp4shpy-tab-content';
+    if ($isLocked) {
+        $class .= ' wp4shpy-tab-content--locked';
+    }
+
+    return [
+        'class' => $class,
+        'isLocked' => $isLocked,
+        'requiredPlan' => $requiredPlan,
+        'upgradeUrl' => $upgradeUrl,
+    ];
+}
 ?>
 <div class="wrap wp4shpy-settings">
     <h1>
@@ -292,7 +313,8 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Blogs Tab -->
-        <div class="wp4shpy-tab-content" id="tab-blogs" style="display: none;">
+        <?php $blogsTabAttrs = wp4shpy_get_tab_content_class('blogs', $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <div class="<?php echo esc_attr($blogsTabAttrs['class']); ?>" id="tab-blogs" style="display: none;" data-locked="<?php echo $blogsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($blogsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($blogsTabAttrs['upgradeUrl']); ?>">
             <h2 class="title"><?php esc_html_e('Blog Routing Rules', 'wp4shpy'); ?></h2>
             <p class="description">
                 <?php esc_html_e('Route WordPress posts to different Shopify blogs based on language or category.', 'wp4shpy'); ?>
@@ -385,7 +407,8 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Redirections Tab -->
-        <div class="wp4shpy-tab-content" id="tab-redirections" style="display: none;">
+        <?php $redirectionsTabAttrs = wp4shpy_get_tab_content_class('redirections', $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <div class="<?php echo esc_attr($redirectionsTabAttrs['class']); ?>" id="tab-redirections" style="display: none;" data-locked="<?php echo $redirectionsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($redirectionsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($redirectionsTabAttrs['upgradeUrl']); ?>">
             <h2 class="title"><?php esc_html_e('URL Redirections Management', 'wp4shpy'); ?></h2>
             <p class="description"><?php esc_html_e('Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration.', 'wp4shpy'); ?></p>
 
@@ -722,7 +745,8 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Hreflangs Tab -->
-        <div class="wp4shpy-tab-content" id="tab-hreflangs" style="display: none;">
+        <?php $hreflangsTabAttrs = wp4shpy_get_tab_content_class('hreflangs', $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <div class="<?php echo esc_attr($hreflangsTabAttrs['class']); ?>" id="tab-hreflangs" style="display: none;" data-locked="<?php echo $hreflangsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($hreflangsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($hreflangsTabAttrs['upgradeUrl']); ?>">
             <h2 class="title"><?php esc_html_e('Hreflang Tags Configuration', 'wp4shpy'); ?></h2>
             <p class="description"><?php esc_html_e('Configure hreflang tags for multi-language SEO on Shopify.', 'wp4shpy'); ?></p>
 
@@ -770,87 +794,101 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
             </table>
 
             <!-- Supported Plugins -->
-            <div class="wp4shpy-info-section" style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">
-                    <span class="dashicons dashicons-admin-plugins" style="color: #2271b1;"></span>
-                    <?php esc_html_e('Supported Multilingual Plugins', 'wp4shpy'); ?>
-                </h3>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
-                    <div style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
-                        <strong>WPML</strong>
-                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Full support with automatic translation detection', 'wp4shpy'); ?></p>
-                    </div>
-                    <div style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
-                        <strong>Polylang</strong>
-                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Full support with locale detection', 'wp4shpy'); ?></p>
-                    </div>
-                    <div style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
-                        <strong>TranslatePress</strong>
-                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Partial support (URL-based translations)', 'wp4shpy'); ?></p>
-                    </div>
-                    <div style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
-                        <strong>Weglot</strong>
-                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Partial support (API-based)', 'wp4shpy'); ?></p>
-                    </div>
-                    <div style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
-                        <strong>Lokalise</strong>
-                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Via WPML integration', 'wp4shpy'); ?></p>
+            <div class="wp4shpy-accordion wp4shpy-accordion--info">
+                <div class="wp4shpy-accordion__header" onclick="this.parentElement.classList.toggle('wp4shpy-accordion--open')">
+                    <h3 class="wp4shpy-accordion__title">
+                        <span class="dashicons dashicons-admin-plugins"></span>
+                        <?php esc_html_e('Supported Multilingual Plugins', 'wp4shpy'); ?>
+                    </h3>
+                    <span class="dashicons dashicons-arrow-down-alt2 wp4shpy-accordion__toggle"></span>
+                </div>
+                <div class="wp4shpy-accordion__content">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="background: #f9f9f9; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
+                            <strong>WPML</strong>
+                            <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Full support with automatic translation detection', 'wp4shpy'); ?></p>
+                        </div>
+                        <div style="background: #f9f9f9; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
+                            <strong>Polylang</strong>
+                            <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Full support with locale detection', 'wp4shpy'); ?></p>
+                        </div>
+                        <div style="background: #f9f9f9; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
+                            <strong>TranslatePress</strong>
+                            <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Partial support (URL-based translations)', 'wp4shpy'); ?></p>
+                        </div>
+                        <div style="background: #f9f9f9; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
+                            <strong>Weglot</strong>
+                            <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Partial support (API-based)', 'wp4shpy'); ?></p>
+                        </div>
+                        <div style="background: #f9f9f9; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
+                            <strong>Lokalise</strong>
+                            <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Via WPML integration', 'wp4shpy'); ?></p>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- How It Works -->
-            <div class="wp4shpy-info-section" style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">
-                    <span class="dashicons dashicons-info" style="color: #2271b1;"></span>
-                    <?php esc_html_e('How Hreflang Syncing Works', 'wp4shpy'); ?>
-                </h3>
-                <p><?php esc_html_e('When enabled, wp4shpy will sync the following data as Shopify article metafields:', 'wp4shpy'); ?></p>
-                <table class="widefat" style="margin-top: 10px;">
-                    <thead>
-                        <tr>
-                            <th><?php esc_html_e('Metafield Key', 'wp4shpy'); ?></th>
-                            <th><?php esc_html_e('Namespace', 'wp4shpy'); ?></th>
-                            <th><?php esc_html_e('Example Value', 'wp4shpy'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><code>hreflang_en_us</code></td>
-                            <td><code>wp4shopify_hreflang</code></td>
-                            <td><code>https://store.myshopify.com/blogs/news/article-en</code></td>
-                        </tr>
-                        <tr>
-                            <td><code>hreflang_de_de</code></td>
-                            <td><code>wp4shopify_hreflang</code></td>
-                            <td><code>https://store.myshopify.com/blogs/news/artikel-de</code></td>
-                        </tr>
-                        <tr>
-                            <td><code>hreflang_pl_pl</code></td>
-                            <td><code>wp4shopify_hreflang</code></td>
-                            <td><code>https://store.myshopify.com/blogs/news/artykul-pl</code></td>
-                        </tr>
-                        <tr>
-                            <td><code>hreflang_x_default</code></td>
-                            <td><code>wp4shopify_hreflang</code></td>
-                            <td><code>https://store.myshopify.com/blogs/news/article-en</code></td>
-                        </tr>
-                    </tbody>
-                </table>
-                <p style="margin-top: 15px; color: #666; font-size: 13px;">
-                    <span class="dashicons dashicons-info-outline"></span>
-                    <?php esc_html_e('Each translation gets its own metafield. When a translation is removed in WordPress, the corresponding metafield is automatically cleared in Shopify.', 'wp4shpy'); ?>
-                </p>
+            <div class="wp4shpy-accordion wp4shpy-accordion--info">
+                <div class="wp4shpy-accordion__header" onclick="this.parentElement.classList.toggle('wp4shpy-accordion--open')">
+                    <h3 class="wp4shpy-accordion__title">
+                        <span class="dashicons dashicons-info"></span>
+                        <?php esc_html_e('How Hreflang Syncing Works', 'wp4shpy'); ?>
+                    </h3>
+                    <span class="dashicons dashicons-arrow-down-alt2 wp4shpy-accordion__toggle"></span>
+                </div>
+                <div class="wp4shpy-accordion__content">
+                    <p><?php esc_html_e('When enabled, wp4shpy will sync the following data as Shopify article metafields:', 'wp4shpy'); ?></p>
+                    <table class="widefat" style="margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Metafield Key', 'wp4shpy'); ?></th>
+                                <th><?php esc_html_e('Namespace', 'wp4shpy'); ?></th>
+                                <th><?php esc_html_e('Example Value', 'wp4shpy'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>hreflang_en_us</code></td>
+                                <td><code>wp4shopify_hreflang</code></td>
+                                <td><code>https://store.myshopify.com/blogs/news/article-en</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>hreflang_de_de</code></td>
+                                <td><code>wp4shopify_hreflang</code></td>
+                                <td><code>https://store.myshopify.com/blogs/news/artikel-de</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>hreflang_pl_pl</code></td>
+                                <td><code>wp4shopify_hreflang</code></td>
+                                <td><code>https://store.myshopify.com/blogs/news/artykul-pl</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>hreflang_x_default</code></td>
+                                <td><code>wp4shopify_hreflang</code></td>
+                                <td><code>https://store.myshopify.com/blogs/news/article-en</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 15px; color: #666; font-size: 13px;">
+                        <span class="dashicons dashicons-info-outline"></span>
+                        <?php esc_html_e('Each translation gets its own metafield. When a translation is removed in WordPress, the corresponding metafield is automatically cleared in Shopify.', 'wp4shpy'); ?>
+                    </p>
+                </div>
             </div>
 
             <!-- Liquid Code Example -->
-            <div class="wp4shpy-info-section" style="background: #1e1e1e; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0; color: #fff;">
-                    <span class="dashicons dashicons-editor-code" style="color: #96bf48;"></span>
-                    <?php esc_html_e('Liquid Code for theme.liquid', 'wp4shpy'); ?>
-                </h3>
-                <p style="color: #999; font-size: 13px;"><?php esc_html_e('Add this code inside the &lt;head&gt; section of your theme (layout/theme.liquid):', 'wp4shpy'); ?></p>
-                <pre style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;">&lt;!-- WP4Shopify Hreflang Tags --&gt;
+            <div class="wp4shpy-accordion wp4shpy-accordion--dark">
+                <div class="wp4shpy-accordion__header" onclick="this.parentElement.classList.toggle('wp4shpy-accordion--open')">
+                    <h3 class="wp4shpy-accordion__title">
+                        <span class="dashicons dashicons-editor-code"></span>
+                        <?php esc_html_e('Liquid Code for theme.liquid', 'wp4shpy'); ?>
+                    </h3>
+                    <span class="dashicons dashicons-arrow-down-alt2 wp4shpy-accordion__toggle"></span>
+                </div>
+                <div class="wp4shpy-accordion__content">
+                    <p style="color: #999; font-size: 13px;"><?php esc_html_e('Add this code inside the &lt;head&gt; section of your theme (layout/theme.liquid):', 'wp4shpy'); ?></p>
+                    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;">&lt;!-- WP4Shopify Hreflang Tags --&gt;
 {% if article %}
   {% assign ns = 'wp4shopify_hreflang' %}
 
@@ -861,57 +899,69 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
     {% endif %}
   {% endfor %}
 {% endif %}</pre>
-                <p style="color: #999; font-size: 12px; margin-top: 10px;">
-                    <span class="dashicons dashicons-info-outline" style="color: #999;"></span>
-                    <?php esc_html_e('This code automatically outputs all hreflang tags including x-default.', 'wp4shpy'); ?>
-                </p>
+                    <p style="color: #999; font-size: 12px; margin-top: 10px;">
+                        <span class="dashicons dashicons-info-outline" style="color: #999;"></span>
+                        <?php esc_html_e('This code automatically outputs all hreflang tags including x-default.', 'wp4shpy'); ?>
+                    </p>
+                </div>
             </div>
 
             <!-- Important Warning -->
-            <div class="wp4shpy-info-section" style="background: #fef0f0; border: 2px solid #d63638; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0; color: #d63638;">
-                    <span class="dashicons dashicons-warning" style="color: #d63638;"></span>
-                    <?php esc_html_e('Important: Shopify Theme Configuration', 'wp4shpy'); ?>
-                </h3>
-                <p style="font-size: 14px; line-height: 1.6;">
-                    <?php esc_html_e('Shopify does NOT natively output hreflang tags for blog articles. You must manually add the Liquid code above to your theme.', 'wp4shpy'); ?>
-                </p>
-                <ol style="margin-left: 20px; line-height: 2;">
-                    <li>
-                        <strong><?php esc_html_e('Edit Your Theme', 'wp4shpy'); ?></strong><br>
-                        <span style="color: #666;"><?php esc_html_e('Go to Online Store → Themes → Edit code → layout/theme.liquid', 'wp4shpy'); ?></span>
-                    </li>
-                    <li>
-                        <strong><?php esc_html_e('Add the Liquid Code', 'wp4shpy'); ?></strong><br>
-                        <span style="color: #666;"><?php esc_html_e('Paste the code above inside the &lt;head&gt; section, before &lt;/head&gt;', 'wp4shpy'); ?></span>
-                    </li>
-                    <li>
-                        <strong><?php esc_html_e('Save and Test', 'wp4shpy'); ?></strong><br>
-                        <span style="color: #666;"><?php esc_html_e('View page source on an article to verify hreflang tags are present', 'wp4shpy'); ?></span>
-                    </li>
-                </ol>
+            <div class="wp4shpy-accordion wp4shpy-accordion--warning">
+                <div class="wp4shpy-accordion__header" onclick="this.parentElement.classList.toggle('wp4shpy-accordion--open')">
+                    <h3 class="wp4shpy-accordion__title">
+                        <span class="dashicons dashicons-warning"></span>
+                        <?php esc_html_e('Important: Shopify Theme Configuration', 'wp4shpy'); ?>
+                    </h3>
+                    <span class="dashicons dashicons-arrow-down-alt2 wp4shpy-accordion__toggle"></span>
+                </div>
+                <div class="wp4shpy-accordion__content">
+                    <p style="font-size: 14px; line-height: 1.6;">
+                        <?php esc_html_e('Shopify does NOT natively output hreflang tags for blog articles. You must manually add the Liquid code above to your theme.', 'wp4shpy'); ?>
+                    </p>
+                    <ol style="margin-left: 20px; line-height: 2;">
+                        <li>
+                            <strong><?php esc_html_e('Edit Your Theme', 'wp4shpy'); ?></strong><br>
+                            <span style="color: #666;"><?php esc_html_e('Go to Online Store → Themes → Edit code → layout/theme.liquid', 'wp4shpy'); ?></span>
+                        </li>
+                        <li>
+                            <strong><?php esc_html_e('Add the Liquid Code', 'wp4shpy'); ?></strong><br>
+                            <span style="color: #666;"><?php esc_html_e('Paste the code above inside the &lt;head&gt; section, before &lt;/head&gt;', 'wp4shpy'); ?></span>
+                        </li>
+                        <li>
+                            <strong><?php esc_html_e('Save and Test', 'wp4shpy'); ?></strong><br>
+                            <span style="color: #666;"><?php esc_html_e('View page source on an article to verify hreflang tags are present', 'wp4shpy'); ?></span>
+                        </li>
+                    </ol>
+                </div>
             </div>
 
-            <!-- Contact Support -->
-            <div class="wp4shpy-info-section" style="background: #fff8e5; border: 1px solid #f0c674; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">
-                    <span class="dashicons dashicons-lightbulb" style="color: #8b5a00;"></span>
-                    <?php esc_html_e('Alternative: Shopify Markets', 'wp4shpy'); ?>
-                </h3>
-                <p><?php esc_html_e('For stores with Shopify Plus or compatible plans, consider using Shopify Markets:', 'wp4shpy'); ?></p>
-                <ul style="margin-left: 20px; line-height: 1.8;">
-                    <li><?php esc_html_e('Built-in multi-language support', 'wp4shpy'); ?></li>
-                    <li><?php esc_html_e('Automatic hreflang tag generation', 'wp4shpy'); ?></li>
-                    <li><?php esc_html_e('No theme customization required', 'wp4shpy'); ?></li>
-                </ul>
-                <p style="margin-top: 15px; padding: 10px; background: #fff; border-radius: 4px;">
-                    <strong><?php esc_html_e('Note:', 'wp4shpy'); ?></strong> <?php esc_html_e('Shopify Markets works independently of this plugin. Use this feature when Markets is not available or you need custom hreflang handling.', 'wp4shpy'); ?>
-                </p>
+            <!-- Alternative: Shopify Markets -->
+            <div class="wp4shpy-accordion wp4shpy-accordion--tip">
+                <div class="wp4shpy-accordion__header" onclick="this.parentElement.classList.toggle('wp4shpy-accordion--open')">
+                    <h3 class="wp4shpy-accordion__title">
+                        <span class="dashicons dashicons-lightbulb"></span>
+                        <?php esc_html_e('Alternative: Shopify Markets', 'wp4shpy'); ?>
+                    </h3>
+                    <span class="dashicons dashicons-arrow-down-alt2 wp4shpy-accordion__toggle"></span>
+                </div>
+                <div class="wp4shpy-accordion__content">
+                    <p><?php esc_html_e('For stores with Shopify Plus or compatible plans, consider using Shopify Markets:', 'wp4shpy'); ?></p>
+                    <ul style="margin-left: 20px; line-height: 1.8;">
+                        <li><?php esc_html_e('Built-in multi-language support', 'wp4shpy'); ?></li>
+                        <li><?php esc_html_e('Automatic hreflang tag generation', 'wp4shpy'); ?></li>
+                        <li><?php esc_html_e('No theme customization required', 'wp4shpy'); ?></li>
+                    </ul>
+                    <p style="margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
+                        <strong><?php esc_html_e('Note:', 'wp4shpy'); ?></strong> <?php esc_html_e('Shopify Markets works independently of this plugin. Use this feature when Markets is not available or you need custom hreflang handling.', 'wp4shpy'); ?>
+                    </p>
+                </div>
             </div>
         </div>
 
         <!-- Meta Fields Tab -->
-        <div class="wp4shpy-tab-content" id="tab-metafields" style="display: none;">
+        <?php $metafieldsTabAttrs = wp4shpy_get_tab_content_class('metafields', $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <div class="<?php echo esc_attr($metafieldsTabAttrs['class']); ?>" id="tab-metafields" style="display: none;" data-locked="<?php echo $metafieldsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($metafieldsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($metafieldsTabAttrs['upgradeUrl']); ?>">
             <h2 class="title"><?php esc_html_e('Meta Fields Configuration', 'wp4shpy'); ?></h2>
             <p class="description"><?php esc_html_e('Select which meta field providers to sync to Shopify metafields. Click Save Changes to apply.', 'wp4shpy'); ?></p>
 
@@ -1079,7 +1129,8 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Authors Tab -->
-        <div class="wp4shpy-tab-content" id="tab-authors" style="display: none;">
+        <?php $authorsTabAttrs = wp4shpy_get_tab_content_class('authors', $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <div class="<?php echo esc_attr($authorsTabAttrs['class']); ?>" id="tab-authors" style="display: none;" data-locked="<?php echo $authorsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($authorsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($authorsTabAttrs['upgradeUrl']); ?>">
             <h2 class="title"><?php esc_html_e('Author Mapping', 'wp4shpy'); ?></h2>
             <p class="description"><?php esc_html_e('Map WordPress users to custom author names displayed on Shopify articles.', 'wp4shpy'); ?></p>
 
@@ -1521,6 +1572,32 @@ function wp4shpy_render_tab($tab, $label, $features, $tabFeatures, $featurePlans
 <script>
 (function() {
     var currentTabInput = document.getElementById('wp4shpy-current-tab');
+
+    // Initialize locked tab content panels
+    document.querySelectorAll('.wp4shpy-tab-content--locked').forEach(function(panel) {
+        var requiredPlan = panel.getAttribute('data-required-plan') || 'PRO';
+        var upgradeUrl = panel.getAttribute('data-upgrade-url') || '';
+
+        // Disable all form elements inside locked panel
+        panel.querySelectorAll('input, select, textarea, button').forEach(function(el) {
+            el.disabled = true;
+            el.setAttribute('tabindex', '-1');
+        });
+
+        // Add upgrade banner at the top of the panel
+        var banner = document.createElement('div');
+        banner.className = 'wp4shpy-locked-banner';
+        banner.innerHTML = '<div class="wp4shpy-locked-banner__text">' +
+            '<span class="dashicons dashicons-lock"></span>' +
+            '<span><?php echo esc_js(__('This feature requires', 'wp4shpy')); ?> <strong>' + requiredPlan + '</strong> <?php echo esc_js(__('plan', 'wp4shpy')); ?></span>' +
+            '</div>' +
+            '<div class="wp4shpy-locked-banner__actions">' +
+            (upgradeUrl ? '<a href="' + upgradeUrl + '" target="_blank" class="button button-primary"><?php echo esc_js(__('Upgrade Now', 'wp4shpy')); ?></a>' : '') +
+            '</div>';
+
+        // Insert banner as first child
+        panel.insertBefore(banner, panel.firstChild);
+    });
 
     // Tab switching
     document.querySelectorAll('.wp4shpy-tabs .nav-tab').forEach(function(tab) {

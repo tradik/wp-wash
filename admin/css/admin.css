@@ -105,64 +105,6 @@
   vertical-align: text-bottom;
 }
 
-/* Upgrade prompt modal */
-.wp4shpy-upgrade-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100000;
-}
-
-.wp4shpy-upgrade-modal__content {
-  background: #fff;
-  padding: 30px;
-  border-radius: 8px;
-  max-width: 400px;
-  text-align: center;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-}
-
-.wp4shpy-upgrade-modal__icon {
-  font-size: 48px;
-  color: #96bf48;
-  margin-bottom: 15px;
-}
-
-.wp4shpy-upgrade-modal__title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 10px;
-  color: #1d2327;
-}
-
-.wp4shpy-upgrade-modal__description {
-  color: #646970;
-  margin-bottom: 20px;
-  line-height: 1.5;
-}
-
-.wp4shpy-upgrade-modal__actions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-.wp4shpy-upgrade-modal__actions .button-primary {
-  background: #96bf48;
-  border-color: #96bf48;
-}
-
-.wp4shpy-upgrade-modal__actions .button-primary:hover {
-  background: #7ea63a;
-  border-color: #7ea63a;
-}
-
 /* Plan badge in header */
 .wp4shpy-plan-badge {
   text-transform: uppercase;
@@ -172,4 +114,198 @@
 /* Usage summary bar */
 .wp4shpy-usage-summary strong {
   color: #1d2327;
+}
+
+/* Locked tab content panel */
+.wp4shpy-tab-content--locked {
+  position: relative;
+}
+
+/* Disabled form elements in locked tabs */
+.wp4shpy-tab-content--locked input:disabled,
+.wp4shpy-tab-content--locked select:disabled,
+.wp4shpy-tab-content--locked textarea:disabled,
+.wp4shpy-tab-content--locked button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #f0f0f1;
+}
+
+.wp4shpy-tab-content--locked label {
+  opacity: 0.7;
+}
+
+.wp4shpy-tab-content--locked .description {
+  opacity: 0.7;
+}
+
+/* Locked tab upgrade banner */
+.wp4shpy-locked-banner {
+  background: linear-gradient(135deg, #96bf48 0%, #7ea63a 100%);
+  color: #fff;
+  padding: 15px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  border-radius: 4px;
+}
+
+.wp4shpy-locked-banner__text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wp4shpy-locked-banner__text .dashicons {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+}
+
+.wp4shpy-locked-banner__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.wp4shpy-locked-banner .button {
+  background: #fff;
+  color: #1d2327;
+  border: none;
+}
+
+.wp4shpy-locked-banner .button:hover {
+  background: #f0f0f1;
+  color: #1d2327;
+}
+
+/* Accordion / Collapsible sections */
+.wp4shpy-accordion {
+  border: 1px solid #c3c4c7;
+  border-radius: 4px;
+  margin: 15px 0;
+  overflow: hidden;
+}
+
+.wp4shpy-accordion__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px;
+  background: #f6f7f7;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s;
+}
+
+.wp4shpy-accordion__header:hover {
+  background: #f0f0f1;
+}
+
+.wp4shpy-accordion__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d2327;
+}
+
+.wp4shpy-accordion__title .dashicons {
+  color: #2271b1;
+}
+
+.wp4shpy-accordion__toggle {
+  transition: transform 0.2s;
+}
+
+.wp4shpy-accordion--open .wp4shpy-accordion__toggle {
+  transform: rotate(180deg);
+}
+
+.wp4shpy-accordion__content {
+  display: none;
+  padding: 20px;
+  border-top: 1px solid #c3c4c7;
+  background: #fff;
+}
+
+.wp4shpy-accordion--open .wp4shpy-accordion__content {
+  display: block;
+}
+
+/* Accordion variants */
+.wp4shpy-accordion--info {
+  border-color: #c5d9ed;
+}
+
+.wp4shpy-accordion--info .wp4shpy-accordion__header {
+  background: #f0f6fc;
+}
+
+.wp4shpy-accordion--info .wp4shpy-accordion__header:hover {
+  background: #e5f0fa;
+}
+
+.wp4shpy-accordion--dark {
+  border-color: #3c3c3c;
+}
+
+.wp4shpy-accordion--dark .wp4shpy-accordion__header {
+  background: #2d2d2d;
+}
+
+.wp4shpy-accordion--dark .wp4shpy-accordion__header:hover {
+  background: #3c3c3c;
+}
+
+.wp4shpy-accordion--dark .wp4shpy-accordion__title {
+  color: #fff;
+}
+
+.wp4shpy-accordion--dark .wp4shpy-accordion__title .dashicons {
+  color: #96bf48;
+}
+
+.wp4shpy-accordion--dark .wp4shpy-accordion__toggle {
+  color: #fff;
+}
+
+.wp4shpy-accordion--dark .wp4shpy-accordion__content {
+  background: #1e1e1e;
+  border-color: #3c3c3c;
+}
+
+.wp4shpy-accordion--warning {
+  border-color: #d63638;
+}
+
+.wp4shpy-accordion--warning .wp4shpy-accordion__header {
+  background: #fef0f0;
+}
+
+.wp4shpy-accordion--warning .wp4shpy-accordion__header:hover {
+  background: #fde8e8;
+}
+
+.wp4shpy-accordion--warning .wp4shpy-accordion__title .dashicons {
+  color: #d63638;
+}
+
+.wp4shpy-accordion--tip {
+  border-color: #f0c674;
+}
+
+.wp4shpy-accordion--tip .wp4shpy-accordion__header {
+  background: #fff8e5;
+}
+
+.wp4shpy-accordion--tip .wp4shpy-accordion__header:hover {
+  background: #fff3d6;
+}
+
+.wp4shpy-accordion--tip .wp4shpy-accordion__title .dashicons {
+  color: #8b5a00;
 }
