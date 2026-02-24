@@ -1756,7 +1756,7 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
                 }
             })
             .catch(function() {
-                mappingsList.innerHTML = '<p class="notice notice-error">Failed to load mappings</p>';
+                mappingsList.innerHTML = '<p class="notice notice-error"><?php echo esc_js(__('Failed to load mappings', 'wash')); ?></p>';
             });
     }
 
@@ -1812,8 +1812,8 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
                 '<td>' + (m.shopifyBlogHandle || m.shopifyBlogId) + '</td>' +
                 '<td>' + m.priority + '</td>' +
                 '<td>' +
-                '<button type="button" class="button button-small wash-edit-mapping" data-id="' + m.id + '">Edit</button> ' +
-                '<button type="button" class="button button-small wash-delete-mapping" data-id="' + m.id + '" style="color:#dc3545;">Delete</button>' +
+                '<button type="button" class="button button-small wash-edit-mapping" data-id="' + m.id + '"><?php echo esc_js(__('Edit', 'wash')); ?></button> ' +
+                '<button type="button" class="button button-small wash-delete-mapping" data-id="' + m.id + '" style="color:#dc3545;"><?php echo esc_js(__('Delete', 'wash')); ?></button>' +
                 '</td></tr>';
         });
 

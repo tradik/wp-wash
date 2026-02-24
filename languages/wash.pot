@@ -555,3 +555,211 @@ msgstr ""
 #: admin/views/settings-page.php
 msgid "Save Settings"
 msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Testing connection..."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Connection successful!"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Connection failed: "
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Are you sure you want to disconnect from Shopify?"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Failed to disconnect. Please try again."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Checking..."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Network error - could not reach debug endpoint"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Resetting..."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Session reset. Now open the app from Shopify Admin to re-authenticate."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Failed to reset session: "
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Network error - could not reach reset endpoint"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Network error while resetting session"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Loading..."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Syncing redirections..."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Generating redirections..."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Fetching WordPress redirections..."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Redirections synced successfully!"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Failed to sync redirections: "
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Failed to load stats"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "No redirections found in WordPress plugins (Redirection, RankMath, Yoast)."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "# Imported from WordPress plugins"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Failed to fetch redirections: "
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Network error while fetching WordPress redirections"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "No synced posts found. Sync some posts first to generate redirections."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "# Generated from synced posts"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Failed to generate redirections: "
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Network error while generating redirections"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Failed to load Shopify redirections: "
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "No redirections found in Shopify."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "# Existing Shopify redirections"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Network error while loading Shopify redirections"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Fixing..."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Session fixed!"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "No sessions needed fixing."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Network error while fixing session"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Failed to fix session: "
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Please enter redirections to sync."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Network error while syncing redirections"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Unknown error"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Network error"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Created"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Skipped (already exist)"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Failed"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Total in Shopify"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Remaining"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Errors"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "... and %d more"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Try loading redirections again."
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Failed to load mappings"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Edit"
+msgstr ""
+
+#: includes/class-wash-admin.php
+msgid "Delete"
+msgstr ""

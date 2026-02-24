@@ -422,3 +422,159 @@ msgstr "Esto borrará todo el historial de sincronización e IDs de artículos d
 
 msgid "Save Settings"
 msgstr "Guardar configuración"
+
+msgid "Testing connection..."
+msgstr "Probando conexión..."
+
+msgid "Connection successful!"
+msgstr "¡Conexión exitosa!"
+
+msgid "Connection failed: "
+msgstr "Conexión fallida: "
+
+msgid "Are you sure you want to disconnect from Shopify?"
+msgstr "¿Está seguro de que desea desconectarse de Shopify?"
+
+msgid "Failed to disconnect. Please try again."
+msgstr "No se pudo desconectar. Por favor, inténtelo de nuevo."
+
+msgid "Checking..."
+msgstr "Comprobando..."
+
+msgid "Network error - could not reach debug endpoint"
+msgstr "Error de red - no se pudo alcanzar el endpoint de depuración"
+
+msgid "Resetting..."
+msgstr "Reiniciando..."
+
+msgid "This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?"
+msgstr "Esto eliminará la sesión de Shopify. Necesitará volver a abrir la app desde el Admin de Shopify para re-autenticarse. ¿Continuar?"
+
+msgid "Session reset. Now open the app from Shopify Admin to re-authenticate."
+msgstr "Sesión reiniciada. Ahora abra la app desde el Admin de Shopify para re-autenticarse."
+
+msgid "Failed to reset session: "
+msgstr "No se pudo reiniciar la sesión: "
+
+msgid "Network error - could not reach reset endpoint"
+msgstr "Error de red - no se pudo alcanzar el endpoint de reinicio"
+
+msgid "Network error while resetting session"
+msgstr "Error de red al reiniciar la sesión"
+
+msgid "Loading..."
+msgstr "Cargando..."
+
+msgid "Syncing redirections..."
+msgstr "Sincronizando redirecciones..."
+
+msgid "Generating redirections..."
+msgstr "Generando redirecciones..."
+
+msgid "Fetching WordPress redirections..."
+msgstr "Obteniendo redirecciones de WordPress..."
+
+msgid "Redirections synced successfully!"
+msgstr "¡Redirecciones sincronizadas con éxito!"
+
+msgid "Failed to sync redirections: "
+msgstr "No se pudieron sincronizar las redirecciones: "
+
+msgid "Failed to load stats"
+msgstr "No se pudieron cargar las estadísticas"
+
+msgid "No redirections found in WordPress plugins (Redirection, RankMath, Yoast)."
+msgstr "No se encontraron redirecciones en los plugins de WordPress (Redirection, RankMath, Yoast)."
+
+msgid "# Imported from WordPress plugins"
+msgstr "# Importado de plugins de WordPress"
+
+msgid "Failed to fetch redirections: "
+msgstr "No se pudieron obtener las redirecciones: "
+
+msgid "Network error while fetching WordPress redirections"
+msgstr "Error de red al obtener las redirecciones de WordPress"
+
+msgid "No synced posts found. Sync some posts first to generate redirections."
+msgstr "No se encontraron posts sincronizados. Sincronice algunos posts primero para generar redirecciones."
+
+msgid "# Generated from synced posts"
+msgstr "# Generado de posts sincronizados"
+
+msgid "Failed to generate redirections: "
+msgstr "No se pudieron generar las redirecciones: "
+
+msgid "Network error while generating redirections"
+msgstr "Error de red al generar las redirecciones"
+
+msgid "Failed to load Shopify redirections: "
+msgstr "No se pudieron cargar las redirecciones de Shopify: "
+
+msgid "No redirections found in Shopify."
+msgstr "No se encontraron redirecciones en Shopify."
+
+msgid "# Existing Shopify redirections"
+msgstr "# Redirecciones existentes de Shopify"
+
+msgid "Network error while loading Shopify redirections"
+msgstr "Error de red al cargar las redirecciones de Shopify"
+
+msgid "Fixing..."
+msgstr "Reparando..."
+
+msgid "Session fixed!"
+msgstr "¡Sesión reparada!"
+
+msgid "No sessions needed fixing."
+msgstr "Ninguna sesión necesitaba reparación."
+
+msgid "Network error while fixing session"
+msgstr "Error de red al reparar la sesión"
+
+msgid "Failed to fix session: "
+msgstr "No se pudo reparar la sesión: "
+
+msgid "Please enter redirections to sync."
+msgstr "Por favor, introduzca redirecciones para sincronizar."
+
+msgid "Network error while syncing redirections"
+msgstr "Error de red al sincronizar las redirecciones"
+
+msgid "Unknown error"
+msgstr "Error desconocido"
+
+msgid "Network error"
+msgstr "Error de red"
+
+msgid "Created"
+msgstr "Creadas"
+
+msgid "Skipped (already exist)"
+msgstr "Omitidas (ya existen)"
+
+msgid "Failed"
+msgstr "Fallidas"
+
+msgid "Total in Shopify"
+msgstr "Total en Shopify"
+
+msgid "Remaining"
+msgstr "Restantes"
+
+msgid "Errors"
+msgstr "Errores"
+
+msgid "... and %d more"
+msgstr "... y %d más"
+
+msgid "Try loading redirections again."
+msgstr "Intente cargar las redirecciones de nuevo."
+
+msgid "Failed to load mappings"
+msgstr "No se pudieron cargar los mapeos"
+
+msgid "Edit"
+msgstr "Editar"
+
+msgid "Delete"
+msgstr "Eliminar"

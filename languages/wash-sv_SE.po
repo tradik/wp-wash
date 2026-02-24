@@ -422,3 +422,159 @@ msgstr "Detta rensar all synkroniseringshistorik och Shopify-artikel-IDn. Använ
 
 msgid "Save Settings"
 msgstr "Spara inställningar"
+
+msgid "Testing connection..."
+msgstr "Testar anslutning..."
+
+msgid "Connection successful!"
+msgstr "Anslutning lyckades!"
+
+msgid "Connection failed: "
+msgstr "Anslutning misslyckades: "
+
+msgid "Are you sure you want to disconnect from Shopify?"
+msgstr "Är du säker på att du vill koppla från Shopify?"
+
+msgid "Failed to disconnect. Please try again."
+msgstr "Frånkoppling misslyckades. Vänligen försök igen."
+
+msgid "Checking..."
+msgstr "Kontrollerar..."
+
+msgid "Network error - could not reach debug endpoint"
+msgstr "Nätverksfel - kunde inte nå felsökningsändpunkten"
+
+msgid "Resetting..."
+msgstr "Återställer..."
+
+msgid "This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?"
+msgstr "Detta raderar Shopify-sessionen. Du måste öppna appen igen från Shopify Admin för att autentisera igen. Fortsätta?"
+
+msgid "Session reset. Now open the app from Shopify Admin to re-authenticate."
+msgstr "Session återställd. Öppna nu appen från Shopify Admin för att autentisera igen."
+
+msgid "Failed to reset session: "
+msgstr "Misslyckades att återställa session: "
+
+msgid "Network error - could not reach reset endpoint"
+msgstr "Nätverksfel - kunde inte nå återställningsändpunkten"
+
+msgid "Network error while resetting session"
+msgstr "Nätverksfel vid återställning av session"
+
+msgid "Loading..."
+msgstr "Laddar..."
+
+msgid "Syncing redirections..."
+msgstr "Synkroniserar omdirigeringar..."
+
+msgid "Generating redirections..."
+msgstr "Genererar omdirigeringar..."
+
+msgid "Fetching WordPress redirections..."
+msgstr "Hämtar WordPress-omdirigeringar..."
+
+msgid "Redirections synced successfully!"
+msgstr "Omdirigeringar synkroniserade framgångsrikt!"
+
+msgid "Failed to sync redirections: "
+msgstr "Misslyckades att synkronisera omdirigeringar: "
+
+msgid "Failed to load stats"
+msgstr "Misslyckades att ladda statistik"
+
+msgid "No redirections found in WordPress plugins (Redirection, RankMath, Yoast)."
+msgstr "Inga omdirigeringar hittades i WordPress-plugins (Redirection, RankMath, Yoast)."
+
+msgid "# Imported from WordPress plugins"
+msgstr "# Importerat från WordPress-plugins"
+
+msgid "Failed to fetch redirections: "
+msgstr "Misslyckades att hämta omdirigeringar: "
+
+msgid "Network error while fetching WordPress redirections"
+msgstr "Nätverksfel vid hämtning av WordPress-omdirigeringar"
+
+msgid "No synced posts found. Sync some posts first to generate redirections."
+msgstr "Inga synkroniserade inlägg hittades. Synkronisera några inlägg först för att generera omdirigeringar."
+
+msgid "# Generated from synced posts"
+msgstr "# Genererat från synkroniserade inlägg"
+
+msgid "Failed to generate redirections: "
+msgstr "Misslyckades att generera omdirigeringar: "
+
+msgid "Network error while generating redirections"
+msgstr "Nätverksfel vid generering av omdirigeringar"
+
+msgid "Failed to load Shopify redirections: "
+msgstr "Misslyckades att ladda Shopify-omdirigeringar: "
+
+msgid "No redirections found in Shopify."
+msgstr "Inga omdirigeringar hittades i Shopify."
+
+msgid "# Existing Shopify redirections"
+msgstr "# Befintliga Shopify-omdirigeringar"
+
+msgid "Network error while loading Shopify redirections"
+msgstr "Nätverksfel vid laddning av Shopify-omdirigeringar"
+
+msgid "Fixing..."
+msgstr "Åtgärdar..."
+
+msgid "Session fixed!"
+msgstr "Session åtgärdad!"
+
+msgid "No sessions needed fixing."
+msgstr "Inga sessioner behövde åtgärdas."
+
+msgid "Network error while fixing session"
+msgstr "Nätverksfel vid åtgärdande av session"
+
+msgid "Failed to fix session: "
+msgstr "Misslyckades att åtgärda session: "
+
+msgid "Please enter redirections to sync."
+msgstr "Vänligen ange omdirigeringar att synkronisera."
+
+msgid "Network error while syncing redirections"
+msgstr "Nätverksfel vid synkronisering av omdirigeringar"
+
+msgid "Unknown error"
+msgstr "Okänt fel"
+
+msgid "Network error"
+msgstr "Nätverksfel"
+
+msgid "Created"
+msgstr "Skapade"
+
+msgid "Skipped (already exist)"
+msgstr "Överhoppade (finns redan)"
+
+msgid "Failed"
+msgstr "Misslyckade"
+
+msgid "Total in Shopify"
+msgstr "Totalt i Shopify"
+
+msgid "Remaining"
+msgstr "Återstående"
+
+msgid "Errors"
+msgstr "Fel"
+
+msgid "... and %d more"
+msgstr "... och %d till"
+
+msgid "Try loading redirections again."
+msgstr "Försök ladda omdirigeringar igen."
+
+msgid "Failed to load mappings"
+msgstr "Misslyckades att ladda mappningar"
+
+msgid "Edit"
+msgstr "Redigera"
+
+msgid "Delete"
+msgstr "Radera"

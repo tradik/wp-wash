@@ -422,3 +422,159 @@ msgstr "Ceci effacera tout l'historique de synchronisation et les IDs d'articles
 
 msgid "Save Settings"
 msgstr "Enregistrer les paramètres"
+
+msgid "Testing connection..."
+msgstr "Test de connexion..."
+
+msgid "Connection successful!"
+msgstr "Connexion réussie !"
+
+msgid "Connection failed: "
+msgstr "Connexion échouée : "
+
+msgid "Are you sure you want to disconnect from Shopify?"
+msgstr "Êtes-vous sûr de vouloir vous déconnecter de Shopify ?"
+
+msgid "Failed to disconnect. Please try again."
+msgstr "Échec de la déconnexion. Veuillez réessayer."
+
+msgid "Checking..."
+msgstr "Vérification..."
+
+msgid "Network error - could not reach debug endpoint"
+msgstr "Erreur réseau - impossible d'atteindre le point de débogage"
+
+msgid "Resetting..."
+msgstr "Réinitialisation..."
+
+msgid "This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?"
+msgstr "Ceci supprimera la session Shopify. Vous devrez rouvrir l'application depuis Shopify Admin pour vous ré-authentifier. Continuer ?"
+
+msgid "Session reset. Now open the app from Shopify Admin to re-authenticate."
+msgstr "Session réinitialisée. Ouvrez maintenant l'application depuis Shopify Admin pour vous ré-authentifier."
+
+msgid "Failed to reset session: "
+msgstr "Échec de la réinitialisation de la session : "
+
+msgid "Network error - could not reach reset endpoint"
+msgstr "Erreur réseau - impossible d'atteindre le point de réinitialisation"
+
+msgid "Network error while resetting session"
+msgstr "Erreur réseau lors de la réinitialisation de la session"
+
+msgid "Loading..."
+msgstr "Chargement..."
+
+msgid "Syncing redirections..."
+msgstr "Synchronisation des redirections..."
+
+msgid "Generating redirections..."
+msgstr "Génération des redirections..."
+
+msgid "Fetching WordPress redirections..."
+msgstr "Récupération des redirections WordPress..."
+
+msgid "Redirections synced successfully!"
+msgstr "Redirections synchronisées avec succès !"
+
+msgid "Failed to sync redirections: "
+msgstr "Échec de la synchronisation des redirections : "
+
+msgid "Failed to load stats"
+msgstr "Échec du chargement des statistiques"
+
+msgid "No redirections found in WordPress plugins (Redirection, RankMath, Yoast)."
+msgstr "Aucune redirection trouvée dans les plugins WordPress (Redirection, RankMath, Yoast)."
+
+msgid "# Imported from WordPress plugins"
+msgstr "# Importé des plugins WordPress"
+
+msgid "Failed to fetch redirections: "
+msgstr "Échec de la récupération des redirections : "
+
+msgid "Network error while fetching WordPress redirections"
+msgstr "Erreur réseau lors de la récupération des redirections WordPress"
+
+msgid "No synced posts found. Sync some posts first to generate redirections."
+msgstr "Aucun article synchronisé trouvé. Synchronisez d'abord des articles pour générer des redirections."
+
+msgid "# Generated from synced posts"
+msgstr "# Généré à partir des articles synchronisés"
+
+msgid "Failed to generate redirections: "
+msgstr "Échec de la génération des redirections : "
+
+msgid "Network error while generating redirections"
+msgstr "Erreur réseau lors de la génération des redirections"
+
+msgid "Failed to load Shopify redirections: "
+msgstr "Échec du chargement des redirections Shopify : "
+
+msgid "No redirections found in Shopify."
+msgstr "Aucune redirection trouvée dans Shopify."
+
+msgid "# Existing Shopify redirections"
+msgstr "# Redirections Shopify existantes"
+
+msgid "Network error while loading Shopify redirections"
+msgstr "Erreur réseau lors du chargement des redirections Shopify"
+
+msgid "Fixing..."
+msgstr "Correction..."
+
+msgid "Session fixed!"
+msgstr "Session corrigée !"
+
+msgid "No sessions needed fixing."
+msgstr "Aucune session n'avait besoin d'être corrigée."
+
+msgid "Network error while fixing session"
+msgstr "Erreur réseau lors de la correction de la session"
+
+msgid "Failed to fix session: "
+msgstr "Échec de la correction de la session : "
+
+msgid "Please enter redirections to sync."
+msgstr "Veuillez entrer des redirections à synchroniser."
+
+msgid "Network error while syncing redirections"
+msgstr "Erreur réseau lors de la synchronisation des redirections"
+
+msgid "Unknown error"
+msgstr "Erreur inconnue"
+
+msgid "Network error"
+msgstr "Erreur réseau"
+
+msgid "Created"
+msgstr "Créées"
+
+msgid "Skipped (already exist)"
+msgstr "Ignorées (existent déjà)"
+
+msgid "Failed"
+msgstr "Échouées"
+
+msgid "Total in Shopify"
+msgstr "Total dans Shopify"
+
+msgid "Remaining"
+msgstr "Restantes"
+
+msgid "Errors"
+msgstr "Erreurs"
+
+msgid "... and %d more"
+msgstr "... et %d de plus"
+
+msgid "Try loading redirections again."
+msgstr "Essayez de recharger les redirections."
+
+msgid "Failed to load mappings"
+msgstr "Échec du chargement des mappages"
+
+msgid "Edit"
+msgstr "Modifier"
+
+msgid "Delete"
+msgstr "Supprimer"

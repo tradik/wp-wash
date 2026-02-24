@@ -422,3 +422,159 @@ msgstr "Ez törli az összes szinkronizálási előzményt és Shopify cikk azon
 
 msgid "Save Settings"
 msgstr "Beállítások mentése"
+
+msgid "Testing connection..."
+msgstr "Kapcsolat tesztelése..."
+
+msgid "Connection successful!"
+msgstr "Kapcsolat sikeres!"
+
+msgid "Connection failed: "
+msgstr "Kapcsolat sikertelen: "
+
+msgid "Are you sure you want to disconnect from Shopify?"
+msgstr "Biztosan le szeretne csatlakozni a Shopifyról?"
+
+msgid "Failed to disconnect. Please try again."
+msgstr "A leválasztás sikertelen. Kérjük, próbálja újra."
+
+msgid "Checking..."
+msgstr "Ellenőrzés..."
+
+msgid "Network error - could not reach debug endpoint"
+msgstr "Hálózati hiba - nem érhető el a debug végpont"
+
+msgid "Resetting..."
+msgstr "Visszaállítás..."
+
+msgid "This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?"
+msgstr "Ez törli a Shopify munkamenetet. Újra kell nyitnia az alkalmazást a Shopify Adminból az újbóli hitelesítéshez. Folytatja?"
+
+msgid "Session reset. Now open the app from Shopify Admin to re-authenticate."
+msgstr "Munkamenet visszaállítva. Most nyissa meg az alkalmazást a Shopify Adminból az újbóli hitelesítéshez."
+
+msgid "Failed to reset session: "
+msgstr "Munkamenet visszaállítása sikertelen: "
+
+msgid "Network error - could not reach reset endpoint"
+msgstr "Hálózati hiba - nem érhető el a visszaállítás végpont"
+
+msgid "Network error while resetting session"
+msgstr "Hálózati hiba a munkamenet visszaállítása közben"
+
+msgid "Loading..."
+msgstr "Betöltés..."
+
+msgid "Syncing redirections..."
+msgstr "Átirányítások szinkronizálása..."
+
+msgid "Generating redirections..."
+msgstr "Átirányítások generálása..."
+
+msgid "Fetching WordPress redirections..."
+msgstr "WordPress átirányítások lekérése..."
+
+msgid "Redirections synced successfully!"
+msgstr "Átirányítások sikeresen szinkronizálva!"
+
+msgid "Failed to sync redirections: "
+msgstr "Átirányítások szinkronizálása sikertelen: "
+
+msgid "Failed to load stats"
+msgstr "Statisztikák betöltése sikertelen"
+
+msgid "No redirections found in WordPress plugins (Redirection, RankMath, Yoast)."
+msgstr "Nem találhatók átirányítások a WordPress bővítményekben (Redirection, RankMath, Yoast)."
+
+msgid "# Imported from WordPress plugins"
+msgstr "# Importálva WordPress bővítményekből"
+
+msgid "Failed to fetch redirections: "
+msgstr "Átirányítások lekérése sikertelen: "
+
+msgid "Network error while fetching WordPress redirections"
+msgstr "Hálózati hiba a WordPress átirányítások lekérése közben"
+
+msgid "No synced posts found. Sync some posts first to generate redirections."
+msgstr "Nem találhatók szinkronizált bejegyzések. Szinkronizáljon először bejegyzéseket az átirányítások generálásához."
+
+msgid "# Generated from synced posts"
+msgstr "# Szinkronizált bejegyzésekből generálva"
+
+msgid "Failed to generate redirections: "
+msgstr "Átirányítások generálása sikertelen: "
+
+msgid "Network error while generating redirections"
+msgstr "Hálózati hiba az átirányítások generálása közben"
+
+msgid "Failed to load Shopify redirections: "
+msgstr "Shopify átirányítások betöltése sikertelen: "
+
+msgid "No redirections found in Shopify."
+msgstr "Nem találhatók átirányítások a Shopifyban."
+
+msgid "# Existing Shopify redirections"
+msgstr "# Meglévő Shopify átirányítások"
+
+msgid "Network error while loading Shopify redirections"
+msgstr "Hálózati hiba a Shopify átirányítások betöltése közben"
+
+msgid "Fixing..."
+msgstr "Javítás..."
+
+msgid "Session fixed!"
+msgstr "Munkamenet javítva!"
+
+msgid "No sessions needed fixing."
+msgstr "Nem volt javítandó munkamenet."
+
+msgid "Network error while fixing session"
+msgstr "Hálózati hiba a munkamenet javítása közben"
+
+msgid "Failed to fix session: "
+msgstr "Munkamenet javítása sikertelen: "
+
+msgid "Please enter redirections to sync."
+msgstr "Kérjük, adja meg a szinkronizálandó átirányításokat."
+
+msgid "Network error while syncing redirections"
+msgstr "Hálózati hiba az átirányítások szinkronizálása közben"
+
+msgid "Unknown error"
+msgstr "Ismeretlen hiba"
+
+msgid "Network error"
+msgstr "Hálózati hiba"
+
+msgid "Created"
+msgstr "Létrehozva"
+
+msgid "Skipped (already exist)"
+msgstr "Kihagyva (már létezik)"
+
+msgid "Failed"
+msgstr "Sikertelen"
+
+msgid "Total in Shopify"
+msgstr "Összesen a Shopifyban"
+
+msgid "Remaining"
+msgstr "Hátralévő"
+
+msgid "Errors"
+msgstr "Hibák"
+
+msgid "... and %d more"
+msgstr "... és még %d"
+
+msgid "Try loading redirections again."
+msgstr "Próbálja meg újra betölteni az átirányításokat."
+
+msgid "Failed to load mappings"
+msgstr "Leképezések betöltése sikertelen"
+
+msgid "Edit"
+msgstr "Szerkesztés"
+
+msgid "Delete"
+msgstr "Törlés"

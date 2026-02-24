@@ -422,3 +422,159 @@ msgstr "Dit wist alle synchronisatiegeschiedenis en Shopify-artikel-IDs. Gebruik
 
 msgid "Save Settings"
 msgstr "Instellingen opslaan"
+
+msgid "Testing connection..."
+msgstr "Verbinding testen..."
+
+msgid "Connection successful!"
+msgstr "Verbinding succesvol!"
+
+msgid "Connection failed: "
+msgstr "Verbinding mislukt: "
+
+msgid "Are you sure you want to disconnect from Shopify?"
+msgstr "Weet u zeker dat u de verbinding met Shopify wilt verbreken?"
+
+msgid "Failed to disconnect. Please try again."
+msgstr "Loskoppelen mislukt. Probeer het opnieuw."
+
+msgid "Checking..."
+msgstr "Controleren..."
+
+msgid "Network error - could not reach debug endpoint"
+msgstr "Netwerkfout - debug-eindpunt niet bereikbaar"
+
+msgid "Resetting..."
+msgstr "Resetten..."
+
+msgid "This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?"
+msgstr "Dit verwijdert de Shopify-sessie. U moet de app opnieuw openen vanuit Shopify Admin om opnieuw te authenticeren. Doorgaan?"
+
+msgid "Session reset. Now open the app from Shopify Admin to re-authenticate."
+msgstr "Sessie gereset. Open nu de app vanuit Shopify Admin om opnieuw te authenticeren."
+
+msgid "Failed to reset session: "
+msgstr "Sessie resetten mislukt: "
+
+msgid "Network error - could not reach reset endpoint"
+msgstr "Netwerkfout - reset-eindpunt niet bereikbaar"
+
+msgid "Network error while resetting session"
+msgstr "Netwerkfout bij het resetten van de sessie"
+
+msgid "Loading..."
+msgstr "Laden..."
+
+msgid "Syncing redirections..."
+msgstr "Doorverwijzingen synchroniseren..."
+
+msgid "Generating redirections..."
+msgstr "Doorverwijzingen genereren..."
+
+msgid "Fetching WordPress redirections..."
+msgstr "WordPress-doorverwijzingen ophalen..."
+
+msgid "Redirections synced successfully!"
+msgstr "Doorverwijzingen succesvol gesynchroniseerd!"
+
+msgid "Failed to sync redirections: "
+msgstr "Synchroniseren van doorverwijzingen mislukt: "
+
+msgid "Failed to load stats"
+msgstr "Laden van statistieken mislukt"
+
+msgid "No redirections found in WordPress plugins (Redirection, RankMath, Yoast)."
+msgstr "Geen doorverwijzingen gevonden in WordPress-plugins (Redirection, RankMath, Yoast)."
+
+msgid "# Imported from WordPress plugins"
+msgstr "# Geïmporteerd uit WordPress-plugins"
+
+msgid "Failed to fetch redirections: "
+msgstr "Ophalen van doorverwijzingen mislukt: "
+
+msgid "Network error while fetching WordPress redirections"
+msgstr "Netwerkfout bij het ophalen van WordPress-doorverwijzingen"
+
+msgid "No synced posts found. Sync some posts first to generate redirections."
+msgstr "Geen gesynchroniseerde berichten gevonden. Synchroniseer eerst berichten om doorverwijzingen te genereren."
+
+msgid "# Generated from synced posts"
+msgstr "# Gegenereerd uit gesynchroniseerde berichten"
+
+msgid "Failed to generate redirections: "
+msgstr "Genereren van doorverwijzingen mislukt: "
+
+msgid "Network error while generating redirections"
+msgstr "Netwerkfout bij het genereren van doorverwijzingen"
+
+msgid "Failed to load Shopify redirections: "
+msgstr "Laden van Shopify-doorverwijzingen mislukt: "
+
+msgid "No redirections found in Shopify."
+msgstr "Geen doorverwijzingen gevonden in Shopify."
+
+msgid "# Existing Shopify redirections"
+msgstr "# Bestaande Shopify-doorverwijzingen"
+
+msgid "Network error while loading Shopify redirections"
+msgstr "Netwerkfout bij het laden van Shopify-doorverwijzingen"
+
+msgid "Fixing..."
+msgstr "Repareren..."
+
+msgid "Session fixed!"
+msgstr "Sessie gerepareerd!"
+
+msgid "No sessions needed fixing."
+msgstr "Geen sessies hadden reparatie nodig."
+
+msgid "Network error while fixing session"
+msgstr "Netwerkfout bij het repareren van de sessie"
+
+msgid "Failed to fix session: "
+msgstr "Repareren van sessie mislukt: "
+
+msgid "Please enter redirections to sync."
+msgstr "Voer doorverwijzingen in om te synchroniseren."
+
+msgid "Network error while syncing redirections"
+msgstr "Netwerkfout bij het synchroniseren van doorverwijzingen"
+
+msgid "Unknown error"
+msgstr "Onbekende fout"
+
+msgid "Network error"
+msgstr "Netwerkfout"
+
+msgid "Created"
+msgstr "Aangemaakt"
+
+msgid "Skipped (already exist)"
+msgstr "Overgeslagen (bestaan al)"
+
+msgid "Failed"
+msgstr "Mislukt"
+
+msgid "Total in Shopify"
+msgstr "Totaal in Shopify"
+
+msgid "Remaining"
+msgstr "Resterend"
+
+msgid "Errors"
+msgstr "Fouten"
+
+msgid "... and %d more"
+msgstr "... en %d meer"
+
+msgid "Try loading redirections again."
+msgstr "Probeer de doorverwijzingen opnieuw te laden."
+
+msgid "Failed to load mappings"
+msgstr "Laden van mappings mislukt"
+
+msgid "Edit"
+msgstr "Bewerken"
+
+msgid "Delete"
+msgstr "Verwijderen"

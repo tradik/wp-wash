@@ -422,3 +422,159 @@ msgstr "これによりすべての同期履歴とShopify記事IDがクリアさ
 
 msgid "Save Settings"
 msgstr "設定を保存"
+
+msgid "Testing connection..."
+msgstr "接続をテスト中..."
+
+msgid "Connection successful!"
+msgstr "接続成功！"
+
+msgid "Connection failed: "
+msgstr "接続失敗: "
+
+msgid "Are you sure you want to disconnect from Shopify?"
+msgstr "Shopifyから切断してもよろしいですか？"
+
+msgid "Failed to disconnect. Please try again."
+msgstr "切断に失敗しました。もう一度お試しください。"
+
+msgid "Checking..."
+msgstr "確認中..."
+
+msgid "Network error - could not reach debug endpoint"
+msgstr "ネットワークエラー - デバッグエンドポイントに到達できませんでした"
+
+msgid "Resetting..."
+msgstr "リセット中..."
+
+msgid "This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?"
+msgstr "これによりShopifyセッションが削除されます。再認証するにはShopify Adminからアプリを再度開く必要があります。続行しますか？"
+
+msgid "Session reset. Now open the app from Shopify Admin to re-authenticate."
+msgstr "セッションがリセットされました。Shopify Adminからアプリを開いて再認証してください。"
+
+msgid "Failed to reset session: "
+msgstr "セッションのリセットに失敗しました: "
+
+msgid "Network error - could not reach reset endpoint"
+msgstr "ネットワークエラー - リセットエンドポイントに到達できませんでした"
+
+msgid "Network error while resetting session"
+msgstr "セッションリセット中のネットワークエラー"
+
+msgid "Loading..."
+msgstr "読み込み中..."
+
+msgid "Syncing redirections..."
+msgstr "リダイレクトを同期中..."
+
+msgid "Generating redirections..."
+msgstr "リダイレクトを生成中..."
+
+msgid "Fetching WordPress redirections..."
+msgstr "WordPressリダイレクトを取得中..."
+
+msgid "Redirections synced successfully!"
+msgstr "リダイレクトが正常に同期されました！"
+
+msgid "Failed to sync redirections: "
+msgstr "リダイレクトの同期に失敗しました: "
+
+msgid "Failed to load stats"
+msgstr "統計の読み込みに失敗しました"
+
+msgid "No redirections found in WordPress plugins (Redirection, RankMath, Yoast)."
+msgstr "WordPressプラグイン（Redirection、RankMath、Yoast）にリダイレクトが見つかりませんでした。"
+
+msgid "# Imported from WordPress plugins"
+msgstr "# WordPressプラグインからインポート"
+
+msgid "Failed to fetch redirections: "
+msgstr "リダイレクトの取得に失敗しました: "
+
+msgid "Network error while fetching WordPress redirections"
+msgstr "WordPressリダイレクト取得中のネットワークエラー"
+
+msgid "No synced posts found. Sync some posts first to generate redirections."
+msgstr "同期された投稿が見つかりません。リダイレクトを生成するには、まず投稿を同期してください。"
+
+msgid "# Generated from synced posts"
+msgstr "# 同期した投稿から生成"
+
+msgid "Failed to generate redirections: "
+msgstr "リダイレクトの生成に失敗しました: "
+
+msgid "Network error while generating redirections"
+msgstr "リダイレクト生成中のネットワークエラー"
+
+msgid "Failed to load Shopify redirections: "
+msgstr "Shopifyリダイレクトの読み込みに失敗しました: "
+
+msgid "No redirections found in Shopify."
+msgstr "Shopifyにリダイレクトが見つかりませんでした。"
+
+msgid "# Existing Shopify redirections"
+msgstr "# 既存のShopifyリダイレクト"
+
+msgid "Network error while loading Shopify redirections"
+msgstr "Shopifyリダイレクト読み込み中のネットワークエラー"
+
+msgid "Fixing..."
+msgstr "修正中..."
+
+msgid "Session fixed!"
+msgstr "セッションが修正されました！"
+
+msgid "No sessions needed fixing."
+msgstr "修正が必要なセッションはありませんでした。"
+
+msgid "Network error while fixing session"
+msgstr "セッション修正中のネットワークエラー"
+
+msgid "Failed to fix session: "
+msgstr "セッションの修正に失敗しました: "
+
+msgid "Please enter redirections to sync."
+msgstr "同期するリダイレクトを入力してください。"
+
+msgid "Network error while syncing redirections"
+msgstr "リダイレクト同期中のネットワークエラー"
+
+msgid "Unknown error"
+msgstr "不明なエラー"
+
+msgid "Network error"
+msgstr "ネットワークエラー"
+
+msgid "Created"
+msgstr "作成済み"
+
+msgid "Skipped (already exist)"
+msgstr "スキップ（既に存在）"
+
+msgid "Failed"
+msgstr "失敗"
+
+msgid "Total in Shopify"
+msgstr "Shopify内の合計"
+
+msgid "Remaining"
+msgstr "残り"
+
+msgid "Errors"
+msgstr "エラー"
+
+msgid "... and %d more"
+msgstr "... 他%d件"
+
+msgid "Try loading redirections again."
+msgstr "リダイレクトを再度読み込んでみてください。"
+
+msgid "Failed to load mappings"
+msgstr "マッピングの読み込みに失敗しました"
+
+msgid "Edit"
+msgstr "編集"
+
+msgid "Delete"
+msgstr "削除"

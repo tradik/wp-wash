@@ -6,6 +6,9 @@
 (function ($) {
     "use strict";
 
+    // Helper to get i18n string with fallback
+    const i18n = (key, fallback) => (washAdmin.i18n && washAdmin.i18n[key]) || fallback;
+
     $(document).ready(function () {
         // Connection test
         const testButton = $("#wash-test-connection");
@@ -15,7 +18,7 @@
 
         testButton.on("click", function () {
             testButton.addClass("is-loading");
-            testButton.text(washAdmin.i18n.testing);
+            testButton.text(i18n('testing', 'Testing connection...'));
             statusContainer.hide();
 
             $.ajax({
@@ -30,23 +33,23 @@
                     if (response.success) {
                         noticeEl.removeClass("notice-error").addClass("notice-success");
                         noticeText.text(
-                            washAdmin.i18n.success +
+                            i18n('success', 'Connection successful!') +
                             " (v" + (response.data.version || "?") + ")"
                         );
                     } else {
                         noticeEl.removeClass("notice-success").addClass("notice-error");
-                        noticeText.text(washAdmin.i18n.error + response.data);
+                        noticeText.text(i18n('error', 'Connection failed: ') + response.data);
                     }
                 },
                 error: function () {
                     statusContainer.show();
                     noticeEl.removeClass("notice-success").addClass("notice-error");
-                    noticeText.text(washAdmin.i18n.error + "Network error");
+                    noticeText.text(i18n('error', 'Connection failed: ') + i18n('networkError', 'Network error'));
                 },
                 complete: function () {
                     testButton.removeClass("is-loading");
                     testButton.html(
-                        '<span class="dashicons dashicons-networking" style="vertical-align: text-bottom;"></span> Test Connection'
+                        '<span class="dashicons dashicons-networking" style="vertical-align: text-bottom;"></span> ' + i18n('testConnection', 'Test Connection')
                     );
                 },
             });
@@ -54,7 +57,7 @@
 
         // Disconnect handler
         $("#wash-disconnect-btn").on("click", function () {
-            if (!confirm(washAdmin.i18n.confirmDisconnect || "Are you sure you want to disconnect from Shopify?")) {
+            if (!confirm(i18n('confirmDisconnect', 'Are you sure you want to disconnect from Shopify?'))) {
                 return;
             }
 
@@ -69,7 +72,7 @@
                     window.location.reload();
                 },
                 error: function () {
-                    alert("Failed to disconnect. Please try again.");
+                    alert(i18n('failedDisconnect', 'Failed to disconnect. Please try again.'));
                 },
             });
         });
@@ -80,7 +83,7 @@
 
         $("#wash-debug-session").on("click", function () {
             const btn = $(this);
-            btn.prop("disabled", true).text("Checking...");
+            btn.prop("disabled", true).text(i18n('checking', 'Checking...'));
             debugOutput.hide();
 
             $.ajax({
@@ -95,16 +98,16 @@
                     if (response.success) {
                         debugPre.text(JSON.stringify(response.data, null, 2));
                     } else {
-                        debugPre.text("Error: " + response.data);
+                        debugPre.text(i18n('error', 'Error: ') + response.data);
                     }
                 },
                 error: function () {
                     debugOutput.show();
-                    debugPre.text("Network error - could not reach debug endpoint");
+                    debugPre.text(i18n('networkErrorDebug', 'Network error - could not reach debug endpoint'));
                 },
                 complete: function () {
                     btn.prop("disabled", false).html(
-                        '<span class="dashicons dashicons-admin-tools" style="vertical-align: text-bottom;"></span> Debug Session'
+                        '<span class="dashicons dashicons-admin-tools" style="vertical-align: text-bottom;"></span> ' + i18n('debugSession', 'Debug Session')
                     );
                 },
             });
@@ -112,12 +115,12 @@
 
         // Reset Session handler
         $("#wash-reset-session").on("click", function () {
-            if (!confirm("This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?")) {
+            if (!confirm(i18n('confirmReset', 'This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?'))) {
                 return;
             }
 
             const btn = $(this);
-            btn.prop("disabled", true).text("Resetting...");
+            btn.prop("disabled", true).text(i18n('resetting', 'Resetting...'));
             debugOutput.hide();
 
             $.ajax({
@@ -131,20 +134,20 @@
                     debugOutput.show();
                     if (response.success) {
                         debugPre.text(JSON.stringify(response.data, null, 2));
-                        alert(response.data.message || "Session reset. Now open the app from Shopify Admin to re-authenticate.");
+                        alert(response.data.message || i18n('sessionResetSuccess', 'Session reset. Now open the app from Shopify Admin to re-authenticate.'));
                     } else {
-                        debugPre.text("Error: " + response.data);
-                        alert("Failed to reset session: " + response.data);
+                        debugPre.text(i18n('error', 'Error: ') + response.data);
+                        alert(i18n('failedResetSession', 'Failed to reset session: ') + response.data);
                     }
                 },
                 error: function () {
                     debugOutput.show();
-                    debugPre.text("Network error - could not reach reset endpoint");
-                    alert("Network error while resetting session");
+                    debugPre.text(i18n('networkErrorReset', 'Network error - could not reach reset endpoint'));
+                    alert(i18n('networkErrorResetAlert', 'Network error while resetting session'));
                 },
                 complete: function () {
                     btn.prop("disabled", false).html(
-                        '<span class="dashicons dashicons-trash" style="vertical-align: text-bottom;"></span> Reset Session'
+                        '<span class="dashicons dashicons-trash" style="vertical-align: text-bottom;"></span> ' + i18n('resetSession', 'Reset Session')
                     );
                 },
             });
@@ -192,7 +195,7 @@
                     }
                 },
                 error: function () {
-                    statsText.text("Failed to load stats");
+                    statsText.text(i18n('failedLoadStats', 'Failed to load stats'));
                 },
             });
         }
@@ -205,7 +208,7 @@
         // Fetch WordPress redirections from plugins
         $("#wash-fetch-wp-redirections").on("click", function () {
             const btn = $(this);
-            btn.prop("disabled", true).text(washAdmin.i18n.fetchingWp || "Fetching...");
+            btn.prop("disabled", true).text(i18n('fetchingWp', 'Fetching...'));
 
             $.ajax({
                 url: washAdmin.ajaxUrl,
@@ -218,11 +221,11 @@
                     if (response.success && response.data.redirections) {
                         const redirections = response.data.redirections;
                         if (redirections.length === 0) {
-                            alert("No redirections found in WordPress plugins (Redirection, RankMath, Yoast).");
+                            alert(i18n('noRedirectionsFound', 'No redirections found in WordPress plugins (Redirection, RankMath, Yoast).'));
                         } else {
                             let content = textarea.val();
                             if (content.trim()) {
-                                content += "\n\n# Imported from WordPress plugins\n";
+                                content += "\n\n" + i18n('importedFromWp', '# Imported from WordPress plugins') + "\n";
                             }
                             redirections.forEach(function (r) {
                                 if (r.from && r.to) {
@@ -232,15 +235,15 @@
                             textarea.val(content);
                         }
                     } else {
-                        alert("Failed to fetch redirections: " + (response.data || "Unknown error"));
+                        alert(i18n('failedFetchRedirections', 'Failed to fetch redirections: ') + (response.data || i18n('unknownError', 'Unknown error')));
                     }
                 },
                 error: function () {
-                    alert("Network error while fetching WordPress redirections");
+                    alert(i18n('networkErrorFetch', 'Network error while fetching WordPress redirections'));
                 },
                 complete: function () {
                     btn.prop("disabled", false).html(
-                        '<span class="dashicons dashicons-download" style="vertical-align: text-bottom;"></span> Sync from Old Website'
+                        '<span class="dashicons dashicons-download" style="vertical-align: text-bottom;"></span> ' + i18n('syncFromOldWebsite', 'Sync from Old Website')
                     );
                 },
             });
@@ -249,7 +252,7 @@
         // Generate redirections from synced posts
         $("#wash-generate-redirections").on("click", function () {
             const btn = $(this);
-            btn.prop("disabled", true).text(washAdmin.i18n.generating || "Generating...");
+            btn.prop("disabled", true).text(i18n('generating', 'Generating...'));
 
             $.ajax({
                 url: washAdmin.ajaxUrl,
@@ -262,11 +265,11 @@
                     if (response.success && response.data.redirections) {
                         const redirections = response.data.redirections;
                         if (redirections.length === 0) {
-                            alert("No synced posts found. Sync some posts first to generate redirections.");
+                            alert(i18n('noSyncedPosts', 'No synced posts found. Sync some posts first to generate redirections.'));
                         } else {
                             let content = textarea.val();
                             if (content.trim()) {
-                                content += "\n\n# Generated from synced posts\n";
+                                content += "\n\n" + i18n('generatedFromSynced', '# Generated from synced posts') + "\n";
                             }
                             redirections.forEach(function (r) {
                                 content += r.from + " -> " + r.to + "  # " + r.title + "\n";
@@ -274,15 +277,15 @@
                             textarea.val(content);
                         }
                     } else {
-                        alert("Failed to generate redirections: " + (response.data || "Unknown error"));
+                        alert(i18n('failedGenerateRedirections', 'Failed to generate redirections: ') + (response.data || i18n('unknownError', 'Unknown error')));
                     }
                 },
                 error: function () {
-                    alert("Network error while generating redirections");
+                    alert(i18n('networkErrorGenerate', 'Network error while generating redirections'));
                 },
                 complete: function () {
                     btn.prop("disabled", false).html(
-                        '<span class="dashicons dashicons-admin-page" style="vertical-align: text-bottom;"></span> Generate from Synced Posts'
+                        '<span class="dashicons dashicons-admin-page" style="vertical-align: text-bottom;"></span> ' + i18n('generateFromSynced', 'Generate from Synced Posts')
                     );
                 },
             });
@@ -291,7 +294,7 @@
         // Load existing Shopify redirections
         $("#wash-load-shopify-redirections").on("click", function () {
             const btn = $(this);
-            btn.prop("disabled", true).text(washAdmin.i18n.loading || "Loading...");
+            btn.prop("disabled", true).text(i18n('loading', 'Loading...'));
 
             $.ajax({
                 url: washAdmin.ajaxUrl,
@@ -305,9 +308,9 @@
                         hideFixSessionButton();
                         const redirects = response.data.redirects;
                         if (redirects.length === 0) {
-                            alert("No redirections found in Shopify.");
+                            alert(i18n('noRedirectionsShopify', 'No redirections found in Shopify.'));
                         } else {
-                            let content = "# Existing Shopify redirections\n";
+                            let content = i18n('existingShopifyRedirects', '# Existing Shopify redirections') + "\n";
                             redirects.forEach(function (r) {
                                 content += r.path + " -> " + r.target + "\n";
                             });
@@ -322,19 +325,19 @@
                             );
                         }
                     } else {
-                        const errorMsg = response.data || "Unknown error";
+                        const errorMsg = response.data || i18n('unknownError', 'Unknown error');
                         if (errorMsg.indexOf && errorMsg.indexOf('Access denied') !== -1) {
                             showFixSessionButton();
                         }
-                        alert("Failed to load Shopify redirections: " + errorMsg);
+                        alert(i18n('failedLoadShopify', 'Failed to load Shopify redirections: ') + errorMsg);
                     }
                 },
                 error: function () {
-                    alert("Network error while loading Shopify redirections");
+                    alert(i18n('networkErrorLoadShopify', 'Network error while loading Shopify redirections'));
                 },
                 complete: function () {
                     btn.prop("disabled", false).html(
-                        '<span class="dashicons dashicons-cloud" style="vertical-align: text-bottom;"></span> Load from Shopify'
+                        '<span class="dashicons dashicons-cloud" style="vertical-align: text-bottom;"></span> ' + i18n('loadFromShopify', 'Load from Shopify')
                     );
                 },
             });
@@ -343,7 +346,7 @@
         // Fix Session handler - repairs scope issue
         fixSessionBtn.on("click", function () {
             const btn = $(this);
-            btn.prop("disabled", true).text("Fixing...");
+            btn.prop("disabled", true).text(i18n('fixing', 'Fixing...'));
 
             $.ajax({
                 url: washAdmin.ajaxUrl,
@@ -356,23 +359,23 @@
                     if (response.success) {
                         const data = response.data;
                         if (data.fixedSessions && data.fixedSessions.length > 0) {
-                            alert("Session fixed! " + data.message + "\n\nTry loading redirections again.");
+                            alert(i18n('sessionFixed', 'Session fixed!') + " " + data.message + "\n\n" + i18n('tryAgain', 'Try loading redirections again.'));
                             hideFixSessionButton();
                             // Reload stats
                             loadRedirectStats();
                         } else {
-                            alert(data.message || "No sessions needed fixing.");
+                            alert(data.message || i18n('noSessionsNeedFix', 'No sessions needed fixing.'));
                         }
                     } else {
-                        alert("Failed to fix session: " + response.data);
+                        alert(i18n('failedFixSession', 'Failed to fix session: ') + response.data);
                     }
                 },
                 error: function () {
-                    alert("Network error while fixing session");
+                    alert(i18n('networkErrorFix', 'Network error while fixing session'));
                 },
                 complete: function () {
                     btn.prop("disabled", false).html(
-                        '<span class="dashicons dashicons-admin-tools" style="vertical-align: text-bottom;"></span> Fix Session Scopes'
+                        '<span class="dashicons dashicons-admin-tools" style="vertical-align: text-bottom;"></span> ' + i18n('fixSessionScopes', 'Fix Session Scopes')
                     );
                 },
             });
@@ -384,14 +387,14 @@
             const content = textarea.val().trim();
 
             if (!content) {
-                alert("Please enter redirections to sync.");
+                alert(i18n('pleaseEnterRedirections', 'Please enter redirections to sync.'));
                 return;
             }
 
             btn.prop("disabled", true);
             syncStatus.show().html(
                 '<span class="spinner is-active" style="float: none; margin: 0 5px 0 0;"></span> ' +
-                (washAdmin.i18n.syncing || "Syncing redirections...")
+                i18n('syncing', 'Syncing redirections...')
             );
             syncResults.hide();
 
@@ -410,11 +413,11 @@
                         hideFixSessionButton();
                         syncResults.show();
                         syncResultsList.html(
-                            "<li><strong>Created:</strong> " + response.data.created + "</li>" +
-                            "<li><strong>Skipped (already exist):</strong> " + response.data.skipped + "</li>" +
-                            "<li><strong>Failed:</strong> " + response.data.failed + "</li>" +
-                            "<li><strong>Total in Shopify:</strong> " + response.data.totalInShopify + "</li>" +
-                            "<li><strong>Remaining:</strong> " + response.data.remaining + "</li>"
+                            "<li><strong>" + i18n('created', 'Created') + ":</strong> " + response.data.created + "</li>" +
+                            "<li><strong>" + i18n('skippedExist', 'Skipped (already exist)') + ":</strong> " + response.data.skipped + "</li>" +
+                            "<li><strong>" + i18n('failed', 'Failed') + ":</strong> " + response.data.failed + "</li>" +
+                            "<li><strong>" + i18n('totalInShopify', 'Total in Shopify') + ":</strong> " + response.data.totalInShopify + "</li>" +
+                            "<li><strong>" + i18n('remaining', 'Remaining') + ":</strong> " + response.data.remaining + "</li>"
                         );
 
                         statsText.html(
@@ -423,27 +426,28 @@
                         );
 
                         if (response.data.errors && response.data.errors.length > 0) {
-                            let errorHtml = "<li style='color: #d63638;'><strong>Errors:</strong><ul>";
+                            let errorHtml = "<li style='color: #d63638;'><strong>" + i18n('errors', 'Errors') + ":</strong><ul>";
                             response.data.errors.slice(0, 10).forEach(function (e) {
                                 errorHtml += "<li>" + e.path + ": " + e.error + "</li>";
                             });
                             if (response.data.errors.length > 10) {
-                                errorHtml += "<li>... and " + (response.data.errors.length - 10) + " more</li>";
+                                const moreText = i18n('andMore', '... and %d more').replace('%d', response.data.errors.length - 10);
+                                errorHtml += "<li>" + moreText + "</li>";
                             }
                             errorHtml += "</ul></li>";
                             syncResultsList.append(errorHtml);
                         }
                     } else {
-                        const errorMsg = response.data || "Unknown error";
+                        const errorMsg = response.data || i18n('unknownError', 'Unknown error');
                         if (errorMsg.indexOf && errorMsg.indexOf('Access denied') !== -1) {
                             showFixSessionButton();
                         }
-                        alert((washAdmin.i18n.syncError || "Failed to sync redirections: ") + errorMsg);
+                        alert(i18n('syncError', 'Failed to sync redirections: ') + errorMsg);
                     }
                 },
                 error: function () {
                     syncStatus.hide();
-                    alert("Network error while syncing redirections");
+                    alert(i18n('networkErrorSync', 'Network error while syncing redirections'));
                 },
                 complete: function () {
                     btn.prop("disabled", false);

@@ -422,3 +422,159 @@ msgstr "Toto vymaže celou historii synchronizace a Shopify ID článků. Použ�
 
 msgid "Save Settings"
 msgstr "Uložit nastavení"
+
+msgid "Testing connection..."
+msgstr "Testování připojení..."
+
+msgid "Connection successful!"
+msgstr "Připojení úspěšné!"
+
+msgid "Connection failed: "
+msgstr "Připojení selhalo: "
+
+msgid "Are you sure you want to disconnect from Shopify?"
+msgstr "Opravdu se chcete odpojit od Shopify?"
+
+msgid "Failed to disconnect. Please try again."
+msgstr "Odpojení se nezdařilo. Zkuste to prosím znovu."
+
+msgid "Checking..."
+msgstr "Kontrola..."
+
+msgid "Network error - could not reach debug endpoint"
+msgstr "Síťová chyba - nelze dosáhnout debug endpoint"
+
+msgid "Resetting..."
+msgstr "Resetování..."
+
+msgid "This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?"
+msgstr "Tímto se smaže Shopify relace. Budete muset aplikaci znovu otevřít ze Shopify Admin pro opětovnou autentizaci. Pokračovat?"
+
+msgid "Session reset. Now open the app from Shopify Admin to re-authenticate."
+msgstr "Relace resetována. Nyní otevřete aplikaci ze Shopify Admin pro opětovnou autentizaci."
+
+msgid "Failed to reset session: "
+msgstr "Reset relace selhal: "
+
+msgid "Network error - could not reach reset endpoint"
+msgstr "Síťová chyba - nelze dosáhnout reset endpoint"
+
+msgid "Network error while resetting session"
+msgstr "Síťová chyba při resetování relace"
+
+msgid "Loading..."
+msgstr "Načítání..."
+
+msgid "Syncing redirections..."
+msgstr "Synchronizace přesměrování..."
+
+msgid "Generating redirections..."
+msgstr "Generování přesměrování..."
+
+msgid "Fetching WordPress redirections..."
+msgstr "Načítání přesměrování z WordPress..."
+
+msgid "Redirections synced successfully!"
+msgstr "Přesměrování úspěšně synchronizována!"
+
+msgid "Failed to sync redirections: "
+msgstr "Synchronizace přesměrování selhala: "
+
+msgid "Failed to load stats"
+msgstr "Načtení statistik selhalo"
+
+msgid "No redirections found in WordPress plugins (Redirection, RankMath, Yoast)."
+msgstr "V WordPress pluginech nebyla nalezena žádná přesměrování (Redirection, RankMath, Yoast)."
+
+msgid "# Imported from WordPress plugins"
+msgstr "# Importováno z WordPress pluginů"
+
+msgid "Failed to fetch redirections: "
+msgstr "Načtení přesměrování selhalo: "
+
+msgid "Network error while fetching WordPress redirections"
+msgstr "Síťová chyba při načítání přesměrování z WordPress"
+
+msgid "No synced posts found. Sync some posts first to generate redirections."
+msgstr "Nenalezeny žádné synchronizované příspěvky. Nejprve synchronizujte příspěvky pro generování přesměrování."
+
+msgid "# Generated from synced posts"
+msgstr "# Vygenerováno ze synchronizovaných příspěvků"
+
+msgid "Failed to generate redirections: "
+msgstr "Generování přesměrování selhalo: "
+
+msgid "Network error while generating redirections"
+msgstr "Síťová chyba při generování přesměrování"
+
+msgid "Failed to load Shopify redirections: "
+msgstr "Načtení Shopify přesměrování selhalo: "
+
+msgid "No redirections found in Shopify."
+msgstr "V Shopify nebyla nalezena žádná přesměrování."
+
+msgid "# Existing Shopify redirections"
+msgstr "# Existující Shopify přesměrování"
+
+msgid "Network error while loading Shopify redirections"
+msgstr "Síťová chyba při načítání Shopify přesměrování"
+
+msgid "Fixing..."
+msgstr "Oprava..."
+
+msgid "Session fixed!"
+msgstr "Relace opravena!"
+
+msgid "No sessions needed fixing."
+msgstr "Žádné relace nepotřebovaly opravu."
+
+msgid "Network error while fixing session"
+msgstr "Síťová chyba při opravě relace"
+
+msgid "Failed to fix session: "
+msgstr "Oprava relace selhala: "
+
+msgid "Please enter redirections to sync."
+msgstr "Zadejte prosím přesměrování k synchronizaci."
+
+msgid "Network error while syncing redirections"
+msgstr "Síťová chyba při synchronizaci přesměrování"
+
+msgid "Unknown error"
+msgstr "Neznámá chyba"
+
+msgid "Network error"
+msgstr "Síťová chyba"
+
+msgid "Created"
+msgstr "Vytvořeno"
+
+msgid "Skipped (already exist)"
+msgstr "Přeskočeno (již existuje)"
+
+msgid "Failed"
+msgstr "Selhalo"
+
+msgid "Total in Shopify"
+msgstr "Celkem v Shopify"
+
+msgid "Remaining"
+msgstr "Zbývá"
+
+msgid "Errors"
+msgstr "Chyby"
+
+msgid "... and %d more"
+msgstr "... a %d dalších"
+
+msgid "Try loading redirections again."
+msgstr "Zkuste znovu načíst přesměrování."
+
+msgid "Failed to load mappings"
+msgstr "Načtení mapování selhalo"
+
+msgid "Edit"
+msgstr "Upravit"
+
+msgid "Delete"
+msgstr "Smazat"

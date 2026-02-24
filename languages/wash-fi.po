@@ -422,3 +422,159 @@ msgstr "Tämä tyhjentää kaiken synkronointihistorian ja Shopify-artikkelitunn
 
 msgid "Save Settings"
 msgstr "Tallenna asetukset"
+
+msgid "Testing connection..."
+msgstr "Testataan yhteyttä..."
+
+msgid "Connection successful!"
+msgstr "Yhteys onnistui!"
+
+msgid "Connection failed: "
+msgstr "Yhteys epäonnistui: "
+
+msgid "Are you sure you want to disconnect from Shopify?"
+msgstr "Haluatko varmasti katkaista yhteyden Shopifyyn?"
+
+msgid "Failed to disconnect. Please try again."
+msgstr "Yhteyden katkaisu epäonnistui. Yritä uudelleen."
+
+msgid "Checking..."
+msgstr "Tarkistetaan..."
+
+msgid "Network error - could not reach debug endpoint"
+msgstr "Verkkovirhe - virheenkorjauspäätepistettä ei voitu saavuttaa"
+
+msgid "Resetting..."
+msgstr "Nollataan..."
+
+msgid "This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?"
+msgstr "Tämä poistaa Shopify-istunnon. Sinun täytyy avata sovellus uudelleen Shopify Administa todentaaksesi uudelleen. Jatketaanko?"
+
+msgid "Session reset. Now open the app from Shopify Admin to re-authenticate."
+msgstr "Istunto nollattu. Avaa nyt sovellus Shopify Administa todentaaksesi uudelleen."
+
+msgid "Failed to reset session: "
+msgstr "Istunnon nollaus epäonnistui: "
+
+msgid "Network error - could not reach reset endpoint"
+msgstr "Verkkovirhe - nollauspäätepistettä ei voitu saavuttaa"
+
+msgid "Network error while resetting session"
+msgstr "Verkkovirhe istuntoa nollatessa"
+
+msgid "Loading..."
+msgstr "Ladataan..."
+
+msgid "Syncing redirections..."
+msgstr "Synkronoidaan uudelleenohjauksia..."
+
+msgid "Generating redirections..."
+msgstr "Luodaan uudelleenohjauksia..."
+
+msgid "Fetching WordPress redirections..."
+msgstr "Haetaan WordPress-uudelleenohjauksia..."
+
+msgid "Redirections synced successfully!"
+msgstr "Uudelleenohjaukset synkronoitu onnistuneesti!"
+
+msgid "Failed to sync redirections: "
+msgstr "Uudelleenohjausten synkronointi epäonnistui: "
+
+msgid "Failed to load stats"
+msgstr "Tilastojen lataus epäonnistui"
+
+msgid "No redirections found in WordPress plugins (Redirection, RankMath, Yoast)."
+msgstr "Uudelleenohjauksia ei löytynyt WordPress-lisäosista (Redirection, RankMath, Yoast)."
+
+msgid "# Imported from WordPress plugins"
+msgstr "# Tuotu WordPress-lisäosista"
+
+msgid "Failed to fetch redirections: "
+msgstr "Uudelleenohjausten haku epäonnistui: "
+
+msgid "Network error while fetching WordPress redirections"
+msgstr "Verkkovirhe haettaessa WordPress-uudelleenohjauksia"
+
+msgid "No synced posts found. Sync some posts first to generate redirections."
+msgstr "Synkronoituja julkaisuja ei löytynyt. Synkronoi ensin julkaisuja luodaksesi uudelleenohjauksia."
+
+msgid "# Generated from synced posts"
+msgstr "# Luotu synkronoiduista julkaisuista"
+
+msgid "Failed to generate redirections: "
+msgstr "Uudelleenohjausten luonti epäonnistui: "
+
+msgid "Network error while generating redirections"
+msgstr "Verkkovirhe luotaessa uudelleenohjauksia"
+
+msgid "Failed to load Shopify redirections: "
+msgstr "Shopify-uudelleenohjausten lataus epäonnistui: "
+
+msgid "No redirections found in Shopify."
+msgstr "Uudelleenohjauksia ei löytynyt Shopifysta."
+
+msgid "# Existing Shopify redirections"
+msgstr "# Olemassa olevat Shopify-uudelleenohjaukset"
+
+msgid "Network error while loading Shopify redirections"
+msgstr "Verkkovirhe ladattaessa Shopify-uudelleenohjauksia"
+
+msgid "Fixing..."
+msgstr "Korjataan..."
+
+msgid "Session fixed!"
+msgstr "Istunto korjattu!"
+
+msgid "No sessions needed fixing."
+msgstr "Yksikään istunto ei tarvinnut korjausta."
+
+msgid "Network error while fixing session"
+msgstr "Verkkovirhe korjatessa istuntoa"
+
+msgid "Failed to fix session: "
+msgstr "Istunnon korjaus epäonnistui: "
+
+msgid "Please enter redirections to sync."
+msgstr "Syötä synkronoitavat uudelleenohjaukset."
+
+msgid "Network error while syncing redirections"
+msgstr "Verkkovirhe synkronoidessa uudelleenohjauksia"
+
+msgid "Unknown error"
+msgstr "Tuntematon virhe"
+
+msgid "Network error"
+msgstr "Verkkovirhe"
+
+msgid "Created"
+msgstr "Luotu"
+
+msgid "Skipped (already exist)"
+msgstr "Ohitettu (jo olemassa)"
+
+msgid "Failed"
+msgstr "Epäonnistui"
+
+msgid "Total in Shopify"
+msgstr "Yhteensä Shopifyssa"
+
+msgid "Remaining"
+msgstr "Jäljellä"
+
+msgid "Errors"
+msgstr "Virheet"
+
+msgid "... and %d more"
+msgstr "... ja %d lisää"
+
+msgid "Try loading redirections again."
+msgstr "Yritä ladata uudelleenohjaukset uudelleen."
+
+msgid "Failed to load mappings"
+msgstr "Kartoitusten lataus epäonnistui"
+
+msgid "Edit"
+msgstr "Muokkaa"
+
+msgid "Delete"
+msgstr "Poista"
