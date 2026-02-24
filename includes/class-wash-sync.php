@@ -160,8 +160,14 @@ class WashSync {
                 update_post_meta($postId, '_wash_sync_status', 'queued');
                 update_post_meta($postId, '_wash_job_id', $result['jobId']);
                 update_post_meta($postId, '_wash_queued_at', current_time('mysql'));
+                delete_post_meta($postId, '_wash_sync_error');
                 return;
             }
+        } else {
+            // Store error message for display
+            $errorMessage = $result->get_error_message();
+            update_post_meta($postId, '_wash_sync_error', $errorMessage);
+            error_log("[wash] syncPost() - Stored error: " . $errorMessage);
 
             $shopifyId = $result['shopifyArticleId'] ?? $result['shopifyPageId'] ?? null;
             if ($shopifyId) {
@@ -170,10 +176,11 @@ class WashSync {
                 update_post_meta($postId, '_wash_blog_id', $result['shopifyBlogId'] ?? '');
                 update_post_meta($postId, '_wash_blog_handle', $result['shopifyBlogHandle'] ?? '');
                 update_post_meta($postId, '_wash_synced_at', current_time('mysql'));
-                // Clear queued status
+                // Clear queued status and error
                 delete_post_meta($postId, '_wash_sync_status');
                 delete_post_meta($postId, '_wash_job_id');
                 delete_post_meta($postId, '_wash_queued_at');
+                delete_post_meta($postId, '_wash_sync_error');
 
                 // Sync metafields (ACF, custom fields, SEO)
                 $this->syncMetafields($postId, $shopifyId);

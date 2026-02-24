@@ -1104,6 +1104,7 @@ JS;
         // Check if sync was successful or queued
         $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
         $syncStatus = get_post_meta($postId, '_wash_sync_status', true);
+        $syncError = get_post_meta($postId, '_wash_sync_error', true);
 
         if (!empty($shopifyArticleId)) {
             $result = 'synced';
@@ -1113,7 +1114,12 @@ JS;
             $result = 'error';
         }
 
-        wp_redirect(add_query_arg('wash_result', $result, wp_get_referer() ?: admin_url('edit.php')));
+        $redirectArgs = ['wash_result' => $result];
+        if ($result === 'error' && !empty($syncError)) {
+            $redirectArgs['wash_error_msg'] = urlencode($syncError);
+        }
+
+        wp_redirect(add_query_arg($redirectArgs, wp_get_referer() ?: admin_url('edit.php')));
         exit;
     }
 
@@ -1126,8 +1132,10 @@ JS;
         }
 
         $result = sanitize_key($_GET['wash_result']);
+        $errorMsg = isset($_GET['wash_error_msg']) ? sanitize_text_field(urldecode($_GET['wash_error_msg'])) : '';
         $class = '';
         $message = '';
+        $showUpgrade = false;
 
         switch ($result) {
             case 'synced':
@@ -1140,7 +1148,15 @@ JS;
                 break;
             case 'error':
                 $class = 'notice-error';
-                $message = __('Failed to sync post to Shopify. Check the debug log for details.', 'wash');
+                if (!empty($errorMsg)) {
+                    $message = $errorMsg;
+                    // Check if this is a usage limit error
+                    if (strpos($errorMsg, 'limit') !== false) {
+                        $showUpgrade = true;
+                    }
+                } else {
+                    $message = __('Failed to sync post to Shopify. Check the debug log for details.', 'wash');
+                }
                 break;
             case 'not_published':
                 $class = 'notice-warning';
@@ -1150,11 +1166,16 @@ JS;
                 return;
         }
 
-        printf(
-            '<div class="notice %s is-dismissible"><p><strong>Wash:</strong> %s</p></div>',
-            esc_attr($class),
-            esc_html($message)
-        );
+        $shopifyStore = get_option('wash_shopify_store', '');
+        $upgradeUrl = $shopifyStore ? "https://{$shopifyStore}.myshopify.com/admin/apps/wash-1" : '';
+
+        echo '<div class="notice ' . esc_attr($class) . ' is-dismissible"><p><strong>Wash:</strong> ' . esc_html($message);
+        if ($showUpgrade && $upgradeUrl) {
+            echo ' <a href="' . esc_url($upgradeUrl) . '" target="_blank" rel="noopener noreferrer" style="text-decoration: underline;">';
+            echo esc_html__('Upgrade your plan', 'wash');
+            echo '</a>';
+        }
+        echo '</p></div>';
     }
 
     /**
