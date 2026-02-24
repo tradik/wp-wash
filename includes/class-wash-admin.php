@@ -60,6 +60,9 @@ class WashAdmin {
         // AJAX handler for manual sync
         add_action('wp_ajax_wash_manual_sync', [$this, 'ajaxManualSync']);
 
+        // Admin notices for sync results
+        add_action('admin_notices', [$this, 'renderSyncNotices']);
+
         // Backup settings to Shopify App after settings update
         add_action('update_option_wash_sync_on_publish', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_sync_images', [$this, 'scheduleSettingsBackup']);
@@ -991,7 +994,8 @@ JS;
 
         $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
         $syncedAt = get_post_meta($postId, '_wash_synced_at', true);
-        $blogHandle = get_post_meta($postId, '_wash_blog_handle', true);
+        $syncStatus = get_post_meta($postId, '_wash_sync_status', true);
+        $queuedAt = get_post_meta($postId, '_wash_queued_at', true);
 
         if (!empty($shopifyArticleId)) {
             $shopifyUrl = $this->getShopifyArticleUrl($postId);
@@ -1002,6 +1006,12 @@ JS;
             echo '<a href="' . esc_url($shopifyUrl) . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr($title) . '">';
             echo '<span class="dashicons dashicons-yes-alt" style="color: #46b450;"></span>';
             echo '</a>';
+        } elseif ($syncStatus === 'queued') {
+            $title = sprintf(
+                __('Sync queued on %s - processing...', 'wash'),
+                $queuedAt ? date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($queuedAt)) : __('just now', 'wash')
+            );
+            echo '<span class="dashicons dashicons-update" style="color: #f0b849;" title="' . esc_attr($title) . '"></span>';
         } else {
             $post = get_post($postId);
             if ($post->post_status === 'publish') {
@@ -1091,12 +1101,60 @@ JS;
         $sync = new WashSync();
         $sync->onSavePost($postId, $post, true);
 
-        // Check if sync was successful
+        // Check if sync was successful or queued
         $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
-        $result = !empty($shopifyArticleId) ? 'synced' : 'error';
+        $syncStatus = get_post_meta($postId, '_wash_sync_status', true);
+
+        if (!empty($shopifyArticleId)) {
+            $result = 'synced';
+        } elseif ($syncStatus === 'queued') {
+            $result = 'queued';
+        } else {
+            $result = 'error';
+        }
 
         wp_redirect(add_query_arg('wash_result', $result, wp_get_referer() ?: admin_url('edit.php')));
         exit;
+    }
+
+    /**
+     * Render admin notices for sync results.
+     */
+    public function renderSyncNotices() {
+        if (!isset($_GET['wash_result'])) {
+            return;
+        }
+
+        $result = sanitize_key($_GET['wash_result']);
+        $class = '';
+        $message = '';
+
+        switch ($result) {
+            case 'synced':
+                $class = 'notice-success';
+                $message = __('Post synced to Shopify successfully.', 'wash');
+                break;
+            case 'queued':
+                $class = 'notice-info';
+                $message = __('Post queued for sync. It will appear on Shopify shortly.', 'wash');
+                break;
+            case 'error':
+                $class = 'notice-error';
+                $message = __('Failed to sync post to Shopify. Check the debug log for details.', 'wash');
+                break;
+            case 'not_published':
+                $class = 'notice-warning';
+                $message = __('Only published posts can be synced to Shopify.', 'wash');
+                break;
+            default:
+                return;
+        }
+
+        printf(
+            '<div class="notice %s is-dismissible"><p><strong>Wash:</strong> %s</p></div>',
+            esc_attr($class),
+            esc_html($message)
+        );
     }
 
     /**
@@ -1123,12 +1181,22 @@ JS;
         $sync = new WashSync();
         $sync->onSavePost($postId, $post, true);
 
-        // Check result
+        // Check result - could be synced immediately or queued for async processing
         $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
+        $syncStatus = get_post_meta($postId, '_wash_sync_status', true);
+        $jobId = get_post_meta($postId, '_wash_job_id', true);
+
         if (!empty($shopifyArticleId)) {
             wp_send_json_success([
+                'status' => 'synced',
                 'shopifyArticleId' => $shopifyArticleId,
                 'shopifyUrl' => $this->getShopifyArticleUrl($postId),
+            ]);
+        } elseif ($syncStatus === 'queued') {
+            wp_send_json_success([
+                'status' => 'queued',
+                'jobId' => $jobId,
+                'message' => __('Sync job queued. The article will be synced shortly.', 'wash'),
             ]);
         } else {
             wp_send_json_error(__('Sync failed', 'wash'));

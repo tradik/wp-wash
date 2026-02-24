@@ -154,6 +154,15 @@ class WashSync {
         $this->logSync($postId, $action, $result);
 
         if (!is_wp_error($result)) {
+            // Handle async queue response - job queued but not completed yet
+            if (!empty($result['queued']) && !empty($result['jobId'])) {
+                error_log("[wash] syncPost() - Job queued with ID: " . $result['jobId']);
+                update_post_meta($postId, '_wash_sync_status', 'queued');
+                update_post_meta($postId, '_wash_job_id', $result['jobId']);
+                update_post_meta($postId, '_wash_queued_at', current_time('mysql'));
+                return;
+            }
+
             $shopifyId = $result['shopifyArticleId'] ?? $result['shopifyPageId'] ?? null;
             if ($shopifyId) {
                 error_log("[wash] syncPost() - Updating post meta with Shopify ID: {$shopifyId}");
@@ -161,6 +170,10 @@ class WashSync {
                 update_post_meta($postId, '_wash_blog_id', $result['shopifyBlogId'] ?? '');
                 update_post_meta($postId, '_wash_blog_handle', $result['shopifyBlogHandle'] ?? '');
                 update_post_meta($postId, '_wash_synced_at', current_time('mysql'));
+                // Clear queued status
+                delete_post_meta($postId, '_wash_sync_status');
+                delete_post_meta($postId, '_wash_job_id');
+                delete_post_meta($postId, '_wash_queued_at');
 
                 // Sync metafields (ACF, custom fields, SEO)
                 $this->syncMetafields($postId, $shopifyId);
