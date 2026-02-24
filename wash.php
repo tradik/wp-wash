@@ -39,6 +39,7 @@ require_once WASH_PLUGIN_DIR . 'includes/class-wash-metafields.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-hreflangs.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-multisite.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-files-media.php';
+require_once WASH_PLUGIN_DIR . 'includes/class-wash-callback.php';
 
 register_activation_hook(__FILE__, ['WashActivator', 'activate']);
 register_deactivation_hook(__FILE__, ['WashActivator', 'deactivate']);
@@ -65,6 +66,9 @@ function washInit() {
 
     $filesMedia = new WashFilesMedia();
     $filesMedia->init();
+
+    $callback = new WashCallback();
+    $callback->register();
 
     if (is_multisite()) {
         $multisite = new WashMultisite();
