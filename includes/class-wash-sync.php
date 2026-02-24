@@ -51,7 +51,11 @@ class WashSync {
 
         error_log("[wash] Starting sync for post {$postId}");
         $this->isSyncing = true;
-        $action = $update ? 'update' : 'create';
+        // Determine action based on existing Shopify sync, not WordPress $update flag
+        // WordPress passes $update=true even for new posts (auto-draft → publish)
+        $existingArticleId = get_post_meta($postId, '_wash_article_id', true);
+        $action = empty($existingArticleId) ? 'create' : 'update';
+        error_log("[wash] Action determined: {$action} (existingArticleId: " . ($existingArticleId ?: 'none') . ")");
         $this->syncPost($postId, $post, $action);
         $this->isSyncing = false;
         error_log("[wash] Sync completed for post {$postId}");
