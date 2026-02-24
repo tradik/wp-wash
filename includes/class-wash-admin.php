@@ -60,6 +60,9 @@ class WashAdmin {
         // AJAX handler for manual sync
         add_action('wp_ajax_wash_manual_sync', [$this, 'ajaxManualSync']);
 
+        // AJAX handler for sync status polling
+        add_action('wp_ajax_wash_check_sync_status', [$this, 'ajaxCheckSyncStatus']);
+
         // Admin notices for sync results
         add_action('admin_notices', [$this, 'renderSyncNotices']);
 
@@ -317,6 +320,28 @@ class WashAdmin {
                 [],
                 WASH_VERSION . '.' . filemtime(WASH_PLUGIN_DIR . 'admin/css/admin.css')
             );
+        }
+
+        // Load sync status JS on posts list page
+        if ($hook === 'edit.php') {
+            wp_enqueue_script(
+                'wash-sync-status',
+                $pluginUrl . 'admin/js/sync-status.js',
+                ['jquery'],
+                WASH_VERSION . '.' . filemtime(WASH_PLUGIN_DIR . 'admin/js/sync-status.js'),
+                true
+            );
+            wp_localize_script('wash-sync-status', 'WashSyncStatus', [
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'nonce'   => wp_create_nonce('wash_sync_status'),
+                'i18n'    => [
+                    'synced'  => __('Synced to Shopify', 'wash'),
+                    'queued'  => __('Sync in progress...', 'wash'),
+                    'error'   => __('Sync failed', 'wash'),
+                    'success' => __('Post synced to Shopify successfully.', 'wash'),
+                ],
+            ]);
+            return;
         }
 
         // Load JS only on settings page
@@ -1011,7 +1036,7 @@ JS;
                 __('Sync queued on %s - processing...', 'wash'),
                 $queuedAt ? date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($queuedAt)) : __('just now', 'wash')
             );
-            echo '<span class="dashicons dashicons-update" style="color: #f0b849;" title="' . esc_attr($title) . '"></span>';
+            echo '<span class="dashicons dashicons-update wash-syncing" style="color: #f0b849;" title="' . esc_attr($title) . '" data-post-id="' . esc_attr($postId) . '"></span>';
         } else {
             $post = get_post($postId);
             if ($post->post_status === 'publish') {
@@ -1222,5 +1247,54 @@ JS;
         } else {
             wp_send_json_error(__('Sync failed', 'wash'));
         }
+    }
+
+    /**
+     * AJAX handler for checking sync status of multiple posts.
+     * Used for real-time updates without page refresh.
+     */
+    public function ajaxCheckSyncStatus() {
+        check_ajax_referer('wash_sync_status', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $postIds = isset($_POST['post_ids']) ? array_map('absint', (array) $_POST['post_ids']) : [];
+        if (empty($postIds)) {
+            wp_send_json_error(__('No posts to check', 'wash'));
+        }
+
+        $results = [];
+        foreach ($postIds as $postId) {
+            $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
+            $syncStatus = get_post_meta($postId, '_wash_sync_status', true);
+            $syncError = get_post_meta($postId, '_wash_sync_error', true);
+            $syncedAt = get_post_meta($postId, '_wash_synced_at', true);
+
+            if (!empty($shopifyArticleId)) {
+                $results[$postId] = [
+                    'status'     => 'synced',
+                    'shopifyId'  => $shopifyArticleId,
+                    'shopifyUrl' => $this->getShopifyArticleUrl($postId),
+                    'syncedAt'   => $syncedAt,
+                ];
+            } elseif ($syncStatus === 'queued') {
+                $results[$postId] = [
+                    'status' => 'queued',
+                ];
+            } elseif (!empty($syncError)) {
+                $results[$postId] = [
+                    'status' => 'error',
+                    'error'  => $syncError,
+                ];
+            } else {
+                $results[$postId] = [
+                    'status' => 'none',
+                ];
+            }
+        }
+
+        wp_send_json_success($results);
     }
 }

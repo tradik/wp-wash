@@ -69,7 +69,7 @@
 
 /* Posts list: Shopify sync status column */
 .column-wash_sync {
-  width: 40px;
+  width: 50px;
   text-align: center;
 }
 
@@ -77,15 +77,25 @@
   font-size: 18px;
   width: 18px;
   height: 18px;
+  line-height: 18px;
+  display: inline-block;
   vertical-align: middle;
 }
 
 .column-wash_sync a {
+  display: inline-block;
   text-decoration: none;
+  line-height: 1;
 }
 
 .column-wash_sync a:hover .dashicons {
   color: #135e96 !important;
+}
+
+/* Ensure table cell centers content */
+td.column-wash_sync {
+  vertical-align: middle;
+  padding: 8px 10px;
 }
 
 /* Locked tabs styling */
@@ -308,4 +318,28 @@
 
 .wash-accordion--tip .wash-accordion__title .dashicons {
   color: #8b5a00;
+}
+
+/* Sync status icon animations */
+@keyframes wash-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.column-wash_sync .wash-syncing {
+  animation: wash-spin 1.5s linear infinite;
+  display: inline-block;
+}
+
+/* Sync notice auto-dismiss */
+.wash-sync-notice {
+  transition: opacity 0.3s ease-out, max-height 0.3s ease-out;
+}
+
+.wash-sync-notice.wash-notice-hiding {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
