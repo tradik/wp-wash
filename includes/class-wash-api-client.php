@@ -476,6 +476,15 @@ class WashApiClient {
     }
 
     /**
+     * Get the app URL.
+     *
+     * @return string App URL.
+     */
+    public function getAppUrl() {
+        return $this->appUrl;
+    }
+
+    /**
      * Get plan info including features and usage from the Shopify App.
      * Caches the result for 5 minutes to reduce API calls.
      *

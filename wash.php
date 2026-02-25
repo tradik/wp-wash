@@ -41,6 +41,7 @@ require_once WASH_PLUGIN_DIR . 'includes/class-wash-multisite.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-files-media.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-callback.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-blocks.php';
+require_once WASH_PLUGIN_DIR . 'includes/class-wash-updater.php';
 
 register_activation_hook(__FILE__, ['WashActivator', 'activate']);
 register_deactivation_hook(__FILE__, ['WashActivator', 'deactivate']);
@@ -78,6 +79,10 @@ function washInit() {
         $multisite = new WashMultisite();
         $multisite->init();
     }
+
+    // Initialize plugin updater
+    $updater = new WashUpdater();
+    $updater->init();
 }
 
 add_action('plugins_loaded', 'washInit');
