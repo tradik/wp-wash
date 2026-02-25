@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.10.2
+Stable tag: 1.10.3
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -45,6 +45,9 @@ Yes. The companion Shopify app (included in this monorepo) must be deployed and 
 Yes. Each site in the network maps to a separate Shopify blog.
 
 == Changelog ==
+
+= 1.10.3 =
+* Fixed sync status column icon alignment in posts list
 
 = 1.10.2 =
 * Added test blocks documentation (docs/test-blocks-for-wash.md)
