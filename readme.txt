@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.10.4
+Stable tag: 1.10.5
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -45,6 +45,9 @@ Yes. The companion Shopify app (included in this monorepo) must be deployed and 
 Yes. Each site in the network maps to a separate Shopify blog.
 
 == Changelog ==
+
+= 1.10.5 =
+* Fixed plugin update download - authentication headers now properly sent
 
 = 1.10.4 =
 * Added plugin version display in settings header

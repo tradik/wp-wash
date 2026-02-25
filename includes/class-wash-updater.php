@@ -39,8 +39,8 @@ class WashUpdater {
         // Provide plugin info for the update details modal
         add_filter('plugins_api', [$this, 'pluginInfo'], 20, 3);
 
-        // Handle plugin download via proxy
-        add_filter('upgrader_package_options', [$this, 'addDownloadHeaders']);
+        // Add authentication headers for all requests to our API
+        add_filter('http_request_args', [$this, 'addAuthHeaders'], 10, 2);
 
         // Add update notice in plugin list
         add_action('in_plugin_update_message-' . $this->pluginBasename, [$this, 'updateMessage'], 10, 2);
@@ -149,35 +149,30 @@ class WashUpdater {
     }
 
     /**
-     * Add authentication headers for download request.
+     * Add authentication headers for all requests to our API.
      *
-     * @param array $options Upgrader options.
-     * @return array Modified options.
+     * @param array  $args HTTP request arguments.
+     * @param string $url  Request URL.
+     * @return array Modified arguments.
      */
-    public function addDownloadHeaders($options) {
-        if (empty($options['package'])) {
-            return $options;
-        }
-
-        // Check if this is our proxy URL
+    public function addAuthHeaders($args, $url) {
+        // Check if this is our API URL
         $appUrl = $this->getApiClient()->getAppUrl();
-        if (strpos($options['package'], $appUrl) === false) {
-            return $options;
+        if (strpos($url, $appUrl) === false) {
+            return $args;
         }
 
-        // Add authentication headers via filter
-        add_filter('http_request_args', function($args, $url) use ($appUrl) {
-            if (strpos($url, $appUrl) !== false) {
-                $apiKey = get_option('wash_api_key', '');
-                if (!empty($apiKey)) {
-                    $args['headers']['X-Wash-Key'] = $apiKey;
-                    $args['headers']['X-Wash-Plugin-Version'] = $this->currentVersion;
-                }
+        // Add authentication headers
+        $apiKey = get_option('wash_api_key', '');
+        if (!empty($apiKey)) {
+            if (!isset($args['headers'])) {
+                $args['headers'] = [];
             }
-            return $args;
-        }, 10, 2);
+            $args['headers']['X-Wash-Key'] = $apiKey;
+            $args['headers']['X-Wash-Plugin-Version'] = $this->currentVersion;
+        }
 
-        return $options;
+        return $args;
     }
 
     /**
