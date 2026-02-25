@@ -252,8 +252,10 @@ class WashUpdater {
         }
 
         // Show update available notice (non-critical)
-        if (!empty($plugin['updateAvailable']) && empty($plugin['belowMinimum'])) {
-            $latestVersion = $plugin['latestVersion'] ?? '';
+        // Double-check version comparison locally to prevent showing downgrade as update
+        $latestVersion = $plugin['latestVersion'] ?? '';
+        $isActuallyNewer = !empty($latestVersion) && version_compare($latestVersion, $this->currentVersion, '>');
+        if ($isActuallyNewer && empty($plugin['belowMinimum'])) {
             ?>
             <div class="notice notice-info is-dismissible">
                 <p>

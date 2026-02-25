@@ -24,9 +24,12 @@ $latestVersion = WASH_VERSION;
 if ($isConnected) {
     $updater = new WashUpdater();
     $versionInfo = $updater->getVersionInfo();
-    if (!is_wp_error($versionInfo) && !empty($versionInfo['plugin']['updateAvailable'])) {
-        $updateAvailable = true;
-        $latestVersion = $versionInfo['plugin']['latestVersion'] ?? WASH_VERSION;
+    if (!is_wp_error($versionInfo) && !empty($versionInfo['plugin']['latestVersion'])) {
+        $latestVersion = $versionInfo['plugin']['latestVersion'];
+        // Only show update if latestVersion is actually newer than current
+        if (version_compare($latestVersion, WASH_VERSION, '>')) {
+            $updateAvailable = true;
+        }
     }
 }
 
@@ -282,12 +285,14 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
             <input type="hidden" name="wash_api_secret" value="<?php echo esc_attr(get_option('wash_api_secret')); ?>" />
             <?php endif; ?>
 
+            <?php if (isset($_GET['reset-connection'])) : ?>
             <p style="margin-top: 20px;">
                 <button type="button" id="wash-reset-session" class="button button-secondary" style="color: #d63638;">
                     <span class="dashicons dashicons-trash" style="vertical-align: text-bottom;"></span>
                     <?php esc_html_e('Reset Connection', 'wash'); ?>
                 </button>
             </p>
+            <?php endif; ?>
         </div>
 
         <!-- Blogs Tab -->
