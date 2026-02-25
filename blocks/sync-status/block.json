@@ -1,0 +1,20 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "wash/sync-status",
+    "version": "1.0.0",
+    "title": "Sync Status",
+    "category": "widgets",
+    "icon": "cloud-upload",
+    "description": "Display Shopify sync status in the editor. This block does not render on the frontend.",
+    "keywords": ["shopify", "sync", "status", "wash"],
+    "textdomain": "wash",
+    "attributes": {},
+    "supports": {
+        "html": false,
+        "multiple": false,
+        "reusable": false
+    },
+    "editorScript": "file:./index.js",
+    "style": "file:./style.css"
+}

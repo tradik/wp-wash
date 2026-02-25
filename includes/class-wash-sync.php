@@ -249,7 +249,22 @@ class WashSync {
      * Build the post data payload for the Shopify App API.
      */
     private function buildPostData($postId, $post, $action) {
-        $content = apply_filters('the_content', $post->post_content);
+        // Process Gutenberg blocks before the_content filter
+        $blockData = apply_filters('wash_before_sync_content', $post->post_content, $postId);
+
+        // Handle both old (string) and new (array) filter return format
+        if (is_array($blockData)) {
+            $rawContent = $blockData['content'];
+            $blocksMeta = $blockData['blocksMeta'] ?? [];
+            $blocksCss = $blockData['blocksCss'] ?? '';
+        } else {
+            $rawContent = $blockData;
+            $blocksMeta = [];
+            $blocksCss = '';
+        }
+
+        // Apply the_content filter to processed content
+        $content = apply_filters('the_content', $rawContent);
 
         // Rewrite WordPress image URLs to Shopify CDN URLs
         if (get_option('wash_files_enabled', '1') === '1') {
@@ -259,6 +274,12 @@ class WashSync {
         // Rewrite internal WordPress links to Shopify URL format
         if (get_option('wash_rewrite_internal_urls', '1') === '1') {
             $content = $this->rewriteInternalUrls($content);
+        }
+
+        // Build blocks metafields if enabled
+        $blocksMetafields = [];
+        if (!empty($blocksMeta) && get_option('wash_sync_blocks_meta', '1') === '1') {
+            $blocksMetafields = WashBlocks::buildBlockMetafields($blocksMeta);
         }
 
         // Debug: log if content contains WordPress or Shopify CDN URLs
@@ -322,6 +343,18 @@ class WashSync {
         $data['customFields'] = $this->getCustomFields($postId);
         $data['wpPermalink'] = get_permalink($postId);
         $data['wpBlogName'] = get_bloginfo('name');
+
+        // Add blocks metadata if available
+        if (!empty($blocksMetafields)) {
+            $data['blocksMetafields'] = $blocksMetafields;
+            error_log("[wash] buildPostData() - Added " . count($blocksMetafields) . " block metafields");
+        }
+
+        // Add blocks CSS if enabled and available
+        if (!empty($blocksCss) && get_option('wash_sync_blocks_css', '0') === '1') {
+            $data['blocksCss'] = $blocksCss;
+            error_log("[wash] buildPostData() - Added block CSS (" . strlen($blocksCss) . " bytes)");
+        }
 
         return $data;
     }

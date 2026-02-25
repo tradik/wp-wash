@@ -1,0 +1,128 @@
+/**
+ * Wash Shopify Product Block Styles
+ * Styles for both editor and frontend.
+ */
+
+/* Block Container */
+.wash-shopify-product {
+    margin: 1.5em 0;
+    font-family: inherit;
+}
+
+.wash-product--card {
+    max-width: 400px;
+}
+
+.wash-product--minimal {
+    max-width: 300px;
+}
+
+.wash-product--full {
+    max-width: 100%;
+}
+
+/* Editor Preview */
+.wash-product-preview {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.wash-product-preview__image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+}
+
+.wash-product-preview__placeholder {
+    width: 100%;
+    height: 200px;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wash-product-preview__placeholder .dashicons {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: #ccc;
+}
+
+.wash-product-preview__content {
+    padding: 1rem;
+}
+
+.wash-product-preview__title {
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e1e1e;
+}
+
+.wash-product-preview__price {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    color: #666;
+}
+
+.wash-product-preview__button {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background: #008060;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.wash-product-preview__note {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    background: #f0f0f0;
+    font-size: 0.8rem;
+    color: #666;
+    text-align: center;
+    border-top: 1px solid #ddd;
+}
+
+/* Frontend Placeholder (before Liquid rendering) */
+.wash-product-placeholder {
+    padding: 2rem;
+    background: #f8f8f8;
+    border: 1px dashed #ddd;
+    text-align: center;
+    color: #666;
+}
+
+.wash-product-placeholder::before {
+    content: "Shopify Product: " attr(data-handle);
+    display: block;
+}
+
+/* Not Found State */
+.wash-product-not-found {
+    padding: 1em;
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    color: #856404;
+    font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .wash-product--card,
+    .wash-product--minimal {
+        max-width: 100%;
+    }
+
+    .wash-product-preview__image {
+        height: 180px;
+    }
+}

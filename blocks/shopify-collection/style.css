@@ -1,0 +1,147 @@
+/**
+ * Wash Shopify Collection Block Styles
+ * Styles for both editor and frontend.
+ */
+
+/* Block Container */
+.wash-shopify-collection {
+    display: grid;
+    gap: 1.5rem;
+    margin: 1.5em 0;
+}
+
+/* Column Variants */
+.wash-columns--2 { grid-template-columns: repeat(2, 1fr); }
+.wash-columns--3 { grid-template-columns: repeat(3, 1fr); }
+.wash-columns--4 { grid-template-columns: repeat(4, 1fr); }
+.wash-columns--5 { grid-template-columns: repeat(5, 1fr); }
+.wash-columns--6 { grid-template-columns: repeat(6, 1fr); }
+
+.wash-collection-item {
+    min-width: 0;
+}
+
+/* Editor Preview */
+.wash-collection-preview {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.wash-collection-preview__header {
+    padding: 1rem;
+    background: #f8f8f8;
+    border-bottom: 1px solid #ddd;
+}
+
+.wash-collection-preview__title {
+    margin: 0 0 0.25rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e1e1e;
+}
+
+.wash-collection-preview__info {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.wash-collection-preview__grid {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.wash-collection-preview__item {
+    border: 1px solid #eee;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.wash-collection-preview__placeholder {
+    height: 100px;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wash-collection-preview__placeholder .dashicons {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+    color: #ccc;
+}
+
+.wash-collection-preview__product-title {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+    color: #666;
+    text-align: center;
+    border-top: 1px solid #eee;
+}
+
+.wash-collection-preview__note {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    background: #f0f0f0;
+    font-size: 0.8rem;
+    color: #666;
+    text-align: center;
+    border-top: 1px solid #ddd;
+}
+
+/* Frontend Placeholder (before Liquid rendering) */
+.wash-collection-placeholder {
+    grid-column: 1 / -1;
+    padding: 2rem;
+    background: #f8f8f8;
+    border: 1px dashed #ddd;
+    text-align: center;
+    color: #666;
+}
+
+.wash-collection-placeholder::before {
+    content: "Shopify Collection: " attr(data-handle);
+    display: block;
+}
+
+/* Not Found State */
+.wash-collection-not-found {
+    grid-column: 1 / -1;
+    padding: 1em;
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    color: #856404;
+    font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .wash-columns--5,
+    .wash-columns--6 {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    .wash-collection-preview__grid {
+        grid-template-columns: repeat(4, 1fr) !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .wash-shopify-collection,
+    .wash-collection-preview__grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .wash-shopify-collection,
+    .wash-collection-preview__grid {
+        grid-template-columns: 1fr !important;
+    }
+}

@@ -1,0 +1,146 @@
+/**
+ * Wash Sync Status Block Styles
+ * Editor-only styles.
+ */
+
+.wash-sync-status {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    max-width: 400px;
+    font-size: 13px;
+}
+
+.wash-sync-status__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #008060 0%, #006e52 100%);
+    color: #fff;
+}
+
+.wash-sync-status__header .dashicons {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+}
+
+.wash-sync-status__title {
+    font-weight: 600;
+}
+
+.wash-sync-status__content {
+    padding: 16px;
+}
+
+.wash-sync-status__loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+}
+
+.wash-sync-status__loading .dashicons {
+    animation: wash-spin 1s linear infinite;
+}
+
+@keyframes wash-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.wash-sync-status__error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #d63638;
+}
+
+.wash-sync-status__info {
+    padding: 12px;
+    border-radius: 4px;
+}
+
+.wash-sync-status--success {
+    background: #edfaef;
+    border: 1px solid #00a32a;
+}
+
+.wash-sync-status--success .dashicons {
+    color: #00a32a;
+}
+
+.wash-sync-status--pending {
+    background: #fff8e5;
+    border: 1px solid #dba617;
+}
+
+.wash-sync-status--pending .dashicons {
+    color: #996800;
+}
+
+.wash-sync-status--error {
+    background: #fcf0f1;
+    border: 1px solid #d63638;
+}
+
+.wash-sync-status--error .dashicons {
+    color: #d63638;
+}
+
+.wash-sync-status--none {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+}
+
+.wash-sync-status__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.wash-sync-status__detail {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #50575e;
+}
+
+.wash-sync-status__detail strong {
+    color: #1e1e1e;
+}
+
+.wash-sync-status__error-message {
+    margin-top: 8px;
+    padding: 8px;
+    background: #fcf0f1;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #8a0f13;
+}
+
+.wash-sync-status__none {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+}
+
+.wash-sync-status__footer {
+    padding: 8px 16px;
+    background: #f6f7f7;
+    border-top: 1px solid #ddd;
+}
+
+.wash-sync-status__footer small {
+    color: #757575;
+    font-style: italic;
+}
+
+/* Animation for spinning icon */
+.spin {
+    animation: wash-spin 1s linear infinite;
+}

@@ -19,13 +19,169 @@ class WashCallback {
     }
 
     /**
-     * Register callback endpoint.
+     * Register REST API routes.
      */
     public function registerRoutes() {
+        // Callback endpoint for sync completion
         register_rest_route('wash/v1', '/callback', [
             'methods'             => 'POST',
             'callback'            => [$this, 'handleCallback'],
             'permission_callback' => [$this, 'verifyCallback'],
+        ]);
+
+        // Shopify products endpoint for Gutenberg blocks
+        register_rest_route('wash/v1', '/shopify/products', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'getShopifyProducts'],
+            'permission_callback' => [$this, 'checkEditPermission'],
+        ]);
+
+        // Shopify collections endpoint for Gutenberg blocks
+        register_rest_route('wash/v1', '/shopify/collections', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'getShopifyCollections'],
+            'permission_callback' => [$this, 'checkEditPermission'],
+        ]);
+
+        // Sync status endpoint for Gutenberg blocks
+        register_rest_route('wash/v1', '/sync-status/(?P<post_id>\d+)', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'getSyncStatus'],
+            'permission_callback' => [$this, 'checkEditPermission'],
+            'args'                => [
+                'post_id' => [
+                    'required'          => true,
+                    'validate_callback' => function($param) {
+                        return is_numeric($param);
+                    },
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Check if user can edit posts.
+     *
+     * @return bool
+     */
+    public function checkEditPermission() {
+        return current_user_can('edit_posts');
+    }
+
+    /**
+     * Proxy request to Shopify App API for products.
+     *
+     * @param WP_REST_Request $request Request object.
+     * @return WP_REST_Response|WP_Error
+     */
+    public function getShopifyProducts($request) {
+        $apiClient = new WashApiClient();
+
+        if (!$apiClient->isConfigured()) {
+            return new WP_Error(
+                'not_configured',
+                __('Wash is not configured. Please set up your API key.', 'wash'),
+                ['status' => 400]
+            );
+        }
+
+        $handle = $request->get_param('handle');
+        $endpoint = '/api/shopify-products';
+        if ($handle) {
+            $endpoint .= '?handle=' . urlencode($handle);
+        }
+
+        $result = $apiClient->get($endpoint);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return rest_ensure_response($result);
+    }
+
+    /**
+     * Proxy request to Shopify App API for collections.
+     *
+     * @param WP_REST_Request $request Request object.
+     * @return WP_REST_Response|WP_Error
+     */
+    public function getShopifyCollections($request) {
+        $apiClient = new WashApiClient();
+
+        if (!$apiClient->isConfigured()) {
+            return new WP_Error(
+                'not_configured',
+                __('Wash is not configured. Please set up your API key.', 'wash'),
+                ['status' => 400]
+            );
+        }
+
+        $handle = $request->get_param('handle');
+        $endpoint = '/api/shopify-collections';
+        if ($handle) {
+            $endpoint .= '?handle=' . urlencode($handle);
+        }
+
+        $result = $apiClient->get($endpoint);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return rest_ensure_response($result);
+    }
+
+    /**
+     * Get sync status for a post.
+     *
+     * @param WP_REST_Request $request Request object.
+     * @return WP_REST_Response|WP_Error
+     */
+    public function getSyncStatus($request) {
+        $postId = intval($request->get_param('post_id'));
+
+        $post = get_post($postId);
+        if (!$post) {
+            return new WP_Error(
+                'not_found',
+                __('Post not found', 'wash'),
+                ['status' => 404]
+            );
+        }
+
+        $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
+        $shopifyBlogId = get_post_meta($postId, '_wash_blog_id', true);
+        $shopifyBlogHandle = get_post_meta($postId, '_wash_blog_handle', true);
+        $shopifyHandle = get_post_meta($postId, '_wash_handle', true);
+        $shopifyUrl = get_post_meta($postId, '_wash_shopify_url', true);
+        $syncedAt = get_post_meta($postId, '_wash_synced_at', true);
+        $syncStatus = get_post_meta($postId, '_wash_sync_status', true);
+        $jobId = get_post_meta($postId, '_wash_job_id', true);
+        $queuedAt = get_post_meta($postId, '_wash_queued_at', true);
+        $syncError = get_post_meta($postId, '_wash_sync_error', true);
+
+        // Determine status
+        $status = 'not_synced';
+        if ($syncError) {
+            $status = 'error';
+        } elseif ($syncStatus === 'queued' || $jobId) {
+            $status = 'queued';
+        } elseif ($shopifyArticleId) {
+            $status = 'synced';
+        }
+
+        return rest_ensure_response([
+            'status'            => $status,
+            'shopifyArticleId'  => $shopifyArticleId ?: null,
+            'shopifyBlogId'     => $shopifyBlogId ?: null,
+            'shopifyBlogHandle' => $shopifyBlogHandle ?: null,
+            'shopifyHandle'     => $shopifyHandle ?: null,
+            'shopifyUrl'        => $shopifyUrl ?: null,
+            'syncedAt'          => $syncedAt ?: null,
+            'jobId'             => $jobId ?: null,
+            'queuedAt'          => $queuedAt ?: null,
+            'errorMessage'      => $syncError ?: null,
         ]);
     }
 
