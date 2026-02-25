@@ -18,6 +18,18 @@ if ($isConnected) {
     }
 }
 
+// Check for plugin update
+$updateAvailable = false;
+$latestVersion = WASH_VERSION;
+if ($isConnected) {
+    $updater = new WashUpdater();
+    $versionInfo = $updater->getVersionInfo();
+    if (!is_wp_error($versionInfo) && !empty($versionInfo['plugin']['updateAvailable'])) {
+        $updateAvailable = true;
+        $latestVersion = $versionInfo['plugin']['latestVersion'] ?? WASH_VERSION;
+    }
+}
+
 // Feature to tab mapping
 $tabFeatures = [
     'blogs' => 'blogMapping',
@@ -104,12 +116,20 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
 ?>
 <div class="wrap wash-settings">
     <h1>
-        <img src="<?php echo esc_url(washPluginUrl() . 'admin/assets/logo.png'); ?>" alt="wash" style="height: 28px; width: auto; margin-right: 8px; vertical-align: middle;" />
-        <?php esc_html_e('wash Settings', 'wash'); ?>
+        <img src="<?php echo esc_url(washPluginUrl() . 'admin/assets/logo.png'); ?>" alt="Wash" style="height: 28px; width: auto; margin-right: 8px; vertical-align: middle;" />
+        <?php esc_html_e('Wash Settings', 'wash'); ?>
+        <span style="font-size: 12px; font-weight: normal; color: #646970; margin-left: 8px; vertical-align: middle;">
+            v<?php echo esc_html(WASH_VERSION); ?>
+        </span>
         <?php if ($isConnected && $planName) : ?>
             <span class="wash-plan-badge" style="font-size: 12px; font-weight: 600; background: <?php echo $planName === 'FREE' ? '#f0f0f1' : '#d4edda'; ?>; color: <?php echo $planName === 'FREE' ? '#666' : '#155724'; ?>; padding: 4px 10px; border-radius: 12px; margin-left: 10px; vertical-align: middle;">
                 <?php echo esc_html($planName); ?>
             </span>
+        <?php endif; ?>
+        <?php if ($updateAvailable) : ?>
+            <a href="<?php echo esc_url(admin_url('plugins.php')); ?>" style="font-size: 12px; font-weight: 600; background: #fff3cd; color: #856404; padding: 4px 10px; border-radius: 12px; margin-left: 8px; vertical-align: middle; text-decoration: none;">
+                <?php printf(esc_html__('Update available: v%s', 'wash'), esc_html($latestVersion)); ?>
+            </a>
         <?php endif; ?>
     </h1>
 
@@ -262,54 +282,12 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
             <input type="hidden" name="wash_api_secret" value="<?php echo esc_attr(get_option('wash_api_secret')); ?>" />
             <?php endif; ?>
 
-            <details class="wash-http-auth" style="margin-top: 30px; border: 1px solid #c3c4c7; border-radius: 4px; padding: 0;">
-                <summary style="padding: 12px 15px; background: #f6f7f7; cursor: pointer; font-weight: 600; border-radius: 4px;">
-                    <?php esc_html_e('HTTP Authentication (Optional)', 'wash'); ?>
-                    <span style="font-weight: normal; color: #646970; margin-left: 10px;"><?php esc_html_e('For apps behind Basic Auth', 'wash'); ?></span>
-                </summary>
-                <div style="padding: 15px;">
-                    <table class="form-table" role="presentation" style="margin-top: 0;">
-                        <tr>
-                            <th scope="row">
-                                <label for="wash_http_user"><?php esc_html_e('HTTP Username', 'wash'); ?></label>
-                            </th>
-                            <td>
-                                <input type="text" id="wash_http_user" name="wash_http_user"
-                                       value="<?php echo esc_attr(get_option('wash_http_user')); ?>"
-                                       class="regular-text" autocomplete="off" />
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">
-                                <label for="wash_http_pass"><?php esc_html_e('HTTP Password', 'wash'); ?></label>
-                            </th>
-                            <td>
-                                <input type="password" id="wash_http_pass" name="wash_http_pass"
-                                       value="<?php echo esc_attr(get_option('wash_http_pass')); ?>"
-                                       class="regular-text" autocomplete="off" />
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-            </details>
-
             <p style="margin-top: 20px;">
-                <button type="button" id="wash-test-connection" class="button button-secondary">
-                    <span class="dashicons dashicons-networking" style="vertical-align: text-bottom;"></span>
-                    <?php esc_html_e('Test Connection', 'wash'); ?>
-                </button>
-                <button type="button" id="wash-debug-session" class="button button-secondary" style="margin-left: 10px;">
-                    <span class="dashicons dashicons-admin-tools" style="vertical-align: text-bottom;"></span>
-                    <?php esc_html_e('Debug Session', 'wash'); ?>
-                </button>
-                <button type="button" id="wash-reset-session" class="button button-secondary" style="margin-left: 10px; color: #d63638;">
+                <button type="button" id="wash-reset-session" class="button button-secondary" style="color: #d63638;">
                     <span class="dashicons dashicons-trash" style="vertical-align: text-bottom;"></span>
-                    <?php esc_html_e('Reset Session', 'wash'); ?>
+                    <?php esc_html_e('Reset Connection', 'wash'); ?>
                 </button>
             </p>
-            <div id="wash-debug-output" style="display: none; margin-top: 15px; padding: 15px; background: #f0f0f1; border-radius: 4px;">
-                <pre style="white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;"></pre>
-            </div>
         </div>
 
         <!-- Blogs Tab -->
