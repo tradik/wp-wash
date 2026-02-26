@@ -357,7 +357,7 @@ class WashAdmin {
             true
         );
 
-        wp_localize_script('wash-admin', 'WashAdmin', [
+        wp_localize_script('wash-admin', 'washAdmin', [
             'ajaxUrl'           => admin_url('admin-ajax.php'),
             'nonce'             => wp_create_nonce('wash_nonce'),
             'disconnectNonce'   => wp_create_nonce('wash_disconnect'),
