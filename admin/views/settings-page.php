@@ -7,6 +7,7 @@ $planInfo = null;
 $features = [];
 $upgradeUrl = '';
 $planName = 'FREE';
+$permissions = [];
 
 if ($isConnected) {
     $apiClient = new WashApiClient();
@@ -16,7 +17,24 @@ if ($isConnected) {
         $upgradeUrl = $planInfo['upgradeUrl'] ?? '';
         $planName = $planInfo['plan'] ?? 'FREE';
     }
+
+    // Fetch permissions from Shopify App
+    $permissions = $apiClient->getPermissions();
+    if (is_wp_error($permissions)) {
+        $permissions = []; // Default to empty = all allowed
+    }
 }
+
+// Tab to permission field mapping
+$tabPermissions = [
+    'sync' => 'canEditSync',
+    'hreflangs' => 'canEditHreflangs',
+    'metafields' => 'canEditMeta',
+    'authors' => 'canEditAuthors',
+    'files' => 'canEditFiles',
+    'redirections' => 'canEditRedirections',
+    'advanced' => 'canEditAdvanced',
+];
 
 // Check for plugin update
 $updateAvailable = false;
@@ -54,13 +72,27 @@ $featurePlans = [
 ];
 
 /**
- * Check if a tab/feature is locked.
+ * Check if a tab/feature is locked (plan-based).
  */
 function wash_is_feature_locked($featureName, $features) {
     if (empty($features)) {
         return false; // No plan info, don't lock
     }
     return empty($features[$featureName]);
+}
+
+/**
+ * Check if a tab is locked by Shopify permissions.
+ */
+function wash_is_permission_locked($tab, $tabPermissions, $permissions) {
+    if (empty($permissions)) {
+        return false; // No permissions info, don't lock
+    }
+    $permissionField = $tabPermissions[$tab] ?? null;
+    if (!$permissionField) {
+        return false; // Tab has no permission field
+    }
+    return isset($permissions[$permissionField]) && $permissions[$permissionField] === false;
 }
 
 /**
@@ -97,24 +129,48 @@ function wash_render_tab($tab, $label, $features, $tabFeatures, $featurePlans, $
 }
 
 /**
- * Get tab content attributes for locked state.
+ * Get tab content attributes for locked state (plan or permission).
  */
-function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans, $upgradeUrl) {
+function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions = [], $tabPermissions = []) {
     $featureName = $tabFeatures[$tab] ?? null;
-    $isLocked = $featureName && wash_is_feature_locked($featureName, $features);
+    $isPlanLocked = $featureName && wash_is_feature_locked($featureName, $features);
+    $isPermissionLocked = wash_is_permission_locked($tab, $tabPermissions, $permissions);
     $requiredPlan = $featurePlans[$featureName] ?? 'PRO';
+    $isLocked = $isPlanLocked || $isPermissionLocked;
 
     $class = 'wash-tab-content';
-    if ($isLocked) {
+    if ($isPlanLocked) {
         $class .= ' wash-tab-content--locked';
+    }
+    if ($isPermissionLocked) {
+        $class .= ' wash-tab-content--permission-locked';
     }
 
     return [
         'class' => $class,
         'isLocked' => $isLocked,
+        'isPlanLocked' => $isPlanLocked,
+        'isPermissionLocked' => $isPermissionLocked,
         'requiredPlan' => $requiredPlan,
         'upgradeUrl' => $upgradeUrl,
     ];
+}
+
+/**
+ * Render a permission locked banner.
+ */
+function wash_render_permission_locked_banner() {
+    ?>
+    <div class="wash-permission-locked-banner" style="background: #fff8e6; border: 1px solid #ffc96b; border-radius: 4px; padding: 12px 15px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+        <span class="dashicons dashicons-lock" style="color: #856404; font-size: 20px;"></span>
+        <div>
+            <strong style="color: #856404;"><?php esc_html_e('Settings Locked by Shopify Admin', 'wash'); ?></strong>
+            <p style="margin: 4px 0 0; color: #856404; font-size: 13px;">
+                <?php esc_html_e('This section is controlled from the Shopify App. Changes made here will not be saved.', 'wash'); ?>
+            </p>
+        </div>
+    </div>
+    <?php
 }
 ?>
 <div class="wrap wash-settings">
@@ -296,7 +352,7 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Blogs Tab -->
-        <?php $blogsTabAttrs = wash_get_tab_content_class('blogs', $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <?php $blogsTabAttrs = wash_get_tab_content_class('blogs', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
         <div class="<?php echo esc_attr($blogsTabAttrs['class']); ?>" id="tab-blogs" style="display: none;" data-locked="<?php echo $blogsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($blogsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($blogsTabAttrs['upgradeUrl']); ?>">
             <h2 class="title"><?php esc_html_e('Blog Routing Rules', 'wash'); ?></h2>
             <p class="description">
@@ -390,8 +446,11 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Redirections Tab -->
-        <?php $redirectionsTabAttrs = wash_get_tab_content_class('redirections', $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <?php $redirectionsTabAttrs = wash_get_tab_content_class('redirections', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
         <div class="<?php echo esc_attr($redirectionsTabAttrs['class']); ?>" id="tab-redirections" style="display: none;" data-locked="<?php echo $redirectionsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($redirectionsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($redirectionsTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($redirectionsTabAttrs['isPermissionLocked'])) : ?>
+                <?php wash_render_permission_locked_banner(); ?>
+            <?php endif; ?>
             <h2 class="title"><?php esc_html_e('URL Redirections Management', 'wash'); ?></h2>
             <p class="description"><?php esc_html_e('Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration.', 'wash'); ?></p>
 
@@ -728,8 +787,11 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Hreflangs Tab -->
-        <?php $hreflangsTabAttrs = wash_get_tab_content_class('hreflangs', $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <?php $hreflangsTabAttrs = wash_get_tab_content_class('hreflangs', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
         <div class="<?php echo esc_attr($hreflangsTabAttrs['class']); ?>" id="tab-hreflangs" style="display: none;" data-locked="<?php echo $hreflangsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($hreflangsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($hreflangsTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($hreflangsTabAttrs['isPermissionLocked'])) : ?>
+                <?php wash_render_permission_locked_banner(); ?>
+            <?php endif; ?>
             <h2 class="title"><?php esc_html_e('Hreflang Tags Configuration', 'wash'); ?></h2>
             <p class="description"><?php esc_html_e('Configure hreflang tags for multi-language SEO on Shopify.', 'wash'); ?></p>
 
@@ -943,8 +1005,11 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Meta Fields Tab -->
-        <?php $metafieldsTabAttrs = wash_get_tab_content_class('metafields', $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <?php $metafieldsTabAttrs = wash_get_tab_content_class('metafields', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
         <div class="<?php echo esc_attr($metafieldsTabAttrs['class']); ?>" id="tab-metafields" style="display: none;" data-locked="<?php echo $metafieldsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($metafieldsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($metafieldsTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($metafieldsTabAttrs['isPermissionLocked'])) : ?>
+                <?php wash_render_permission_locked_banner(); ?>
+            <?php endif; ?>
             <h2 class="title"><?php esc_html_e('Meta Fields Configuration', 'wash'); ?></h2>
             <p class="description"><?php esc_html_e('Select which meta field providers to sync to Shopify metafields. Click Save Changes to apply.', 'wash'); ?></p>
 
@@ -1112,8 +1177,11 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Authors Tab -->
-        <?php $authorsTabAttrs = wash_get_tab_content_class('authors', $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
+        <?php $authorsTabAttrs = wash_get_tab_content_class('authors', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
         <div class="<?php echo esc_attr($authorsTabAttrs['class']); ?>" id="tab-authors" style="display: none;" data-locked="<?php echo $authorsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($authorsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($authorsTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($authorsTabAttrs['isPermissionLocked'])) : ?>
+                <?php wash_render_permission_locked_banner(); ?>
+            <?php endif; ?>
             <h2 class="title"><?php esc_html_e('Author Mapping', 'wash'); ?></h2>
             <p class="description"><?php esc_html_e('Map WordPress users to custom author names displayed on Shopify articles.', 'wash'); ?></p>
 
@@ -1204,7 +1272,11 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Files & Media Tab -->
-        <div class="wash-tab-content" id="tab-files" style="display: none;">
+        <?php $filesTabAttrs = wash_get_tab_content_class('files', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
+        <div class="<?php echo esc_attr($filesTabAttrs['class']); ?>" id="tab-files" style="display: none;">
+            <?php if (!empty($filesTabAttrs['isPermissionLocked'])) : ?>
+                <?php wash_render_permission_locked_banner(); ?>
+            <?php endif; ?>
             <h2 class="title"><?php esc_html_e('Files & Media Configuration', 'wash'); ?></h2>
             <p class="description"><?php esc_html_e('Configure how images and media files are handled when syncing to Shopify.', 'wash'); ?></p>
 
@@ -1468,7 +1540,11 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Sync Tab -->
-        <div class="wash-tab-content" id="tab-sync" style="display: none;">
+        <?php $syncTabAttrs = wash_get_tab_content_class('sync', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
+        <div class="<?php echo esc_attr($syncTabAttrs['class']); ?>" id="tab-sync" style="display: none;">
+            <?php if (!empty($syncTabAttrs['isPermissionLocked'])) : ?>
+                <?php wash_render_permission_locked_banner(); ?>
+            <?php endif; ?>
             <h2 class="title"><?php esc_html_e('Sync Preferences', 'wash'); ?></h2>
             <p class="description"><?php esc_html_e('Configure how content is synchronized to Shopify.', 'wash'); ?></p>
 
@@ -1529,7 +1605,11 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
         </div>
 
         <!-- Advanced Tab -->
-        <div class="wash-tab-content" id="tab-advanced" style="display: none;">
+        <?php $advancedTabAttrs = wash_get_tab_content_class('advanced', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
+        <div class="<?php echo esc_attr($advancedTabAttrs['class']); ?>" id="tab-advanced" style="display: none;">
+            <?php if (!empty($advancedTabAttrs['isPermissionLocked'])) : ?>
+                <?php wash_render_permission_locked_banner(); ?>
+            <?php endif; ?>
             <h2 class="title"><?php esc_html_e('Advanced Settings', 'wash'); ?></h2>
             <p class="description"><?php esc_html_e('Additional configuration options.', 'wash'); ?></p>
 

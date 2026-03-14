@@ -245,6 +245,51 @@ class WashApiClient {
     }
 
     /**
+     * Get permissions from Shopify App.
+     * Returns which settings WordPress is allowed to modify.
+     * Results are cached for 5 minutes.
+     *
+     * @return array|WP_Error Permissions array or error
+     */
+    public function getPermissions() {
+        // Check cache first
+        $cached = get_transient('wash_permissions');
+        if ($cached !== false) {
+            return $cached;
+        }
+
+        $result = $this->get('/api/settings-permissions');
+
+        if (is_wp_error($result)) {
+            // Return default permissions (all allowed) on error
+            return [
+                'canEditSync' => true,
+                'canEditHreflangs' => true,
+                'canEditMeta' => true,
+                'canEditAuthors' => true,
+                'canEditFiles' => true,
+                'canEditRedirections' => true,
+                'canEditAdvanced' => true,
+            ];
+        }
+
+        $permissions = $result['permissions'] ?? [];
+
+        // Cache for 5 minutes
+        set_transient('wash_permissions', $permissions, 5 * MINUTE_IN_SECONDS);
+
+        return $permissions;
+    }
+
+    /**
+     * Clear cached permissions.
+     * Call this when settings are changed from Shopify side.
+     */
+    public function clearPermissionsCache() {
+        delete_transient('wash_permissions');
+    }
+
+    /**
      * Debug Shopify session - shows detailed session information.
      *
      * @return array|WP_Error Debug info or error

@@ -351,3 +351,37 @@ td.column-wash_sync span {
   margin: 0;
   padding: 0;
 }
+
+/* Permission locked tab styles */
+.wash-tab-content--permission-locked {
+  position: relative;
+}
+
+.wash-tab-content--permission-locked input,
+.wash-tab-content--permission-locked select,
+.wash-tab-content--permission-locked textarea,
+.wash-tab-content--permission-locked button:not(.wash-permission-info-btn) {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.wash-tab-content--permission-locked .form-table {
+  opacity: 0.7;
+}
+
+.wash-tab-content--permission-locked .submit {
+  display: none;
+}
+
+.wash-permission-locked-banner {
+  animation: wash-pulse 2s ease-in-out infinite;
+}
+
+@keyframes wash-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 201, 107, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(255, 201, 107, 0);
+  }
+}
