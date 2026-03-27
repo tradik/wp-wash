@@ -1,6 +1,7 @@
 <?php
 $isConnected = !empty(get_option('wash_api_key')) && !empty(get_option('wash_api_secret'));
 $shopifyStore = get_option('wash_shopify_store', '');
+$shopifyAppSlug = (new WashApiClient())->getShopifyAppSlug();
 
 // Fetch plan info for feature gating
 $planInfo = null;
@@ -9,9 +10,18 @@ $upgradeUrl = '';
 $planName = 'FREE';
 $permissions = [];
 
+// Check if plan refresh was requested
+$forceRefreshPlan = isset($_GET['refresh_plan']) && $_GET['refresh_plan'] === '1';
+
 if ($isConnected) {
     $apiClient = new WashApiClient();
-    $planInfo = $apiClient->getPlanInfo();
+
+    // Force refresh plan info if requested via query parameter
+    if ($forceRefreshPlan) {
+        $apiClient->clearPlanInfoCache();
+    }
+
+    $planInfo = $apiClient->getPlanInfo($forceRefreshPlan);
     if (!is_wp_error($planInfo) && !empty($planInfo['features'])) {
         $features = $planInfo['features'];
         $upgradeUrl = $planInfo['upgradeUrl'] ?? '';
@@ -32,6 +42,7 @@ $tabPermissions = [
     'metafields' => 'canEditMeta',
     'authors' => 'canEditAuthors',
     'files' => 'canEditFiles',
+    'content' => 'canEditContent',
     'redirections' => 'canEditRedirections',
     'advanced' => 'canEditAdvanced',
 ];
@@ -174,6 +185,11 @@ function wash_render_permission_locked_banner() {
 }
 ?>
 <div class="wrap wash-settings">
+    <?php if ($forceRefreshPlan) : ?>
+    <div class="notice notice-success is-dismissible" style="margin: 15px 0;">
+        <p><?php esc_html_e('Plan information refreshed successfully.', 'wash'); ?></p>
+    </div>
+    <?php endif; ?>
     <h1>
         <img src="<?php echo esc_url(washPluginUrl() . 'admin/assets/logo.png'); ?>" alt="Wash" style="height: 28px; width: auto; margin-right: 8px; vertical-align: middle;" />
         <?php esc_html_e('Wash Settings', 'wash'); ?>
@@ -184,6 +200,9 @@ function wash_render_permission_locked_banner() {
             <span class="wash-plan-badge" style="font-size: 12px; font-weight: 600; background: <?php echo $planName === 'FREE' ? '#f0f0f1' : '#d4edda'; ?>; color: <?php echo $planName === 'FREE' ? '#666' : '#155724'; ?>; padding: 4px 10px; border-radius: 12px; margin-left: 10px; vertical-align: middle;">
                 <?php echo esc_html($planName); ?>
             </span>
+            <a href="<?php echo esc_url(add_query_arg('refresh_plan', '1')); ?>" title="<?php esc_attr_e('Refresh plan info', 'wash'); ?>" style="color: #646970; margin-left: 4px; vertical-align: middle; text-decoration: none;">
+                <span class="dashicons dashicons-update" style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle;"></span>
+            </a>
         <?php endif; ?>
         <?php if ($updateAvailable) : ?>
             <a href="<?php echo esc_url(admin_url('plugins.php')); ?>" style="font-size: 12px; font-weight: 600; background: #fff3cd; color: #856404; padding: 4px 10px; border-radius: 12px; margin-left: 8px; vertical-align: middle; text-decoration: none;">
@@ -236,6 +255,7 @@ function wash_render_permission_locked_banner() {
         <?php wash_render_tab('metafields', __('Meta Fields', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
         <?php wash_render_tab('authors', __('Authors', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
         <a href="#files" class="nav-tab" data-tab="files"><?php esc_html_e('Files & Media', 'wash'); ?></a>
+        <a href="#content" class="nav-tab" data-tab="content"><?php esc_html_e('Content Processing', 'wash'); ?></a>
         <a href="#sync" class="nav-tab" data-tab="sync"><?php esc_html_e('Sync Settings', 'wash'); ?></a>
         <a href="#advanced" class="nav-tab" data-tab="advanced"><?php esc_html_e('Advanced', 'wash'); ?></a>
     </nav>
@@ -255,99 +275,95 @@ function wash_render_permission_locked_banner() {
             <h2 class="title"><?php esc_html_e('Shopify Store Connection', 'wash'); ?></h2>
 
             <?php if ($isConnected) : ?>
-                <div class="wash-connected-box" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 15px; margin: 15px 0;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="width: 12px; height: 12px; background: #28a745; border-radius: 50%; display: inline-block;"></span>
-                        <strong style="color: #155724;"><?php esc_html_e('Connected', 'wash'); ?></strong>
-                        <?php if ($shopifyStore) : ?>
-                            <span style="color: #155724;">to <code><?php echo esc_html($shopifyStore); ?>.myshopify.com</code></span>
-                        <?php endif; ?>
+                <!-- Connected state - simple view -->
+                <div class="wash-connected-box" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 20px; margin: 15px 0;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="width: 12px; height: 12px; background: #28a745; border-radius: 50%; display: inline-block;"></span>
+                            <strong style="color: #155724;"><?php esc_html_e('Connected', 'wash'); ?></strong>
+                            <?php if ($shopifyStore) : ?>
+                                <span style="color: #155724;">
+                                    <?php esc_html_e('to', 'wash'); ?>
+                                    <a href="https://<?php echo esc_attr($shopifyStore); ?>.myshopify.com/admin" target="_blank" rel="noopener noreferrer" style="color: #155724; font-weight: 600;">
+                                        <?php echo esc_html($shopifyStore); ?>.myshopify.com
+                                    </a>
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                        <button type="button" id="wash-disconnect-btn" class="button" style="color: #dc3545; border-color: #dc3545;">
+                            <span class="dashicons dashicons-dismiss" style="vertical-align: text-bottom;"></span>
+                            <?php esc_html_e('Disconnect', 'wash'); ?>
+                        </button>
                     </div>
                 </div>
-            <?php endif; ?>
-
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row">
-                        <label for="wash_shopify_store"><?php esc_html_e('Shopify Store', 'wash'); ?></label>
-                    </th>
-                    <td>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <input type="text" id="wash_shopify_store" name="wash_shopify_store"
-                                   value="<?php echo esc_attr($shopifyStore); ?>"
-                                   class="regular-text" placeholder="your-store"
-                                   style="max-width: 200px;" />
-                            <span style="color: #666;">.myshopify.com</span>
-                        </div>
-                        <p class="description"><?php esc_html_e('Your Shopify store handle (e.g., "my-store" from my-store.myshopify.com)', 'wash'); ?></p>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"></th>
-                    <td>
-                        <button type="button" id="wash-connect-btn" class="button button-primary" style="display: none;">
-                            <span class="dashicons dashicons-admin-links" style="vertical-align: text-bottom;"></span>
-                            <?php esc_html_e('Connect to Shopify', 'wash'); ?>
-                        </button>
-                        <?php if ($isConnected) : ?>
-                            <button type="button" id="wash-disconnect-btn" class="button" style="color: #dc3545;">
-                                <span class="dashicons dashicons-dismiss" style="vertical-align: text-bottom;"></span>
-                                <?php esc_html_e('Disconnect', 'wash'); ?>
-                            </button>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-            </table>
-
-            <?php if (!$isConnected) : ?>
-            <div id="wash-manual-config" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ccc;">
-                <h3><?php esc_html_e('Manual Configuration', 'wash'); ?></h3>
-                <p class="description"><?php esc_html_e('If automatic connection fails, you can enter credentials manually.', 'wash'); ?></p>
-
+                <!-- Hidden fields for connected state -->
+                <input type="hidden" name="wash_shopify_store" value="<?php echo esc_attr($shopifyStore); ?>" />
+                <input type="hidden" name="wash_api_key" value="<?php echo esc_attr(get_option('wash_api_key')); ?>" />
+                <input type="hidden" name="wash_api_secret" value="<?php echo esc_attr(get_option('wash_api_secret')); ?>" />
+            <?php else : ?>
+                <!-- Not connected - show connection form -->
                 <table class="form-table" role="presentation">
                     <tr>
                         <th scope="row">
-                            <label for="wash_api_key"><?php esc_html_e('API Key', 'wash'); ?></label>
+                            <label for="wash_shopify_store"><?php esc_html_e('Shopify Store', 'wash'); ?></label>
                         </th>
                         <td>
-                            <input type="text" id="wash_api_key" name="wash_api_key"
-                                   value="<?php echo esc_attr(get_option('wash_api_key')); ?>"
-                                   class="regular-text" />
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="text" id="wash_shopify_store" name="wash_shopify_store"
+                                       value="<?php echo esc_attr($shopifyStore); ?>"
+                                       class="regular-text" placeholder="your-store"
+                                       style="max-width: 200px;" />
+                                <span style="color: #666;">.myshopify.com</span>
+                            </div>
+                            <p class="description"><?php esc_html_e('Your Shopify store handle (e.g., "my-store" from my-store.myshopify.com)', 'wash'); ?></p>
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row">
-                            <label for="wash_api_secret"><?php esc_html_e('API Secret', 'wash'); ?></label>
-                        </th>
+                        <th scope="row"></th>
                         <td>
-                            <input type="password" id="wash_api_secret" name="wash_api_secret"
-                                   value="<?php echo esc_attr(get_option('wash_api_secret')); ?>"
-                                   class="regular-text" />
+                            <button type="button" id="wash-connect-btn" class="button button-primary" style="display: none;">
+                                <span class="dashicons dashicons-admin-links" style="vertical-align: text-bottom;"></span>
+                                <?php esc_html_e('Connect to Shopify', 'wash'); ?>
+                            </button>
                         </td>
                     </tr>
                 </table>
 
-                <p>
-                    <a href="#" id="wash-hide-manual"><?php esc_html_e('Hide manual configuration', 'wash'); ?></a>
+                <div id="wash-manual-config" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ccc;">
+                    <h3><?php esc_html_e('Manual Configuration', 'wash'); ?></h3>
+                    <p class="description"><?php esc_html_e('If automatic connection fails, you can enter credentials manually.', 'wash'); ?></p>
+
+                    <table class="form-table" role="presentation">
+                        <tr>
+                            <th scope="row">
+                                <label for="wash_api_key"><?php esc_html_e('API Key', 'wash'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="wash_api_key" name="wash_api_key"
+                                       value="<?php echo esc_attr(get_option('wash_api_key')); ?>"
+                                       class="regular-text" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="wash_api_secret"><?php esc_html_e('API Secret', 'wash'); ?></label>
+                            </th>
+                            <td>
+                                <input type="password" id="wash_api_secret" name="wash_api_secret"
+                                       value="<?php echo esc_attr(get_option('wash_api_secret')); ?>"
+                                       class="regular-text" />
+                            </td>
+                        </tr>
+                    </table>
+
+                    <p>
+                        <a href="#" id="wash-hide-manual"><?php esc_html_e('Hide manual configuration', 'wash'); ?></a>
+                    </p>
+                </div>
+
+                <p style="margin-top: 15px;">
+                    <a href="#" id="wash-show-manual"><?php esc_html_e('Enter credentials manually', 'wash'); ?></a>
                 </p>
-            </div>
-
-            <p style="margin-top: 15px;">
-                <a href="#" id="wash-show-manual"><?php esc_html_e('Enter credentials manually', 'wash'); ?></a>
-            </p>
-            <?php else : ?>
-            <!-- Hidden fields for connected state -->
-            <input type="hidden" name="wash_api_key" value="<?php echo esc_attr(get_option('wash_api_key')); ?>" />
-            <input type="hidden" name="wash_api_secret" value="<?php echo esc_attr(get_option('wash_api_secret')); ?>" />
-            <?php endif; ?>
-
-            <?php if (isset($_GET['reset-connection'])) : ?>
-            <p style="margin-top: 20px;">
-                <button type="button" id="wash-reset-session" class="button button-secondary" style="color: #d63638;">
-                    <span class="dashicons dashicons-trash" style="vertical-align: text-bottom;"></span>
-                    <?php esc_html_e('Reset Connection', 'wash'); ?>
-                </button>
-            </p>
             <?php endif; ?>
         </div>
 
@@ -1604,6 +1620,64 @@ function wash_render_permission_locked_banner() {
             </table>
         </div>
 
+        <!-- Content Processing Tab -->
+        <?php $contentTabAttrs = wash_get_tab_content_class('content', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
+        <div class="<?php echo esc_attr($contentTabAttrs['class']); ?>" id="tab-content" style="display: none;">
+            <?php if (!empty($contentTabAttrs['isPermissionLocked'])) : ?>
+                <?php wash_render_permission_locked_banner(); ?>
+            <?php endif; ?>
+            <h2 class="title"><?php esc_html_e('Content Processing', 'wash'); ?></h2>
+            <p class="description"><?php esc_html_e('Configure how content is processed during sync to Shopify.', 'wash'); ?></p>
+
+            <?php
+            $rewriteUrls = get_option('wash_rewrite_urls', '0') === '1';
+            $allowedHtmlTags = get_option('wash_allowed_html_tags', '');
+            ?>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e('Rewrite Internal URLs', 'wash'); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="wash_rewrite_urls" value="1" id="wash-rewrite-urls"
+                                <?php checked($rewriteUrls); ?> />
+                            <?php esc_html_e('Convert WordPress URLs to Shopify domain in all content links', 'wash'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Replaces all internal WordPress links (href and src) with your Shopify store domain to prevent broken links.', 'wash'); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <hr style="margin: 30px 0;" />
+
+            <h3 style="margin-bottom: 15px;">
+                <span class="dashicons dashicons-editor-code" style="color: #2271b1;"></span>
+                <?php esc_html_e('Custom HTML Tags Whitelist', 'wash'); ?>
+            </h3>
+
+            <p class="description" style="margin-bottom: 15px;">
+                <?php esc_html_e('By default, WordPress strips unknown HTML tags for security. Add custom tag patterns to preserve third-party embed codes (Klaviyo forms, chat widgets, etc.).', 'wash'); ?>
+            </p>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e('Allowed HTML Tag Patterns', 'wash'); ?></th>
+                    <td>
+                        <input type="text" name="wash_allowed_html_tags" value="<?php echo esc_attr($allowedHtmlTags); ?>"
+                            placeholder="klaviyo-*,chat-*,mddb-*" class="regular-text" style="max-width: 400px; font-family: monospace;" />
+                        <p class="description"><?php esc_html_e('Comma-separated patterns. Use * for wildcard (e.g., klaviyo-* matches klaviyo-form, klaviyo-embed).', 'wash'); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 15px; margin-top: 20px; max-width: 600px;">
+                <strong><?php esc_html_e('Examples:', 'wash'); ?></strong><br />
+                <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">klaviyo-*</code> — <?php esc_html_e('Klaviyo forms and embeds', 'wash'); ?><br />
+                <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">chat-*</code> — <?php esc_html_e('Chat widgets (Tidio, Intercom, etc.)', 'wash'); ?><br />
+                <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">mddb-*</code> — <?php esc_html_e('MDDB custom elements', 'wash'); ?>
+            </div>
+        </div>
+
         <!-- Advanced Tab -->
         <?php $advancedTabAttrs = wash_get_tab_content_class('advanced', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
         <div class="<?php echo esc_attr($advancedTabAttrs['class']); ?>" id="tab-advanced" style="display: none;">
@@ -1623,6 +1697,47 @@ function wash_render_permission_locked_banner() {
                             <?php esc_html_e('Discourage search engines from indexing this site (robots.txt)', 'wash'); ?>
                         </label>
                         <p class="description"><?php esc_html_e('Recommended for demo/staging sites. Outputs "Disallow: /" in robots.txt.', 'wash'); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <hr style="border: none; border-top: 1px solid #ccd0d4; margin: 24px 0;" />
+
+            <h3><?php esc_html_e('Gutenberg Blocks', 'wash'); ?></h3>
+            <p class="description"><?php esc_html_e('Configure how Gutenberg blocks are processed and synced to Shopify.', 'wash'); ?></p>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e('Enable Custom Blocks', 'wash'); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="wash_blocks_enabled" value="1"
+                                <?php checked(get_option('wash_blocks_enabled', '1'), '1'); ?> />
+                            <?php esc_html_e('Enable Wash custom blocks in Gutenberg editor', 'wash'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Adds custom Wash blocks (Shopify Product, Shopify Collection, Sync Status) to the Gutenberg editor.', 'wash'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e('Sync Block Structure', 'wash'); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="wash_sync_blocks_meta" value="1"
+                                <?php checked(get_option('wash_sync_blocks_meta', '1'), '1'); ?> />
+                            <?php esc_html_e('Save block structure as Shopify metafields', 'wash'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Saves Gutenberg block structure as JSON metafield, allowing Shopify themes to render blocks dynamically.', 'wash'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e('Include Block CSS', 'wash'); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="wash_sync_blocks_css" value="1"
+                                <?php checked(get_option('wash_sync_blocks_css', '0'), '1'); ?> />
+                            <?php esc_html_e('Include WordPress block styles in synced content', 'wash'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Includes WordPress block CSS styles in synced content for consistent visual appearance on Shopify.', 'wash'); ?></p>
                     </td>
                 </tr>
             </table>
@@ -1757,7 +1872,8 @@ function wash_render_permission_locked_banner() {
             var siteName = encodeURIComponent('<?php echo esc_js(get_bloginfo('name')); ?>');
 
             // Redirect to Shopify Admin -> App -> Connections page
-            var connectUrl = 'https://admin.shopify.com/store/' + store + '/apps/wash/app/connections' +
+            var appSlug = '<?php echo esc_js($shopifyAppSlug); ?>';
+            var connectUrl = 'https://admin.shopify.com/store/' + store + '/apps/' + appSlug + '/app/connections' +
                 '?action=connect' +
                 '&return_url=' + returnUrl +
                 '&site_url=' + siteUrl +
@@ -2053,5 +2169,6 @@ function wash_render_permission_locked_banner() {
             });
         });
     }
+
 })();
 </script>

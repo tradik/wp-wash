@@ -24,11 +24,33 @@ class WashApiClient {
     private $maxRetries = 3;
 
     public function __construct() {
-        $this->appUrl    = 'https://app-wash.tradik.com';
+        $this->appUrl    = get_option('wash_app_url', 'https://app-wash.tradik.com');
         $this->apiKey    = get_option('wash_api_key', '');
         $this->apiSecret = get_option('wash_api_secret', '');
         $this->httpUser  = get_option('wash_http_user', '');
         $this->httpPass  = get_option('wash_http_pass', '');
+    }
+
+    /**
+     * Get the Shopify app slug based on the configured app URL.
+     * Dev environment uses 'wash-blog-manager-dev', production uses 'wash'.
+     *
+     * @return string Shopify app slug
+     */
+    public function getShopifyAppSlug() {
+        if (strpos($this->appUrl, 'tradik.dev') !== false) {
+            return 'wash-blog-manager-dev';
+        }
+        return 'wash';
+    }
+
+    /**
+     * Get the configured app URL.
+     *
+     * @return string App URL
+     */
+    public function getAppUrl() {
+        return $this->appUrl;
     }
 
     /**
@@ -521,15 +543,6 @@ class WashApiClient {
     }
 
     /**
-     * Get the app URL.
-     *
-     * @return string App URL.
-     */
-    public function getAppUrl() {
-        return $this->appUrl;
-    }
-
-    /**
      * Get plan info including features and usage from the Shopify App.
      * Caches the result for 5 minutes to reduce API calls.
      *
@@ -629,7 +642,10 @@ class WashApiClient {
             'filesEnabled'     => get_option('wash_files_enabled', '1'),
             'webpConvert'      => get_option('wash_webp_convert', '0'),
             'allowedFileTypes' => get_option('wash_allowed_file_types', ['images']),
-            'rewriteUrls'      => get_option('wash_rewrite_internal_urls', '0'),
+            'rewriteUrls'      => get_option('wash_rewrite_urls', '0'),
+            'blocksEnabled'    => get_option('wash_blocks_enabled', '1'),
+            'syncBlocksMeta'   => get_option('wash_sync_blocks_meta', '1'),
+            'syncBlocksCss'    => get_option('wash_sync_blocks_css', '0'),
         ];
 
         return $this->post('/api/settings-sync', $settings);
@@ -672,7 +688,10 @@ class WashApiClient {
             'filesEnabled'     => 'wash_files_enabled',
             'webpConvert'      => 'wash_webp_convert',
             'allowedFileTypes' => 'wash_allowed_file_types',
-            'rewriteUrls'      => 'wash_rewrite_internal_urls',
+            'rewriteUrls'      => 'wash_rewrite_urls',
+            'blocksEnabled'    => 'wash_blocks_enabled',
+            'syncBlocksMeta'   => 'wash_sync_blocks_meta',
+            'syncBlocksCss'    => 'wash_sync_blocks_css',
         ];
 
         foreach ($optionMap as $key => $option) {
