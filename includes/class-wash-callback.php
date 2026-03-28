@@ -166,7 +166,18 @@ class WashCallback {
         if ($syncError) {
             $status = 'error';
         } elseif ($syncStatus === 'queued' || $jobId) {
-            $status = 'queued';
+            // Check for timeout - if queued for more than 5 minutes, consider it failed
+            $queueTimeout = 5 * MINUTE_IN_SECONDS;
+            if ($queuedAt && (current_time('timestamp') - strtotime($queuedAt)) > $queueTimeout) {
+                $status = 'timeout';
+                // Clear stale queue status
+                delete_post_meta($postId, '_wash_sync_status');
+                delete_post_meta($postId, '_wash_job_id');
+                delete_post_meta($postId, '_wash_queued_at');
+                update_post_meta($postId, '_wash_sync_error', __('Sync timed out. The callback may not have reached WordPress.', 'wash'));
+            } else {
+                $status = 'queued';
+            }
         } elseif ($shopifyArticleId) {
             $status = 'synced';
         }

@@ -1181,7 +1181,9 @@ JS;
 
         $post = get_post($postId);
         if (!$post || $post->post_status !== 'publish') {
-            wp_redirect(add_query_arg('wash_error', 'not_published', wp_get_referer() ?: admin_url('edit.php')));
+            $referer = wp_get_referer();
+            $redirectUrl = ($referer && strpos($referer, admin_url()) === 0) ? $referer : admin_url('edit.php');
+            wp_redirect(add_query_arg('wash_error', 'not_published', $redirectUrl));
             exit;
         }
 
@@ -1207,7 +1209,19 @@ JS;
             $redirectArgs['wash_error_msg'] = urlencode($syncError);
         }
 
-        wp_redirect(add_query_arg($redirectArgs, wp_get_referer() ?: admin_url('edit.php')));
+        // Determine redirect URL - prefer referer if it's an admin URL, otherwise use edit.php
+        $referer = wp_get_referer();
+        if ($referer && strpos($referer, admin_url()) === 0) {
+            $redirectUrl = $referer;
+        } else {
+            // Build redirect to posts list for the post type
+            $redirectUrl = admin_url('edit.php');
+            if ($post->post_type !== 'post') {
+                $redirectUrl = add_query_arg('post_type', $post->post_type, $redirectUrl);
+            }
+        }
+
+        wp_redirect(add_query_arg($redirectArgs, $redirectUrl));
         exit;
     }
 
