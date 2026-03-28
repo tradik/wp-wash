@@ -49,12 +49,23 @@ $tabPermissions = [
     'advanced' => 'canEditAdvanced',
 ];
 
+// Check if update refresh was requested
+$forceRefreshUpdates = isset($_GET['refresh_updates']) && $_GET['refresh_updates'] === '1';
+
 // Check for plugin update
 $updateAvailable = false;
 $latestVersion = WASH_VERSION;
 if ($isConnected) {
     $updater = new WashUpdater();
-    $versionInfo = $updater->getVersionInfo();
+
+    // Force refresh if requested
+    if ($forceRefreshUpdates) {
+        $updater->clearCache();
+        // Also clear WordPress plugin update transient
+        delete_site_transient('update_plugins');
+    }
+
+    $versionInfo = $updater->getVersionInfo($forceRefreshUpdates);
     if (!is_wp_error($versionInfo) && !empty($versionInfo['plugin']['latestVersion'])) {
         $latestVersion = $versionInfo['plugin']['latestVersion'];
         // Only show update if latestVersion is actually newer than current
@@ -223,6 +234,11 @@ function wash_render_permission_locked_banner() {
         <span style="font-size: 12px; font-weight: normal; color: #646970; margin-left: 8px; vertical-align: middle;">
             v<?php echo esc_html(WASH_VERSION); ?>
         </span>
+        <?php if ($isConnected) : ?>
+            <a href="<?php echo esc_url(add_query_arg('refresh_updates', '1')); ?>" title="<?php esc_attr_e('Check for updates', 'wash'); ?>" style="color: #646970; margin-left: 4px; vertical-align: middle; text-decoration: none;">
+                <span class="dashicons dashicons-update" style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle;"></span>
+            </a>
+        <?php endif; ?>
         <?php if ($isConnected && $planName) : ?>
             <span class="wash-plan-badge" style="font-size: 12px; font-weight: 600; background: <?php echo $planName === 'FREE' ? '#f0f0f1' : '#d4edda'; ?>; color: <?php echo $planName === 'FREE' ? '#666' : '#155724'; ?>; padding: 4px 10px; border-radius: 12px; margin-left: 10px; vertical-align: middle;">
                 <?php echo esc_html($planName); ?>
