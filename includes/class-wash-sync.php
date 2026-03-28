@@ -49,6 +49,39 @@ class WashSync {
             return;
         }
 
+        $this->doSync($postId, $post);
+    }
+
+    /**
+     * Manual sync - bypasses auto-sync option check.
+     * Called when user clicks "Sync to Shopify" button.
+     *
+     * @param int      $postId Post ID
+     * @param \WP_Post $post   Post object
+     */
+    public function syncManually($postId, $post) {
+        error_log("[wash] syncManually called for post {$postId}, type: {$post->post_type}, status: {$post->post_status}");
+
+        if ($this->shouldSkipSync($postId, $post)) {
+            error_log("[wash] Skipping manual sync - shouldSkipSync returned true");
+            return;
+        }
+
+        if ($post->post_status !== 'publish') {
+            error_log("[wash] Skipping manual sync - post_status is not 'publish', status: {$post->post_status}");
+            return;
+        }
+
+        $this->doSync($postId, $post);
+    }
+
+    /**
+     * Execute the actual sync operation.
+     *
+     * @param int      $postId Post ID
+     * @param \WP_Post $post   Post object
+     */
+    private function doSync($postId, $post) {
         error_log("[wash] Starting sync for post {$postId}");
         $this->isSyncing = true;
         // Determine action based on existing Shopify sync, not WordPress $update flag

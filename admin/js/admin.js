@@ -12,14 +12,10 @@
     $(document).ready(function () {
         // Connection test
         const testButton = $("#wash-test-connection");
-        const statusContainer = $("#wash-connection-status");
-        const noticeEl = $("#wash-notice");
-        const noticeText = $("#wash-notice-text");
 
         testButton.on("click", function () {
             testButton.addClass("is-loading");
             testButton.text(i18n('testing', 'Testing connection...'));
-            statusContainer.hide();
 
             $.ajax({
                 url: washAdmin.ajaxUrl,
@@ -29,22 +25,14 @@
                     nonce: washAdmin.nonce,
                 },
                 success: function (response) {
-                    statusContainer.show();
                     if (response.success) {
-                        noticeEl.removeClass("notice-error").addClass("notice-success");
-                        noticeText.text(
-                            i18n('success', 'Connection successful!') +
-                            " (v" + (response.data.version || "?") + ")"
-                        );
+                        alert(i18n('success', 'Connection successful!') + " (v" + (response.data.version || "?") + ")");
                     } else {
-                        noticeEl.removeClass("notice-success").addClass("notice-error");
-                        noticeText.text(i18n('error', 'Connection failed: ') + response.data);
+                        alert(i18n('error', 'Connection failed: ') + response.data);
                     }
                 },
                 error: function () {
-                    statusContainer.show();
-                    noticeEl.removeClass("notice-success").addClass("notice-error");
-                    noticeText.text(i18n('error', 'Connection failed: ') + i18n('networkError', 'Network error'));
+                    alert(i18n('error', 'Connection failed: ') + i18n('networkError', 'Network error'));
                 },
                 complete: function () {
                     testButton.removeClass("is-loading");

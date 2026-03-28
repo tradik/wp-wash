@@ -24,11 +24,34 @@ class WashApiClient {
     private $maxRetries = 3;
 
     public function __construct() {
-        $this->appUrl    = get_option('wash_app_url', 'https://app-wash.tradik.com');
+        $this->appUrl    = $this->resolveAppUrl();
         $this->apiKey    = get_option('wash_api_key', '');
         $this->apiSecret = get_option('wash_api_secret', '');
         $this->httpUser  = get_option('wash_http_user', '');
         $this->httpPass  = get_option('wash_http_pass', '');
+    }
+
+    /**
+     * Resolve the Shopify App URL based on environment.
+     * Dev sites (*.tradik.dev) use dev API, others use production.
+     *
+     * @return string App URL
+     */
+    private function resolveAppUrl() {
+        // Check if explicitly set in options
+        $configuredUrl = get_option('wash_app_url', '');
+        if (!empty($configuredUrl)) {
+            return $configuredUrl;
+        }
+
+        // Auto-detect based on current site URL
+        $siteUrl = get_site_url();
+        if (strpos($siteUrl, 'tradik.dev') !== false) {
+            return 'https://app-wash.tradik.dev';
+        }
+
+        // Default to production
+        return 'https://app-wash.tradik.com';
     }
 
     /**
@@ -286,10 +309,12 @@ class WashApiClient {
             // Return default permissions (all allowed) on error
             return [
                 'canEditSync' => true,
+                'canEditBlogs' => true,
                 'canEditHreflangs' => true,
                 'canEditMeta' => true,
                 'canEditAuthors' => true,
                 'canEditFiles' => true,
+                'canEditContent' => true,
                 'canEditRedirections' => true,
                 'canEditAdvanced' => true,
             ];

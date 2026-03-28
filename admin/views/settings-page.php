@@ -16,9 +16,10 @@ $forceRefreshPlan = isset($_GET['refresh_plan']) && $_GET['refresh_plan'] === '1
 if ($isConnected) {
     $apiClient = new WashApiClient();
 
-    // Force refresh plan info if requested via query parameter
+    // Force refresh plan info and permissions if requested via query parameter
     if ($forceRefreshPlan) {
         $apiClient->clearPlanInfoCache();
+        $apiClient->clearPermissionsCache();
     }
 
     $planInfo = $apiClient->getPlanInfo($forceRefreshPlan);
@@ -38,6 +39,7 @@ if ($isConnected) {
 // Tab to permission field mapping
 $tabPermissions = [
     'sync' => 'canEditSync',
+    'blogs' => 'canEditBlogs',
     'hreflangs' => 'canEditHreflangs',
     'metafields' => 'canEditMeta',
     'authors' => 'canEditAuthors',
@@ -107,11 +109,13 @@ function wash_is_permission_locked($tab, $tabPermissions, $permissions) {
 }
 
 /**
- * Render a tab link with optional locked state.
+ * Render a tab link with optional locked state (plan or permission).
  */
-function wash_render_tab($tab, $label, $features, $tabFeatures, $featurePlans, $upgradeUrl, $isActive = false) {
+function wash_render_tab($tab, $label, $features, $tabFeatures, $featurePlans, $upgradeUrl, $isActive = false, $permissions = [], $tabPermissions = []) {
     $featureName = $tabFeatures[$tab] ?? null;
-    $isLocked = $featureName && wash_is_feature_locked($featureName, $features);
+    $isPlanLocked = $featureName && wash_is_feature_locked($featureName, $features);
+    $isPermissionLocked = wash_is_permission_locked($tab, $tabPermissions, $permissions);
+    $isLocked = $isPlanLocked || $isPermissionLocked;
     $requiredPlan = $featurePlans[$featureName] ?? 'PRO';
 
     $classes = 'nav-tab';
@@ -123,7 +127,13 @@ function wash_render_tab($tab, $label, $features, $tabFeatures, $featurePlans, $
     }
 
     $lockIcon = $isLocked ? ' <span class="dashicons dashicons-lock" style="font-size: 14px; opacity: 0.6;"></span>' : '';
-    $title = $isLocked ? sprintf(esc_attr__('Requires %s plan', 'wash'), $requiredPlan) : '';
+    if ($isPlanLocked) {
+        $title = sprintf(esc_attr__('Requires %s plan', 'wash'), $requiredPlan);
+    } elseif ($isPermissionLocked) {
+        $title = esc_attr__('Locked by Shopify Admin', 'wash');
+    } else {
+        $title = '';
+    }
 
     printf(
         '<a href="#%s" class="%s" data-tab="%s" data-locked="%s" data-required-plan="%s" data-upgrade-url="%s" title="%s">%s%s</a>',
@@ -165,6 +175,23 @@ function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans
         'requiredPlan' => $requiredPlan,
         'upgradeUrl' => $upgradeUrl,
     ];
+}
+
+/**
+ * Render a plan-locked banner.
+ */
+function wash_render_locked_banner($requiredPlan, $upgradeUrl) {
+    ?>
+    <div class="wash-locked-banner">
+        <div class="wash-locked-banner__text">
+            <span class="dashicons dashicons-lock"></span>
+            <span><?php printf(esc_html__('This feature requires %s plan', 'wash'), esc_html($requiredPlan)); ?></span>
+        </div>
+        <div class="wash-locked-banner__actions">
+            <a href="<?php echo esc_url($upgradeUrl); ?>" class="button" target="_blank"><?php esc_html_e('Upgrade Now', 'wash'); ?></a>
+        </div>
+    </div>
+    <?php
 }
 
 /**
@@ -248,23 +275,17 @@ function wash_render_permission_locked_banner() {
     <?php endif; ?>
 
     <nav class="nav-tab-wrapper wash-tabs">
-        <?php wash_render_tab('connection', __('Connection', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, true); ?>
-        <?php wash_render_tab('blogs', __('Blogs', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
-        <?php wash_render_tab('redirections', __('Redirections', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
-        <?php wash_render_tab('hreflangs', __('Hreflangs', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
-        <?php wash_render_tab('metafields', __('Meta Fields', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
-        <?php wash_render_tab('authors', __('Authors', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl); ?>
-        <a href="#files" class="nav-tab" data-tab="files"><?php esc_html_e('Files & Media', 'wash'); ?></a>
-        <a href="#content" class="nav-tab" data-tab="content"><?php esc_html_e('Content Processing', 'wash'); ?></a>
-        <a href="#sync" class="nav-tab" data-tab="sync"><?php esc_html_e('Sync Settings', 'wash'); ?></a>
-        <a href="#advanced" class="nav-tab" data-tab="advanced"><?php esc_html_e('Advanced', 'wash'); ?></a>
+        <?php wash_render_tab('connection', __('Connection', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, true, $permissions, $tabPermissions); ?>
+        <?php wash_render_tab('blogs', __('Blogs', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
+        <?php wash_render_tab('redirections', __('Redirections', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
+        <?php wash_render_tab('hreflangs', __('Hreflangs', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
+        <?php wash_render_tab('metafields', __('Meta Fields', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
+        <?php wash_render_tab('authors', __('Authors', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
+        <?php wash_render_tab('files', __('Files & Media', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
+        <?php wash_render_tab('content', __('Content Processing', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
+        <?php wash_render_tab('sync', __('Sync Settings', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
+        <?php wash_render_tab('advanced', __('Advanced', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
     </nav>
-
-    <div class="wash-connection-status" id="wash-connection-status" style="display:none;">
-        <div class="notice" id="wash-notice">
-            <p id="wash-notice-text"></p>
-        </div>
-    </div>
 
     <form method="post" action="options.php" id="wash-settings-form">
         <?php settings_fields('wash_settings'); ?>
@@ -370,6 +391,11 @@ function wash_render_permission_locked_banner() {
         <!-- Blogs Tab -->
         <?php $blogsTabAttrs = wash_get_tab_content_class('blogs', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
         <div class="<?php echo esc_attr($blogsTabAttrs['class']); ?>" id="tab-blogs" style="display: none;" data-locked="<?php echo $blogsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($blogsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($blogsTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($blogsTabAttrs['isPermissionLocked'])) : ?>
+                <?php wash_render_permission_locked_banner(); ?>
+            <?php elseif (!empty($blogsTabAttrs['isPlanLocked'])) : ?>
+                <?php wash_render_locked_banner($blogsTabAttrs['requiredPlan'], $blogsTabAttrs['upgradeUrl']); ?>
+            <?php endif; ?>
             <h2 class="title"><?php esc_html_e('Blog Routing Rules', 'wash'); ?></h2>
             <p class="description">
                 <?php esc_html_e('Route WordPress posts to different Shopify blogs based on language or category.', 'wash'); ?>
@@ -1007,15 +1033,23 @@ function wash_render_permission_locked_banner() {
                     <span class="dashicons dashicons-arrow-down-alt2 wash-accordion__toggle"></span>
                 </div>
                 <div class="wash-accordion__content">
-                    <p><?php esc_html_e('For stores with Shopify Plus or compatible plans, consider using Shopify Markets:', 'wash'); ?></p>
-                    <ul style="margin-left: 20px; line-height: 1.8;">
-                        <li><?php esc_html_e('Built-in multi-language support', 'wash'); ?></li>
-                        <li><?php esc_html_e('Automatic hreflang tag generation', 'wash'); ?></li>
-                        <li><?php esc_html_e('No theme customization required', 'wash'); ?></li>
-                    </ul>
-                    <p style="margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
-                        <strong><?php esc_html_e('Note:', 'wash'); ?></strong> <?php esc_html_e('Shopify Markets works independently of this plugin. Use this feature when Markets is not available or you need custom hreflang handling.', 'wash'); ?>
-                    </p>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
+                        <div>
+                            <p><?php esc_html_e('For stores with Shopify Plus or compatible plans, consider using Shopify Markets:', 'wash'); ?></p>
+                            <ul style="margin-left: 20px; line-height: 1.8;">
+                                <li><?php esc_html_e('Built-in multi-language support', 'wash'); ?></li>
+                                <li><?php esc_html_e('Automatic hreflang tag generation', 'wash'); ?></li>
+                                <li><?php esc_html_e('No theme customization required', 'wash'); ?></li>
+                            </ul>
+                            <p style="margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
+                                <strong><?php esc_html_e('Note:', 'wash'); ?></strong> <?php esc_html_e('Shopify Markets works independently of this plugin. Use this feature when Markets is not available or you need custom hreflang handling.', 'wash'); ?>
+                            </p>
+                        </div>
+                        <a href="https://wash.tradik.com/docs/hreflangs.html" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0;">
+                            <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
+                            <?php esc_html_e('Documentation', 'wash'); ?>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1153,42 +1187,50 @@ function wash_render_permission_locked_banner() {
             </div>
 
             <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 15px; margin: 20px 0;">
-                <h4 style="margin-top: 0;">
-                    <span class="dashicons dashicons-info" style="color: #2271b1;"></span>
-                    <?php esc_html_e('How Meta Fields are Synced', 'wash'); ?>
-                </h4>
-                <p style="margin-bottom: 10px;"><?php esc_html_e('WordPress meta fields are converted to Shopify metafields using the following format:', 'wash'); ?></p>
-                <table class="widefat" style="max-width: 600px;">
-                    <thead>
-                        <tr>
-                            <th><?php esc_html_e('Source', 'wash'); ?></th>
-                            <th><?php esc_html_e('Shopify Namespace', 'wash'); ?></th>
-                            <th><?php esc_html_e('Example', 'wash'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>WordPress Core</td>
-                            <td><code>wordpress</code></td>
-                            <td><code>wordpress.featured_image</code></td>
-                        </tr>
-                        <tr>
-                            <td>Yoast SEO</td>
-                            <td><code>seo</code></td>
-                            <td><code>seo.title</code>, <code>seo.description</code></td>
-                        </tr>
-                        <tr>
-                            <td>Rank Math</td>
-                            <td><code>seo</code></td>
-                            <td><code>seo.title</code>, <code>seo.description</code></td>
-                        </tr>
-                        <tr>
-                            <td>ACF</td>
-                            <td><code>acf</code></td>
-                            <td><code>acf.{field_name}</code></td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
+                    <div style="flex-grow: 1;">
+                        <h4 style="margin-top: 0;">
+                            <span class="dashicons dashicons-info" style="color: #2271b1;"></span>
+                            <?php esc_html_e('How Meta Fields are Synced', 'wash'); ?>
+                        </h4>
+                        <p style="margin-bottom: 10px;"><?php esc_html_e('WordPress meta fields are converted to Shopify metafields using the following format:', 'wash'); ?></p>
+                        <table class="widefat" style="max-width: 600px;">
+                            <thead>
+                                <tr>
+                                    <th><?php esc_html_e('Source', 'wash'); ?></th>
+                                    <th><?php esc_html_e('Shopify Namespace', 'wash'); ?></th>
+                                    <th><?php esc_html_e('Example', 'wash'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>WordPress Core</td>
+                                    <td><code>wordpress</code></td>
+                                    <td><code>wordpress.featured_image</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Yoast SEO</td>
+                                    <td><code>seo</code></td>
+                                    <td><code>seo.title</code>, <code>seo.description</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Rank Math</td>
+                                    <td><code>seo</code></td>
+                                    <td><code>seo.title</code>, <code>seo.description</code></td>
+                                </tr>
+                                <tr>
+                                    <td>ACF</td>
+                                    <td><code>acf</code></td>
+                                    <td><code>acf.{field_name}</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <a href="https://wash.tradik.com/docs/custom-fields.html" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0;">
+                        <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
+                        <?php esc_html_e('Documentation', 'wash'); ?>
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -1275,15 +1317,23 @@ function wash_render_permission_locked_banner() {
             </div>
 
             <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 15px; margin: 25px 0; max-width: 800px;">
-                <h4 style="margin-top: 0;">
-                    <span class="dashicons dashicons-lightbulb" style="color: #2271b1;"></span>
-                    <?php esc_html_e('How Author Mapping Works', 'wash'); ?>
-                </h4>
-                <ul style="margin-left: 20px; line-height: 1.8;">
-                    <li><strong><?php esc_html_e('Disabled:', 'wash'); ?></strong> <?php esc_html_e('Articles show the WordPress author\'s display name (e.g., "admin" or "John Doe")', 'wash'); ?></li>
-                    <li><strong><?php esc_html_e('Enabled:', 'wash'); ?></strong> <?php esc_html_e('Articles show the custom name you specify in the mapping table', 'wash'); ?></li>
-                    <li><strong><?php esc_html_e('Use cases:', 'wash'); ?></strong> <?php esc_html_e('Pen names, company branding, consistent author attribution across sites', 'wash'); ?></li>
-                </ul>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
+                    <div>
+                        <h4 style="margin-top: 0;">
+                            <span class="dashicons dashicons-lightbulb" style="color: #2271b1;"></span>
+                            <?php esc_html_e('How Author Mapping Works', 'wash'); ?>
+                        </h4>
+                        <ul style="margin-left: 20px; line-height: 1.8; margin-bottom: 0;">
+                            <li><strong><?php esc_html_e('Disabled:', 'wash'); ?></strong> <?php esc_html_e('Articles show the WordPress author\'s display name (e.g., "admin" or "John Doe")', 'wash'); ?></li>
+                            <li><strong><?php esc_html_e('Enabled:', 'wash'); ?></strong> <?php esc_html_e('Articles show the custom name you specify in the mapping table', 'wash'); ?></li>
+                            <li><strong><?php esc_html_e('Use cases:', 'wash'); ?></strong> <?php esc_html_e('Pen names, company branding, consistent author attribution across sites', 'wash'); ?></li>
+                        </ul>
+                    </div>
+                    <a href="https://wash.tradik.com/docs/author-mapping.html" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0;">
+                        <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
+                        <?php esc_html_e('Documentation', 'wash'); ?>
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -1542,14 +1592,20 @@ function wash_render_permission_locked_banner() {
                         </li>
                     </ol>
 
-                    <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 12px; margin-top: 15px;">
-                        <strong style="color: #2271b1;">
-                            <span class="dashicons dashicons-info"></span>
-                            <?php esc_html_e('Note:', 'wash'); ?>
-                        </strong>
-                        <span style="color: #555;">
-                            <?php esc_html_e('Images are automatically synced when publishing a post. The sync rewrites WordPress URLs to Shopify CDN URLs in the content.', 'wash'); ?>
-                        </span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 12px; margin-top: 15px;">
+                        <div>
+                            <strong style="color: #2271b1;">
+                                <span class="dashicons dashicons-info"></span>
+                                <?php esc_html_e('Note:', 'wash'); ?>
+                            </strong>
+                            <span style="color: #555;">
+                                <?php esc_html_e('Images are automatically synced when publishing a post. The sync rewrites WordPress URLs to Shopify CDN URLs in the content.', 'wash'); ?>
+                            </span>
+                        </div>
+                        <a href="https://wash.tradik.com/docs/images-and-files.html" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0; margin-left: 15px;">
+                            <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
+                            <?php esc_html_e('Documentation', 'wash'); ?>
+                        </a>
                     </div>
                 </div>
             </details>
@@ -1618,6 +1674,13 @@ function wash_render_permission_locked_banner() {
                     </td>
                 </tr>
             </table>
+
+            <div style="margin-top: 20px;">
+                <a href="https://wash.tradik.com/docs/page-sync.html" target="_blank" rel="noopener noreferrer" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                    <span class="dashicons dashicons-book" style="font-size: 16px; width: 16px; height: 16px;"></span>
+                    <?php esc_html_e('Documentation', 'wash'); ?>
+                </a>
+            </div>
         </div>
 
         <!-- Content Processing Tab -->
@@ -1670,11 +1733,17 @@ function wash_render_permission_locked_banner() {
                 </tr>
             </table>
 
-            <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 15px; margin-top: 20px; max-width: 600px;">
-                <strong><?php esc_html_e('Examples:', 'wash'); ?></strong><br />
-                <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">klaviyo-*</code> — <?php esc_html_e('Klaviyo forms and embeds', 'wash'); ?><br />
-                <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">chat-*</code> — <?php esc_html_e('Chat widgets (Tidio, Intercom, etc.)', 'wash'); ?><br />
-                <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">mddb-*</code> — <?php esc_html_e('MDDB custom elements', 'wash'); ?>
+            <div style="display: flex; align-items: flex-start; gap: 20px; margin-top: 20px; flex-wrap: wrap;">
+                <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 15px; max-width: 600px; flex: 1;">
+                    <strong><?php esc_html_e('Examples:', 'wash'); ?></strong><br />
+                    <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">klaviyo-*</code> — <?php esc_html_e('Klaviyo forms and embeds', 'wash'); ?><br />
+                    <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">chat-*</code> — <?php esc_html_e('Chat widgets (Tidio, Intercom, etc.)', 'wash'); ?><br />
+                    <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">mddb-*</code> — <?php esc_html_e('MDDB custom elements', 'wash'); ?>
+                </div>
+                <a href="https://wash.tradik.com/docs/content-processing.html" target="_blank" rel="noopener noreferrer" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                    <span class="dashicons dashicons-book" style="font-size: 16px; width: 16px; height: 16px;"></span>
+                    <?php esc_html_e('Documentation', 'wash'); ?>
+                </a>
             </div>
         </div>
 
@@ -1762,19 +1831,21 @@ function wash_render_permission_locked_banner() {
             el.setAttribute('tabindex', '-1');
         });
 
-        // Add upgrade banner at the top of the panel
-        var banner = document.createElement('div');
-        banner.className = 'wash-locked-banner';
-        banner.innerHTML = '<div class="wash-locked-banner__text">' +
-            '<span class="dashicons dashicons-lock"></span>' +
-            '<span><?php echo esc_js(__('This feature requires', 'wash')); ?> <strong>' + requiredPlan + '</strong> <?php echo esc_js(__('plan', 'wash')); ?></span>' +
-            '</div>' +
-            '<div class="wash-locked-banner__actions">' +
-            (upgradeUrl ? '<a href="' + upgradeUrl + '" target="_blank" class="button button-primary"><?php echo esc_js(__('Upgrade Now', 'wash')); ?></a>' : '') +
-            '</div>';
+        // Add upgrade banner at the top of the panel (only if not already present from PHP)
+        if (!panel.querySelector('.wash-locked-banner') && !panel.querySelector('.wash-permission-locked-banner')) {
+            var banner = document.createElement('div');
+            banner.className = 'wash-locked-banner';
+            banner.innerHTML = '<div class="wash-locked-banner__text">' +
+                '<span class="dashicons dashicons-lock"></span>' +
+                '<span><?php echo esc_js(__('This feature requires', 'wash')); ?> <strong>' + requiredPlan + '</strong> <?php echo esc_js(__('plan', 'wash')); ?></span>' +
+                '</div>' +
+                '<div class="wash-locked-banner__actions">' +
+                (upgradeUrl ? '<a href="' + upgradeUrl + '" target="_blank" class="button button-primary"><?php echo esc_js(__('Upgrade Now', 'wash')); ?></a>' : '') +
+                '</div>';
 
-        // Insert banner as first child
-        panel.insertBefore(banner, panel.firstChild);
+            // Insert banner as first child
+            panel.insertBefore(banner, panel.firstChild);
+        }
     });
 
     // Tab switching

@@ -27,19 +27,6 @@
   margin-top: 0;
 }
 
-.wash-connection-status .notice {
-  margin: 16px 0;
-  border-left-width: 4px;
-}
-
-.wash-connection-status .notice-success {
-  border-left-color: #50B83C;
-}
-
-.wash-connection-status .notice-error {
-  border-left-color: #DE3618;
-}
-
 #wash-test-connection {
   display: inline-flex;
   align-items: center;

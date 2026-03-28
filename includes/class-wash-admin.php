@@ -1185,9 +1185,9 @@ JS;
             exit;
         }
 
-        // Trigger sync
+        // Trigger manual sync (bypasses auto-sync option check)
         $sync = new WashSync();
-        $sync->onSavePost($postId, $post, true);
+        $sync->syncManually($postId, $post);
 
         // Check if sync was successful or queued
         $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
@@ -1286,9 +1286,9 @@ JS;
             wp_send_json_error(__('Post not found', 'wash'));
         }
 
-        // Trigger sync
+        // Trigger manual sync (bypasses auto-sync option check)
         $sync = new WashSync();
-        $sync->onSavePost($postId, $post, true);
+        $sync->syncManually($postId, $post);
 
         // Check result - could be synced immediately or queued for async processing
         $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
