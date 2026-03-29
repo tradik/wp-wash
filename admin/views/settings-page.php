@@ -1677,26 +1677,7 @@ function wash_render_permission_locked_banner() {
             <h2 class="title"><?php esc_html_e('Content Processing', 'wash'); ?></h2>
             <p class="description"><?php esc_html_e('Configure how content is processed during sync to Shopify.', 'wash'); ?></p>
 
-            <?php
-            $rewriteUrls = get_option('wash_rewrite_urls', '0') === '1';
-            $allowedHtmlTags = get_option('wash_allowed_html_tags', '');
-            ?>
-
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row"><?php esc_html_e('Rewrite Internal URLs', 'wash'); ?></th>
-                    <td>
-                        <label>
-                            <input type="checkbox" name="wash_rewrite_urls" value="1" id="wash-rewrite-urls"
-                                <?php checked($rewriteUrls); ?> />
-                            <?php esc_html_e('Convert WordPress URLs to Shopify domain in all content links', 'wash'); ?>
-                        </label>
-                        <p class="description"><?php esc_html_e('Replaces all internal WordPress links (href and src) with your Shopify store domain to prevent broken links.', 'wash'); ?></p>
-                    </td>
-                </tr>
-            </table>
-
-            <hr style="margin: 30px 0;" />
+            <?php $allowedHtmlTags = get_option('wash_allowed_html_tags', ''); ?>
 
             <h3 style="margin-bottom: 15px;">
                 <span class="dashicons dashicons-editor-code" style="color: #2271b1;"></span>

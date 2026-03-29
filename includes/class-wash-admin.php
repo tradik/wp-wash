@@ -172,7 +172,6 @@ class WashAdmin {
             'wash_files_enabled',
             'wash_webp_convert',
             'wash_rewrite_internal_urls',
-            'wash_rewrite_urls',
             'wash_allowed_html_tags',
             'wash_blocks_enabled',
             'wash_sync_blocks_meta',
