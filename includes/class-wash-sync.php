@@ -39,8 +39,8 @@ class WashSync {
             return;
         }
 
-        if (get_option('wash_sync_on_publish') !== '1') {
-            error_log("[wash] Skipping sync - wash_sync_on_publish is not '1', value: " . get_option('wash_sync_on_publish'));
+        if (get_option('wash_sync_on_publish', '1') !== '1') {
+            error_log("[wash] Skipping sync - wash_sync_on_publish is not '1', value: " . get_option('wash_sync_on_publish', '1'));
             return;
         }
 
