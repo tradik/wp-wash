@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.12.11
+Stable tag: 1.12.13
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -45,6 +45,11 @@ Yes. The companion Shopify app (included in this monorepo) must be deployed and 
 Yes. Each site in the network maps to a separate Shopify blog.
 
 == Changelog ==
+
+= 1.12.13 =
+* Updated POT translation template with all new strings
+* Added dynamic Shopify app slug for dev/prod environments
+* Fixed duplicate getAppUrl() method in API client
 
 = 1.10.5 =
 * Fixed plugin update download - authentication headers now properly sent
