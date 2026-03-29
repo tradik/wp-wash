@@ -57,6 +57,88 @@ class WashCallback {
                 ],
             ],
         ]);
+
+        // Content stats endpoint for Shopify App dashboard
+        register_rest_route('wash/v1', '/stats', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'getContentStats'],
+            'permission_callback' => [$this, 'verifyApiKey'],
+        ]);
+    }
+
+    /**
+     * Verify API key from header.
+     *
+     * @param WP_REST_Request $request Request object.
+     * @return bool|WP_Error
+     */
+    public function verifyApiKey($request) {
+        $apiKey = $request->get_header('X-Wash-Key');
+        $storedApiKey = get_option('wash_api_key');
+
+        if (empty($apiKey) || $apiKey !== $storedApiKey) {
+            return new WP_Error(
+                'unauthorized',
+                'Invalid or missing API key',
+                ['status' => 401]
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * Get content statistics with status breakdown.
+     *
+     * @param WP_REST_Request $request Request object.
+     * @return WP_REST_Response
+     */
+    public function getContentStats($request) {
+        // Get post counts by status
+        $postCounts = wp_count_posts('post');
+        $pageCounts = wp_count_posts('page');
+
+        // Count synced posts (have _wash_article_id meta)
+        global $wpdb;
+
+        $syncedPosts = (int) $wpdb->get_var(
+            "SELECT COUNT(DISTINCT p.ID)
+             FROM {$wpdb->posts} p
+             INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+             WHERE p.post_type = 'post'
+             AND p.post_status IN ('publish', 'draft', 'pending', 'private')
+             AND pm.meta_key = '_wash_article_id'
+             AND pm.meta_value != ''"
+        );
+
+        $syncedPages = (int) $wpdb->get_var(
+            "SELECT COUNT(DISTINCT p.ID)
+             FROM {$wpdb->posts} p
+             INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+             WHERE p.post_type = 'page'
+             AND p.post_status IN ('publish', 'draft', 'pending', 'private')
+             AND pm.meta_key = '_wash_article_id'
+             AND pm.meta_value != ''"
+        );
+
+        return rest_ensure_response([
+            'posts' => [
+                'total'     => (int) $postCounts->publish + (int) $postCounts->draft + (int) $postCounts->pending + (int) $postCounts->private,
+                'publish'   => (int) $postCounts->publish,
+                'draft'     => (int) $postCounts->draft,
+                'pending'   => (int) $postCounts->pending,
+                'private'   => (int) $postCounts->private,
+                'synced'    => $syncedPosts,
+            ],
+            'pages' => [
+                'total'     => (int) $pageCounts->publish + (int) $pageCounts->draft + (int) $pageCounts->pending + (int) $pageCounts->private,
+                'publish'   => (int) $pageCounts->publish,
+                'draft'     => (int) $pageCounts->draft,
+                'pending'   => (int) $pageCounts->pending,
+                'private'   => (int) $pageCounts->private,
+                'synced'    => $syncedPages,
+            ],
+        ]);
     }
 
     /**
