@@ -77,6 +77,28 @@ class WashApiClient {
     }
 
     /**
+     * Build base headers for all API requests.
+     * Includes API key, timestamp, plugin version, and optional HTTP Basic Auth.
+     *
+     * @param string $timestamp Unix timestamp
+     * @return array Headers array
+     */
+    private function getBaseHeaders($timestamp) {
+        $headers = [
+            'Accept'               => 'application/json',
+            'X-Wash-Key'           => $this->apiKey,
+            'X-Wash-Timestamp'     => $timestamp,
+            'X-Wash-Plugin-Version' => WASH_VERSION,
+        ];
+
+        if (!empty($this->httpUser) && !empty($this->httpPass)) {
+            $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
+        }
+
+        return $headers;
+    }
+
+    /**
      * Send a GET request to the Shopify App.
      *
      * @param string $endpoint API endpoint path (e.g. "/api/blog-mappings")
@@ -89,17 +111,7 @@ class WashApiClient {
 
         $url = $this->appUrl . $endpoint;
         $timestamp = (string) time();
-
-        $headers = [
-            'Accept'                 => 'application/json',
-            'X-Wash-Key'       => $this->apiKey,
-            'X-Wash-Timestamp' => $timestamp,
-        ];
-
-        // Add HTTP Basic Auth if configured
-        if (!empty($this->httpUser) && !empty($this->httpPass)) {
-            $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
-        }
+        $headers = $this->getBaseHeaders($timestamp);
 
         $response = wp_remote_get($url, [
             'timeout' => 30,
@@ -148,12 +160,9 @@ class WashApiClient {
         error_log("[wash API] URL: {$url}");
         error_log("[wash API] API Key (first 8 chars): " . substr($this->apiKey, 0, 8) . "...");
 
-        $headers = [
-            'Content-Type'           => 'application/json',
-            'X-Wash-Key'       => $this->apiKey,
-            'X-Wash-Timestamp' => $timestamp,
-            'X-Wash-Signature' => $this->signRequest($timestamp, $body),
-        ];
+        $headers = $this->getBaseHeaders($timestamp);
+        $headers['Content-Type'] = 'application/json';
+        $headers['X-Wash-Signature'] = $this->signRequest($timestamp, $body);
 
         $result = $this->sendWithRetry($url, $body, $headers);
 
@@ -179,17 +188,7 @@ class WashApiClient {
 
         $url = $this->appUrl . $endpoint;
         $timestamp = (string) time();
-
-        $headers = [
-            'Accept'                 => 'application/json',
-            'X-Wash-Key'       => $this->apiKey,
-            'X-Wash-Timestamp' => $timestamp,
-        ];
-
-        // Add HTTP Basic Auth if configured
-        if (!empty($this->httpUser) && !empty($this->httpPass)) {
-            $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
-        }
+        $headers = $this->getBaseHeaders($timestamp);
 
         $response = wp_remote_request($url, [
             'method'  => 'DELETE',
@@ -256,17 +255,7 @@ class WashApiClient {
 
         $url = $this->appUrl . '/api/diagnose';
         $timestamp = (string) time();
-
-        $headers = [
-            'Accept'                 => 'application/json',
-            'X-Wash-Key'       => $this->apiKey,
-            'X-Wash-Timestamp' => $timestamp,
-        ];
-
-        // Add HTTP Basic Auth if configured
-        if (!empty($this->httpUser) && !empty($this->httpPass)) {
-            $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
-        }
+        $headers = $this->getBaseHeaders($timestamp);
 
         $response = wp_remote_get($url, [
             'timeout' => 15,
@@ -348,16 +337,7 @@ class WashApiClient {
 
         $url = $this->appUrl . '/api/debug-session';
         $timestamp = (string) time();
-
-        $headers = [
-            'Accept'                 => 'application/json',
-            'X-Wash-Key'       => $this->apiKey,
-            'X-Wash-Timestamp' => $timestamp,
-        ];
-
-        if (!empty($this->httpUser) && !empty($this->httpPass)) {
-            $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
-        }
+        $headers = $this->getBaseHeaders($timestamp);
 
         $response = wp_remote_get($url, [
             'timeout' => 15,
@@ -391,16 +371,7 @@ class WashApiClient {
 
         $url = $this->appUrl . '/api/debug-session';
         $timestamp = (string) time();
-
-        $headers = [
-            'Accept'                 => 'application/json',
-            'X-Wash-Key'       => $this->apiKey,
-            'X-Wash-Timestamp' => $timestamp,
-        ];
-
-        if (!empty($this->httpUser) && !empty($this->httpPass)) {
-            $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
-        }
+        $headers = $this->getBaseHeaders($timestamp);
 
         $response = wp_remote_request($url, [
             'method'  => 'DELETE',
@@ -436,17 +407,8 @@ class WashApiClient {
 
         $url = $this->appUrl . '/api/fix-session';
         $timestamp = (string) time();
-
-        $headers = [
-            'Accept'                 => 'application/json',
-            'Content-Type'           => 'application/json',
-            'X-Wash-Key'       => $this->apiKey,
-            'X-Wash-Timestamp' => $timestamp,
-        ];
-
-        if (!empty($this->httpUser) && !empty($this->httpPass)) {
-            $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
-        }
+        $headers = $this->getBaseHeaders($timestamp);
+        $headers['Content-Type'] = 'application/json';
 
         $response = wp_remote_post($url, [
             'timeout' => 15,

@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.12.10
+Stable tag: 1.12.11
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
