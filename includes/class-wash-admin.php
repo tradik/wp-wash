@@ -156,7 +156,6 @@ class WashAdmin {
         $settings = [
             'wash_shopify_store',
             'wash_api_key',
-            'wash_api_secret',
             'wash_http_user',
             'wash_http_pass',
             'wash_sync_on_publish',
@@ -259,13 +258,11 @@ class WashAdmin {
         }
 
         // Receive credentials from Shopify app callback
-        if (isset($_GET['api_key']) && isset($_GET['api_secret'])) {
+        if (isset($_GET['api_key'])) {
             $apiKey = sanitize_text_field($_GET['api_key']);
-            $apiSecret = sanitize_text_field($_GET['api_secret']);
 
-            if (!empty($apiKey) && !empty($apiSecret)) {
+            if (!empty($apiKey)) {
                 update_option('wash_api_key', $apiKey);
-                update_option('wash_api_secret', $apiSecret);
 
                 if (isset($_GET['store'])) {
                     update_option('wash_shopify_store', sanitize_text_field($_GET['store']));
@@ -480,7 +477,6 @@ class WashAdmin {
         }
 
         delete_option('wash_api_key');
-        delete_option('wash_api_secret');
 
         wp_send_json_success();
     }

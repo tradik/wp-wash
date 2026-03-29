@@ -1,5 +1,5 @@
 <?php
-$isConnected = !empty(get_option('wash_api_key')) && !empty(get_option('wash_api_secret'));
+$isConnected = !empty(get_option('wash_api_key'));
 $shopifyStore = get_option('wash_shopify_store', '');
 $shopifyAppSlug = (new WashApiClient())->getShopifyAppSlug();
 
@@ -122,10 +122,14 @@ function wash_is_permission_locked($tab, $tabPermissions, $permissions) {
 /**
  * Render a tab link with optional locked state (plan or permission).
  */
-function wash_render_tab($tab, $label, $features, $tabFeatures, $featurePlans, $upgradeUrl, $isActive = false, $permissions = [], $tabPermissions = []) {
+function wash_render_tab($tab, $label, $features, $tabFeatures, $featurePlans, $upgradeUrl, $isActive = false, $permissions = [], $tabPermissions = [], $isConnected = true) {
     $featureName = $tabFeatures[$tab] ?? null;
     $isPlanLocked = $featureName && wash_is_feature_locked($featureName, $features);
     $isPermissionLocked = wash_is_permission_locked($tab, $tabPermissions, $permissions);
+
+    // Disable all tabs except 'connection' when not connected
+    $isDisconnected = !$isConnected && $tab !== 'connection';
+
     $isLocked = $isPlanLocked || $isPermissionLocked;
     $requiredPlan = $featurePlans[$featureName] ?? 'PRO';
 
@@ -136,9 +140,18 @@ function wash_render_tab($tab, $label, $features, $tabFeatures, $featurePlans, $
     if ($isLocked) {
         $classes .= ' nav-tab-locked';
     }
+    if ($isDisconnected) {
+        $classes .= ' nav-tab-disabled';
+    }
 
-    $lockIcon = $isLocked ? ' <span class="dashicons dashicons-lock" style="font-size: 14px; opacity: 0.6;"></span>' : '';
-    if ($isPlanLocked) {
+    $lockIcon = '';
+    if ($isLocked) {
+        $lockIcon = ' <span class="dashicons dashicons-lock" style="font-size: 14px; opacity: 0.6;"></span>';
+    }
+
+    if ($isDisconnected) {
+        $title = esc_attr__('Connect to Shopify first', 'wash');
+    } elseif ($isPlanLocked) {
         $title = sprintf(esc_attr__('Requires %s plan', 'wash'), $requiredPlan);
     } elseif ($isPermissionLocked) {
         $title = esc_attr__('Locked by Shopify Admin', 'wash');
@@ -147,11 +160,12 @@ function wash_render_tab($tab, $label, $features, $tabFeatures, $featurePlans, $
     }
 
     printf(
-        '<a href="#%s" class="%s" data-tab="%s" data-locked="%s" data-required-plan="%s" data-upgrade-url="%s" title="%s">%s%s</a>',
+        '<a href="#%s" class="%s" data-tab="%s" data-locked="%s" data-disabled="%s" data-required-plan="%s" data-upgrade-url="%s" title="%s">%s%s</a>',
         esc_attr($tab),
         esc_attr($classes),
         esc_attr($tab),
         $isLocked ? '1' : '0',
+        $isDisconnected ? '1' : '0',
         esc_attr($requiredPlan),
         esc_url($upgradeUrl),
         esc_attr($title),
@@ -291,16 +305,16 @@ function wash_render_permission_locked_banner() {
     <?php endif; ?>
 
     <nav class="nav-tab-wrapper wash-tabs">
-        <?php wash_render_tab('connection', __('Connection', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, true, $permissions, $tabPermissions); ?>
-        <?php wash_render_tab('blogs', __('Blogs', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
-        <?php wash_render_tab('redirections', __('Redirections', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
-        <?php wash_render_tab('hreflangs', __('Hreflangs', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
-        <?php wash_render_tab('metafields', __('Meta Fields', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
-        <?php wash_render_tab('authors', __('Authors', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
-        <?php wash_render_tab('files', __('Files & Media', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
-        <?php wash_render_tab('content', __('Content Processing', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
-        <?php wash_render_tab('sync', __('Sync Settings', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
-        <?php wash_render_tab('advanced', __('Advanced', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions); ?>
+        <?php wash_render_tab('connection', __('Connection', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, true, $permissions, $tabPermissions, $isConnected); ?>
+        <?php wash_render_tab('blogs', __('Blogs', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
+        <?php wash_render_tab('redirections', __('Redirections', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
+        <?php wash_render_tab('hreflangs', __('Hreflangs', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
+        <?php wash_render_tab('metafields', __('Meta Fields', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
+        <?php wash_render_tab('authors', __('Authors', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
+        <?php wash_render_tab('files', __('Files & Media', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
+        <?php wash_render_tab('content', __('Content Processing', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
+        <?php wash_render_tab('sync', __('Sync Settings', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
+        <?php wash_render_tab('advanced', __('Advanced', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
     </nav>
 
     <form method="post" action="options.php" id="wash-settings-form">
@@ -336,7 +350,6 @@ function wash_render_permission_locked_banner() {
                 <!-- Hidden fields for connected state -->
                 <input type="hidden" name="wash_shopify_store" value="<?php echo esc_attr($shopifyStore); ?>" />
                 <input type="hidden" name="wash_api_key" value="<?php echo esc_attr(get_option('wash_api_key')); ?>" />
-                <input type="hidden" name="wash_api_secret" value="<?php echo esc_attr(get_option('wash_api_secret')); ?>" />
             <?php else : ?>
                 <!-- Not connected - show connection form -->
                 <table class="form-table" role="presentation">
@@ -365,42 +378,6 @@ function wash_render_permission_locked_banner() {
                         </td>
                     </tr>
                 </table>
-
-                <div id="wash-manual-config" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ccc;">
-                    <h3><?php esc_html_e('Manual Configuration', 'wash'); ?></h3>
-                    <p class="description"><?php esc_html_e('If automatic connection fails, you can enter credentials manually.', 'wash'); ?></p>
-
-                    <table class="form-table" role="presentation">
-                        <tr>
-                            <th scope="row">
-                                <label for="wash_api_key"><?php esc_html_e('API Key', 'wash'); ?></label>
-                            </th>
-                            <td>
-                                <input type="text" id="wash_api_key" name="wash_api_key"
-                                       value="<?php echo esc_attr(get_option('wash_api_key')); ?>"
-                                       class="regular-text" />
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">
-                                <label for="wash_api_secret"><?php esc_html_e('API Secret', 'wash'); ?></label>
-                            </th>
-                            <td>
-                                <input type="password" id="wash_api_secret" name="wash_api_secret"
-                                       value="<?php echo esc_attr(get_option('wash_api_secret')); ?>"
-                                       class="regular-text" />
-                            </td>
-                        </tr>
-                    </table>
-
-                    <p>
-                        <a href="#" id="wash-hide-manual"><?php esc_html_e('Hide manual configuration', 'wash'); ?></a>
-                    </p>
-                </div>
-
-                <p style="margin-top: 15px;">
-                    <a href="#" id="wash-show-manual"><?php esc_html_e('Enter credentials manually', 'wash'); ?></a>
-                </p>
             <?php endif; ?>
         </div>
 
@@ -418,11 +395,7 @@ function wash_render_permission_locked_banner() {
                 <?php esc_html_e('Higher priority rules are matched first. Default rule is used when no other rule matches.', 'wash'); ?>
             </p>
 
-            <?php if (!$isConnected) : ?>
-                <div class="notice notice-warning" style="margin: 15px 0;">
-                    <p><?php esc_html_e('Connect to Shopify first to configure blog mappings.', 'wash'); ?></p>
-                </div>
-            <?php else : ?>
+            <?php if ($isConnected) : ?>
                 <div id="wash-blog-mappings">
                     <div class="wash-mappings-list" id="wash-mappings-list">
                         <!-- Mappings loaded via JavaScript -->
@@ -581,10 +554,6 @@ function wash_render_permission_locked_banner() {
                     </h4>
                     <ul id="wash-sync-results-list" style="margin: 0; padding-left: 20px;"></ul>
                 </div>
-            </div>
-            <?php else : ?>
-            <div class="notice notice-warning" style="margin: 15px 0;">
-                <p><?php esc_html_e('Connect to Shopify first to manage redirections.', 'wash'); ?></p>
             </div>
             <?php endif; ?>
 
@@ -1828,7 +1797,9 @@ function wash_render_permission_locked_banner() {
             </table>
         </div>
 
-        <?php submit_button(); ?>
+        <div id="wash-submit-wrapper">
+            <?php submit_button(); ?>
+        </div>
     </form>
 </div>
 
@@ -1864,6 +1835,21 @@ function wash_render_permission_locked_banner() {
         }
     });
 
+    // Submit button visibility based on tab and connection state
+    var submitWrapper = document.getElementById('wash-submit-wrapper');
+    var isConnected = <?php echo $isConnected ? 'true' : 'false'; ?>;
+
+    function updateSubmitVisibility(tabId) {
+        if (!submitWrapper) return;
+        // Hide submit on tabs that use AJAX (Connection, Blogs, Redirections)
+        var ajaxTabs = ['connection', 'blogs', 'redirections'];
+        if (ajaxTabs.indexOf(tabId) !== -1) {
+            submitWrapper.style.display = 'none';
+        } else {
+            submitWrapper.style.display = 'block';
+        }
+    }
+
     // Tab switching
     document.querySelectorAll('.wash-tabs .nav-tab').forEach(function(tab) {
         tab.addEventListener('click', function(e) {
@@ -1883,8 +1869,14 @@ function wash_render_permission_locked_banner() {
             // Update hidden field and hash for persistence
             if (currentTabInput) currentTabInput.value = tabId;
             window.location.hash = tabId;
+
+            // Update submit button visibility
+            updateSubmitVisibility(tabId);
         });
     });
+
+    // Initial submit visibility
+    updateSubmitVisibility('connection');
 
     // Restore from hash or URL parameter
     var hash = window.location.hash.replace('#', '');
@@ -1913,25 +1905,6 @@ function wash_render_permission_locked_banner() {
     }
 
     // Show/hide manual config
-    var showManual = document.getElementById('wash-show-manual');
-    var hideManual = document.getElementById('wash-hide-manual');
-    var manualConfig = document.getElementById('wash-manual-config');
-
-    if (showManual) {
-        showManual.addEventListener('click', function(e) {
-            e.preventDefault();
-            manualConfig.style.display = 'block';
-            showManual.style.display = 'none';
-        });
-    }
-    if (hideManual) {
-        hideManual.addEventListener('click', function(e) {
-            e.preventDefault();
-            manualConfig.style.display = 'none';
-            showManual.style.display = 'inline';
-        });
-    }
-
     // Connect button visibility
     var storeInput = document.getElementById('wash_shopify_store');
     var connectBtn = document.getElementById('wash-connect-btn');
@@ -1953,40 +1926,35 @@ function wash_render_permission_locked_banner() {
     // Connect button click
     if (connectBtn) {
         connectBtn.addEventListener('click', function() {
-            var store = storeInput.value.trim().replace('.myshopify.com', '');
-            var returnUrl = encodeURIComponent(window.location.href.split('?')[0] + '?page=wash&wash_callback=1');
-            var siteUrl = encodeURIComponent(window.location.protocol + '//' + window.location.host);
-            var siteName = encodeURIComponent('<?php echo esc_js(get_bloginfo('name')); ?>');
+            var store = storeInput.value.trim().replace('.myshopify.com', '').toLowerCase();
 
-            // Redirect to Shopify Admin -> App -> Connections page
-            var appSlug = '<?php echo esc_js($shopifyAppSlug); ?>';
-            var connectUrl = 'https://admin.shopify.com/store/' + store + '/apps/' + appSlug + '/app/connections' +
-                '?action=connect' +
-                '&return_url=' + returnUrl +
-                '&site_url=' + siteUrl +
-                '&site_name=' + siteName;
-
-            window.location.href = connectUrl;
-        });
-    }
-
-    // Disconnect button
-    var disconnectBtn = document.getElementById('wash-disconnect-btn');
-    if (disconnectBtn) {
-        disconnectBtn.addEventListener('click', function() {
-            if (confirm('<?php echo esc_js(__('Are you sure you want to disconnect from Shopify?', 'wash')); ?>')) {
-                // Clear credentials via AJAX
-                var formData = new FormData();
-                formData.append('action', 'wash_disconnect');
-                formData.append('nonce', '<?php echo wp_create_nonce('wash_disconnect'); ?>');
-
-                fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
-                    method: 'POST',
-                    body: formData
-                }).then(function() {
-                    window.location.reload();
-                });
+            // Validate store handle format
+            if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(store) && !/^[a-z0-9]$/.test(store)) {
+                alert('<?php echo esc_js(__('Invalid store name. Use only lowercase letters, numbers, and hyphens.', 'wash')); ?>');
+                return;
             }
+
+            // Show loading state
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = '<span class="dashicons dashicons-update" style="animation: rotation 1s infinite linear; vertical-align: text-bottom;"></span> <?php echo esc_js(__('Checking...', 'wash')); ?>';
+
+            // Verify store exists by checking if it responds
+            fetch('https://' + store + '.myshopify.com/admin', { mode: 'no-cors', cache: 'no-store' })
+                .finally(function() {
+                    // Redirect regardless - Shopify will show proper error if store doesn't exist
+                    var returnUrl = encodeURIComponent(window.location.href.split('?')[0] + '?page=wash&wash_callback=1');
+                    var siteUrl = encodeURIComponent(window.location.protocol + '//' + window.location.host);
+                    var siteName = encodeURIComponent('<?php echo esc_js(get_bloginfo('name')); ?>');
+
+                    var appSlug = '<?php echo esc_js($shopifyAppSlug); ?>';
+                    var connectUrl = 'https://admin.shopify.com/store/' + store + '/apps/' + appSlug + '/app/connections' +
+                        '?action=connect' +
+                        '&return_url=' + returnUrl +
+                        '&site_url=' + siteUrl +
+                        '&site_name=' + siteName;
+
+                    window.location.href = connectUrl;
+                });
         });
     }
 

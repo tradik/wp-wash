@@ -11,9 +11,6 @@ class WashApiClient {
     /** @var string API key for authentication */
     private $apiKey;
 
-    /** @var string API secret for HMAC signing */
-    private $apiSecret;
-
     /** @var string HTTP Basic Auth username */
     private $httpUser;
 
@@ -26,7 +23,6 @@ class WashApiClient {
     public function __construct() {
         $this->appUrl    = $this->resolveAppUrl();
         $this->apiKey    = get_option('wash_api_key', '');
-        $this->apiSecret = get_option('wash_api_secret', '');
         $this->httpUser  = get_option('wash_http_user', '');
         $this->httpPass  = get_option('wash_http_pass', '');
     }
@@ -162,7 +158,6 @@ class WashApiClient {
 
         $headers = $this->getBaseHeaders($timestamp);
         $headers['Content-Type'] = 'application/json';
-        $headers['X-Wash-Signature'] = $this->signRequest($timestamp, $body);
 
         $result = $this->sendWithRetry($url, $body, $headers);
 
@@ -553,18 +548,10 @@ class WashApiClient {
     }
 
     /**
-     * Generate HMAC-SHA256 signature for request authentication.
-     */
-    private function signRequest($timestamp, $body) {
-        $payload = $timestamp . ':' . $body;
-        return hash_hmac('sha256', $payload, $this->apiSecret);
-    }
-
-    /**
      * Check if the client is properly configured.
      */
     public function isConfigured() {
-        return !empty($this->apiKey) && !empty($this->apiSecret);
+        return !empty($this->apiKey);
     }
 
     /**

@@ -21,7 +21,6 @@ class WashActivator {
         $defaults = [
             'wash_app_url'    => '',
             'wash_api_key'    => '',
-            'wash_api_secret' => '',
             'wash_sync_on_publish' => '1',
             'wash_sync_images'     => '1',
             'wash_sync_metafields' => '1',

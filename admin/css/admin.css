@@ -110,6 +110,20 @@ td.column-wash_sync span {
   vertical-align: text-bottom;
 }
 
+/* Disabled tabs styling (not connected) */
+.wash-tabs .nav-tab-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  color: #a7aaad;
+}
+
+.wash-tabs .nav-tab-disabled:hover {
+  background: #f0f0f1;
+  border-bottom-color: #c3c4c7;
+  color: #a7aaad;
+}
+
 /* Plan badge in header */
 .wash-plan-badge {
   text-transform: uppercase;

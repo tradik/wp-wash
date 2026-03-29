@@ -12,7 +12,6 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 $optionKeys = [
     'wash_shopify_store',
     'wash_api_key',
-    'wash_api_secret',
     'wash_http_user',
     'wash_http_pass',
     'wash_sync_on_publish',
