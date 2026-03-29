@@ -3,7 +3,7 @@
  * Plugin Name:       Wash: Blog Manager
  * Plugin URI:        https://github.com/tradik/wash
  * Description:       Synchronize WordPress content, images, and metafields to Shopify blogs.
- * Version:           1.12.9
+ * Version:           1.12.10
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Tradik
