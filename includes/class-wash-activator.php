@@ -6,6 +6,14 @@
 class WashActivator {
 
     /**
+     * Initialize hooks for version ping.
+     */
+    public static function init() {
+        add_action('wash_ping_shopify', [self::class, 'sendVersionPing']);
+        add_action('upgrader_process_complete', [self::class, 'onPluginUpdate'], 10, 2);
+    }
+
+    /**
      * Run on plugin activation.
      * Sets up default options and creates sync tracking table.
      */
@@ -29,13 +37,55 @@ class WashActivator {
 
         self::createSyncTable();
         flush_rewrite_rules();
+
+        // Schedule ping to report plugin version (delayed to ensure settings are loaded)
+        if (!wp_next_scheduled('wash_ping_shopify')) {
+            wp_schedule_single_event(time() + 5, 'wash_ping_shopify');
+        }
     }
 
     /**
      * Run on plugin deactivation.
      */
     public static function deactivate() {
+        wp_clear_scheduled_hook('wash_ping_shopify');
         flush_rewrite_rules();
+    }
+
+    /**
+     * Called after plugin update via WordPress upgrader.
+     *
+     * @param WP_Upgrader $upgrader
+     * @param array $options
+     */
+    public static function onPluginUpdate($upgrader, $options) {
+        if ($options['action'] !== 'update' || $options['type'] !== 'plugin') {
+            return;
+        }
+
+        // Check if our plugin was updated
+        $ourPlugin = plugin_basename(WASH_PLUGIN_DIR . 'wash.php');
+        $plugins = $options['plugins'] ?? [];
+
+        if (in_array($ourPlugin, $plugins, true)) {
+            // Schedule ping after update
+            if (!wp_next_scheduled('wash_ping_shopify')) {
+                wp_schedule_single_event(time() + 5, 'wash_ping_shopify');
+            }
+        }
+    }
+
+    /**
+     * Send version ping to Shopify App.
+     */
+    public static function sendVersionPing() {
+        $apiKey = get_option('wash_api_key', '');
+        if (empty($apiKey)) {
+            return; // Not configured yet
+        }
+
+        $client = new WashApiClient();
+        $client->ping();
     }
 
     /**

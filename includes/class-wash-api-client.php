@@ -243,6 +243,44 @@ class WashApiClient {
     }
 
     /**
+     * Send a ping to report plugin version to Shopify App.
+     * Called on plugin activation, update, or manual check.
+     *
+     * @return array|WP_Error Ping response or error
+     */
+    public function ping() {
+        if (empty($this->apiKey)) {
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
+        }
+
+        $url = $this->appUrl . '/api/ping';
+        $timestamp = (string) time();
+        $headers = $this->getBaseHeaders($timestamp);
+        $headers['Content-Type'] = 'application/json';
+
+        $response = wp_remote_post($url, [
+            'timeout' => 15,
+            'headers' => $headers,
+            'body'    => '{}',
+        ]);
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $body = wp_remote_retrieve_body($response);
+        $responseBody = json_decode($body, true);
+
+        if ($code >= 400) {
+            $errorMsg = $this->extractErrorMessage($responseBody, $body, $code);
+            return new \WP_Error('wash_ping_error', $errorMsg, ['status' => $code]);
+        }
+
+        return $responseBody ?: ['success' => true];
+    }
+
+    /**
      * Diagnose connection issues with the Shopify App.
      * Uses the authenticated diagnose endpoint to check session validity.
      *

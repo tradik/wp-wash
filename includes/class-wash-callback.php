@@ -138,6 +138,7 @@ class WashCallback {
                 'private'   => (int) $pageCounts->private,
                 'synced'    => $syncedPages,
             ],
+            'pluginVersion' => defined('WASH_VERSION') ? WASH_VERSION : null,
         ]);
     }
 

@@ -45,6 +45,7 @@ require_once WASH_PLUGIN_DIR . 'includes/class-wash-updater.php';
 
 register_activation_hook(__FILE__, ['WashActivator', 'activate']);
 register_deactivation_hook(__FILE__, ['WashActivator', 'deactivate']);
+WashActivator::init();
 
 /**
  * Initialize the plugin.
