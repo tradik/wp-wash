@@ -370,11 +370,18 @@ class WashCallback {
                     if ($shopifyBlogHandle) {
                         // Article URL: /blogs/{blogHandle}/{articleHandle}
                         $shopifyUrl = "https://{$shopifyDomain}/blogs/{$shopifyBlogHandle}/{$shopifyHandle}";
+                        $shopifyPath = "/blogs/{$shopifyBlogHandle}/{$shopifyHandle}";
                     } else {
                         // Page URL: /pages/{handle}
                         $shopifyUrl = "https://{$shopifyDomain}/pages/{$shopifyHandle}";
+                        $shopifyPath = "/pages/{$shopifyHandle}";
                     }
                     update_post_meta($wpPostId, '_wash_shopify_url', $shopifyUrl);
+
+                    // Create automatic redirect if enabled
+                    if (get_option('wash_redirections_enabled', '0') === '1') {
+                        $this->createAutomaticRedirect($wpPostId, $shopifyPath);
+                    }
                 }
             }
 
@@ -409,5 +416,71 @@ class WashCallback {
             'success' => true,
             'message' => 'Callback processed',
         ], 200);
+    }
+
+    /**
+     * Create automatic redirect from WordPress URL to Shopify URL.
+     *
+     * @param int    $postId      WordPress post ID.
+     * @param string $shopifyPath Shopify path (e.g., /blogs/news/my-article).
+     */
+    private function createAutomaticRedirect($postId, $shopifyPath) {
+        $post = get_post($postId);
+        if (!$post) {
+            error_log("[wash] createAutomaticRedirect: Post {$postId} not found");
+            return;
+        }
+
+        // Get WordPress post permalink and extract path
+        $wpPermalink = get_permalink($postId);
+        if (!$wpPermalink) {
+            error_log("[wash] createAutomaticRedirect: No permalink for post {$postId}");
+            return;
+        }
+
+        $wpPath = wp_parse_url($wpPermalink, PHP_URL_PATH);
+        if (!$wpPath || $wpPath === '/') {
+            error_log("[wash] createAutomaticRedirect: Invalid WP path for post {$postId}");
+            return;
+        }
+
+        // Don't create redirect if paths are the same
+        $normalizedWpPath = rtrim($wpPath, '/');
+        $normalizedShopifyPath = rtrim($shopifyPath, '/');
+        if ($normalizedWpPath === $normalizedShopifyPath) {
+            error_log("[wash] createAutomaticRedirect: Paths are identical, skipping redirect for post {$postId}");
+            return;
+        }
+
+        // Check if redirect already exists for this post
+        $existingRedirect = get_post_meta($postId, '_wash_redirect_created', true);
+        if ($existingRedirect === $normalizedWpPath) {
+            error_log("[wash] createAutomaticRedirect: Redirect already created for post {$postId}");
+            return;
+        }
+
+        // Create redirect via API
+        $apiClient = new WashApiClient();
+        $result = $apiClient->post('/api/redirections', [
+            'redirects' => [
+                [
+                    'from' => $normalizedWpPath,
+                    'to'   => $normalizedShopifyPath,
+                ],
+            ],
+        ]);
+
+        if (is_wp_error($result)) {
+            error_log("[wash] createAutomaticRedirect: Failed to create redirect for post {$postId}: " . $result->get_error_message());
+            return;
+        }
+
+        // Store that redirect was created
+        update_post_meta($postId, '_wash_redirect_created', $normalizedWpPath);
+        update_post_meta($postId, '_wash_redirect_to', $normalizedShopifyPath);
+
+        $created = $result['created'] ?? 0;
+        $skipped = $result['skipped'] ?? 0;
+        error_log("[wash] createAutomaticRedirect: Post {$postId} redirect {$normalizedWpPath} -> {$normalizedShopifyPath} (created: {$created}, skipped: {$skipped})");
     }
 }
