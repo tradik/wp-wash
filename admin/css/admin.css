@@ -386,3 +386,41 @@ td.column-wash_sync span {
     box-shadow: 0 0 0 4px rgba(255, 201, 107, 0);
   }
 }
+
+/* Read-only mode for restricted users */
+.wash-readonly-mode input:not([type="hidden"]),
+.wash-readonly-mode select,
+.wash-readonly-mode textarea,
+.wash-readonly-mode button:not(#wash-disconnect-btn):not(.wash-permission-info-btn):not(.nav-tab) {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.wash-readonly-mode .form-table th,
+.wash-readonly-mode .form-table td {
+  opacity: 0.8;
+}
+
+.wash-readonly-mode .submit {
+  display: none;
+}
+
+.wash-readonly-mode .form-table input[type="checkbox"],
+.wash-readonly-mode .form-table input[type="radio"],
+.wash-readonly-mode .form-table input[type="text"],
+.wash-readonly-mode .form-table select {
+  background-color: #f0f0f1;
+}
+
+/* Exception: keep tabs interactive */
+.wash-readonly-mode .nav-tab-wrapper .nav-tab {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+/* Exception: keep connection tab buttons working */
+#tab-connection .wash-readonly-mode .button {
+  pointer-events: none;
+  opacity: 0.6;
+}

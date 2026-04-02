@@ -10,6 +10,18 @@
     const i18n = (key, fallback) => (washAdmin.i18n && washAdmin.i18n[key]) || fallback;
 
     $(document).ready(function () {
+        // Check if user can modify settings (read-only mode)
+        const userCanModify = $("#wash-user-can-modify").val() === "1";
+
+        // Block form submission in read-only mode
+        if (!userCanModify) {
+            $("#wash-settings-form").on("submit", function (e) {
+                e.preventDefault();
+                alert(i18n('readOnlyMode', 'You do not have permission to modify Wash settings. Contact your administrator for access.'));
+                return false;
+            });
+        }
+
         // Connection test
         const testButton = $("#wash-test-connection");
 
@@ -142,6 +154,43 @@
         });
 
         // =====================
+        // Reset to Defaults
+        // =====================
+        $("#wash-reset-to-defaults").on("click", function () {
+            if (!confirm(i18n('confirmResetToDefaults', 'Are you sure you want to reset all settings to their default values?\n\nThis will reset:\n• Sync Settings\n• Files & Media options\n• Metafield sources\n• Gutenberg Blocks settings\n• Advanced features\n\nYour Shopify connection and synced content will NOT be affected.'))) {
+                return;
+            }
+
+            const btn = $(this);
+            btn.prop("disabled", true).text(i18n('resettingSettings', 'Resetting...'));
+
+            $.ajax({
+                url: washAdmin.ajaxUrl,
+                type: "POST",
+                data: {
+                    action: "wash_reset_to_defaults",
+                    nonce: washAdmin.nonce,
+                },
+                success: function (response) {
+                    if (response.success) {
+                        alert(response.data.message || i18n('settingsResetSuccess', 'All settings have been reset to defaults.'));
+                        window.location.reload();
+                    } else {
+                        alert(i18n('failedResetSettings', 'Failed to reset settings: ') + response.data);
+                    }
+                },
+                error: function () {
+                    alert(i18n('networkErrorResetSettings', 'Network error while resetting settings'));
+                },
+                complete: function () {
+                    btn.prop("disabled", false).html(
+                        '<span class="dashicons dashicons-image-rotate" style="vertical-align: text-bottom;"></span> ' + i18n('resetAllSettings', 'Reset All Settings')
+                    );
+                },
+            });
+        });
+
+        // =====================
         // Redirections Management
         // =====================
         const textarea = $("#wash-redirections-textarea");
@@ -150,6 +199,155 @@
         const syncResults = $("#wash-sync-results");
         const syncResultsList = $("#wash-sync-results-list");
         const fixSessionBtn = $("#wash-fix-session");
+        const unlockBtn = $("#wash-unlock-redirections");
+        const verifyBtn = $("#wash-verify-redirections");
+        const overlay = $("#wash-redirections-overlay");
+        const verifyResults = $("#wash-verify-results");
+        const syncBtn = $("#wash-sync-redirections");
+        let isUnlocked = false;
+
+        // Unlock/Lock redirections textarea
+        unlockBtn.on("click", function () {
+            if (isUnlocked) {
+                // Lock it back
+                isUnlocked = false;
+                textarea.prop("readonly", true).css({
+                    "background": "#f6f7f7",
+                    "cursor": "not-allowed"
+                });
+                overlay.show();
+                syncBtn.prop("disabled", true).attr("title", i18n('unlockToSync', 'Unlock to enable sync'));
+                unlockBtn.html('<span class="dashicons dashicons-lock" style="vertical-align: text-bottom;"></span> ' + i18n('unlock', 'Unlock'));
+            } else {
+                // Show confirmation dialog
+                const confirmed = confirm(
+                    i18n('unlockWarningTitle', '⚠️ Warning: Editing Redirections') + "\n\n" +
+                    i18n('unlockWarning1', 'Changes to redirections directly affect your Shopify store.') + "\n" +
+                    i18n('unlockWarning2', 'Incorrect redirections can break links and harm SEO.') + "\n\n" +
+                    i18n('unlockWarning3', 'Make sure you know what you are doing.') + "\n\n" +
+                    i18n('unlockConfirm', 'Do you want to unlock editing?')
+                );
+                if (confirmed) {
+                    isUnlocked = true;
+                    textarea.prop("readonly", false).css({
+                        "background": "#fff",
+                        "cursor": "text"
+                    });
+                    overlay.hide();
+                    syncBtn.prop("disabled", false).attr("title", "");
+                    unlockBtn.html('<span class="dashicons dashicons-unlock" style="vertical-align: text-bottom;"></span> ' + i18n('lock', 'Lock'));
+                    textarea.focus();
+                }
+            }
+        });
+
+        // Clicking overlay triggers unlock
+        overlay.on("click", function () {
+            unlockBtn.trigger("click");
+        });
+
+        // Verify redirections syntax
+        verifyBtn.on("click", function () {
+            const content = textarea.val().trim();
+            if (!content) {
+                verifyResults.hide();
+                return;
+            }
+
+            const lines = content.split("\n");
+            const errors = [];
+            const warnings = [];
+            let validCount = 0;
+            let commentCount = 0;
+            const seenFrom = {};
+
+            lines.forEach(function (line, index) {
+                const lineNum = index + 1;
+                line = line.trim();
+
+                if (!line) return;
+
+                // Comment line
+                if (line.startsWith("#")) {
+                    commentCount++;
+                    return;
+                }
+
+                // Check for valid separator
+                const match = line.match(/^(.+?)\s*(?:->|→|=>)\s*(.+)$/);
+                if (!match) {
+                    errors.push(i18n('verifyLineError', 'Line') + ' ' + lineNum + ': ' + i18n('verifyInvalidFormat', 'Invalid format - missing separator (→, ->, =>)'));
+                    return;
+                }
+
+                const from = match[1].trim();
+                const to = match[2].trim();
+
+                // Check if paths start with /
+                if (!from.startsWith("/")) {
+                    errors.push(i18n('verifyLineError', 'Line') + ' ' + lineNum + ': ' + i18n('verifyFromSlash', 'Source path should start with /'));
+                }
+                if (!to.startsWith("/") && !to.startsWith("http")) {
+                    errors.push(i18n('verifyLineError', 'Line') + ' ' + lineNum + ': ' + i18n('verifyToSlash', 'Target path should start with / or http'));
+                }
+
+                // Check for duplicates
+                if (seenFrom[from]) {
+                    warnings.push(i18n('verifyLineError', 'Line') + ' ' + lineNum + ': ' + i18n('verifyDuplicate', 'Duplicate source path') + ' "' + from + '" (' + i18n('verifyFirstAt', 'first at line') + ' ' + seenFrom[from] + ')');
+                } else {
+                    seenFrom[from] = lineNum;
+                }
+
+                // Check for redirect loops
+                if (from === to) {
+                    errors.push(i18n('verifyLineError', 'Line') + ' ' + lineNum + ': ' + i18n('verifyLoop', 'Redirect loop - source equals target'));
+                }
+
+                validCount++;
+            });
+
+            // Show results
+            let html = '';
+            if (errors.length === 0 && warnings.length === 0) {
+                html = '<div style="color: #155724;">' +
+                    '<span class="dashicons dashicons-yes-alt" style="color: #00a32a;"></span> ' +
+                    '<strong>' + i18n('verifySuccess', 'Syntax valid!') + '</strong> ' +
+                    validCount + ' ' + i18n('verifyRedirects', 'redirections') +
+                    (commentCount > 0 ? ', ' + commentCount + ' ' + i18n('verifyComments', 'comments') : '') +
+                    '</div>';
+                verifyResults.css({ "background": "#d4edda", "border": "1px solid #c3e6cb" });
+            } else {
+                html = '<div style="margin-bottom: 8px;">' +
+                    '<strong>' + validCount + '</strong> ' + i18n('verifyValidLines', 'valid') +
+                    (commentCount > 0 ? ', <strong>' + commentCount + '</strong> ' + i18n('verifyComments', 'comments') : '') +
+                    '</div>';
+
+                if (errors.length > 0) {
+                    html += '<div style="color: #721c24; margin-bottom: 5px;">' +
+                        '<span class="dashicons dashicons-warning" style="color: #d63638;"></span> ' +
+                        '<strong>' + i18n('verifyErrors', 'Errors') + ' (' + errors.length + '):</strong></div>' +
+                        '<ul style="margin: 0 0 10px 20px; color: #721c24;">' +
+                        errors.map(e => '<li>' + e + '</li>').join('') +
+                        '</ul>';
+                }
+
+                if (warnings.length > 0) {
+                    html += '<div style="color: #856404; margin-bottom: 5px;">' +
+                        '<span class="dashicons dashicons-info" style="color: #dba617;"></span> ' +
+                        '<strong>' + i18n('verifyWarnings', 'Warnings') + ' (' + warnings.length + '):</strong></div>' +
+                        '<ul style="margin: 0 0 0 20px; color: #856404;">' +
+                        warnings.map(w => '<li>' + w + '</li>').join('') +
+                        '</ul>';
+                }
+
+                verifyResults.css({
+                    "background": errors.length > 0 ? "#f8d7da" : "#fff3cd",
+                    "border": "1px solid " + (errors.length > 0 ? "#f5c6cb" : "#ffc107")
+                });
+            }
+
+            verifyResults.html(html).show();
+        });
 
         // Show fix session button when access denied error occurs
         function showFixSessionButton() {
@@ -371,6 +569,11 @@
 
         // Sync redirections to Shopify
         $("#wash-sync-redirections").on("click", function () {
+            if (!isUnlocked) {
+                alert(i18n('unlockToSync', 'Unlock to enable sync'));
+                return;
+            }
+
             const btn = $(this);
             const content = textarea.val().trim();
 
@@ -436,6 +639,44 @@
                 error: function () {
                     syncStatus.hide();
                     alert(i18n('networkErrorSync', 'Network error while syncing redirections'));
+                },
+                complete: function () {
+                    btn.prop("disabled", false);
+                },
+            });
+        });
+
+        // Save Redirections Settings
+        $("#wash-save-redirections-settings").on("click", function () {
+            const btn = $(this);
+            const status = $("#wash-redirections-save-status");
+            const enabled = $("#wash_redirections_enabled").is(":checked") ? "1" : "0";
+
+            btn.prop("disabled", true);
+            status.html('<span class="spinner is-active" style="float: none; margin: 0;"></span>');
+
+            $.ajax({
+                url: ajaxurl,
+                type: "POST",
+                data: {
+                    action: "wash_save_redirections_settings",
+                    nonce: washAdmin.redirectionsNonce,
+                    enabled: enabled,
+                },
+                success: function (response) {
+                    if (response.success) {
+                        status.html('<span style="color: #00a32a;">✓ ' + i18n('saved', 'Saved') + '</span>');
+                        setTimeout(function () {
+                            status.fadeOut(300, function () {
+                                status.html("").show();
+                            });
+                        }, 2000);
+                    } else {
+                        status.html('<span style="color: #d63638;">✗ ' + (response.data || i18n('error', 'Error')) + '</span>');
+                    }
+                },
+                error: function () {
+                    status.html('<span style="color: #d63638;">✗ ' + i18n('networkError', 'Network error') + '</span>');
                 },
                 complete: function () {
                     btn.prop("disabled", false);

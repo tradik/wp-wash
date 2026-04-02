@@ -25,6 +25,7 @@ class WashAdmin {
         add_action('wp_ajax_wash_debug_session', [$this, 'ajaxDebugSession']);
         add_action('wp_ajax_wash_reset_session', [$this, 'ajaxResetSession']);
         add_action('wp_ajax_wash_fix_session', [$this, 'ajaxFixSession']);
+        add_action('wp_ajax_wash_reset_to_defaults', [$this, 'ajaxResetToDefaults']);
         // Blog mappings AJAX handlers
         add_action('wp_ajax_wash_get_mappings', [$this, 'ajaxGetMappings']);
         add_action('wp_ajax_wash_get_shopify_blogs', [$this, 'ajaxGetShopifyBlogs']);
@@ -36,6 +37,7 @@ class WashAdmin {
         add_action('wp_ajax_wash_generate_redirections', [$this, 'ajaxGenerateRedirections']);
         add_action('wp_ajax_wash_sync_redirections', [$this, 'ajaxSyncRedirections']);
         add_action('wp_ajax_wash_fetch_wp_redirections', [$this, 'ajaxFetchWpRedirections']);
+        add_action('wp_ajax_wash_save_redirections_settings', [$this, 'ajaxSaveRedirectionsSettings']);
         // Preserve tab after settings save
         add_filter('wp_redirect', [$this, 'preserveTabAfterSave']);
         // Shopify preview link in post editor
@@ -56,6 +58,12 @@ class WashAdmin {
 
         // Handle manual sync action
         add_action('admin_init', [$this, 'handleManualSync']);
+
+        // Bulk actions for posts
+        add_filter('bulk_actions-edit-post', [$this, 'addBulkActions']);
+        add_filter('bulk_actions-edit-page', [$this, 'addBulkActions']);
+        add_filter('handle_bulk_actions-edit-post', [$this, 'handleBulkActions'], 10, 3);
+        add_filter('handle_bulk_actions-edit-page', [$this, 'handleBulkActions'], 10, 3);
 
         // AJAX handler for manual sync
         add_action('wp_ajax_wash_manual_sync', [$this, 'ajaxManualSync']);
@@ -176,6 +184,7 @@ class WashAdmin {
             'wash_blocks_enabled',
             'wash_sync_blocks_meta',
             'wash_sync_blocks_css',
+            'wash_redirections_enabled',
         ];
 
         foreach ($settings as $setting) {
@@ -432,6 +441,32 @@ class WashAdmin {
                 'failedLoadMappings'    => __('Failed to load mappings', 'wash'),
                 'edit'                  => __('Edit', 'wash'),
                 'delete'                => __('Delete', 'wash'),
+                // Read-only mode
+                'readOnlyMode'          => __('You do not have permission to modify Wash settings. Contact your administrator for access.', 'wash'),
+                // Unlock/Lock redirections
+                'unlock'                => __('Unlock', 'wash'),
+                'lock'                  => __('Lock', 'wash'),
+                'unlockToSync'          => __('Unlock to enable sync', 'wash'),
+                'unlockWarningTitle'    => __('⚠️ Warning: Editing Redirections', 'wash'),
+                'unlockWarning1'        => __('Changes to redirections directly affect your Shopify store.', 'wash'),
+                'unlockWarning2'        => __('Incorrect redirections can break links and harm SEO.', 'wash'),
+                'unlockWarning3'        => __('Make sure you know what you are doing.', 'wash'),
+                'unlockConfirm'         => __('Do you want to unlock editing?', 'wash'),
+                // Verify redirections
+                'verifyLineError'       => __('Line', 'wash'),
+                'verifyInvalidFormat'   => __('Invalid format - missing separator (→, ->, =>)', 'wash'),
+                'verifyFromSlash'       => __('Source path should start with /', 'wash'),
+                'verifyToSlash'         => __('Target path should start with / or http', 'wash'),
+                'verifyDuplicate'       => __('Duplicate source path', 'wash'),
+                'verifyFirstAt'         => __('first at line', 'wash'),
+                'verifyLoop'            => __('Redirect loop - source equals target', 'wash'),
+                'verifySuccess'         => __('Syntax valid!', 'wash'),
+                'verifyRedirects'       => __('redirections', 'wash'),
+                'verifyComments'        => __('comments', 'wash'),
+                'verifyValidLines'      => __('valid', 'wash'),
+                'verifyErrors'          => __('Errors', 'wash'),
+                'verifyWarnings'        => __('Warnings', 'wash'),
+                'saved'                 => __('Saved', 'wash'),
             ],
         ]);
     }
@@ -536,6 +571,66 @@ class WashAdmin {
         }
 
         wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX handler for resetting all settings to defaults.
+     */
+    public function ajaxResetToDefaults() {
+        check_ajax_referer('wash_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        // Default settings as documented in configuration.md
+        $defaults = [
+            // Sync Settings
+            'wash_sync_on_publish'   => '1',       // Enabled
+            'wash_post_types'        => 'post,page',
+            'wash_block_robots'      => '1',       // Enabled
+
+            // Files & Media
+            'wash_files_enabled'     => '1',       // Enabled
+            'wash_sync_images'       => '1',       // Enabled (same as files)
+            'wash_webp_convert'      => '0',       // Disabled
+            'wash_allowed_file_types' => ['images'],
+
+            // Metafields
+            'wash_sync_metafields'   => '1',       // Enabled
+            'wash_meta_wp_core'      => '1',       // Enabled
+            'wash_meta_yoast'        => '0',       // Disabled
+            'wash_meta_rankmath'     => '0',       // Disabled
+            'wash_meta_acf'          => '0',       // Disabled
+
+            // Gutenberg Blocks
+            'wash_blocks_enabled'    => '1',       // Enabled
+            'wash_sync_blocks_meta'  => '1',       // Enabled
+            'wash_sync_blocks_css'   => '0',       // Disabled
+
+            // Advanced Features
+            'wash_hreflangs_enabled'     => '0',   // Disabled
+            'wash_authors_enabled'       => '0',   // Disabled
+            'wash_rewrite_internal_urls' => '1',   // Enabled
+            'wash_allowed_html_tags'     => '',    // Empty
+            'wash_redirections_enabled'  => '0',   // Disabled
+
+            // Clear author mappings
+            'wash_author_mappings'   => [],
+        ];
+
+        // Update each option to its default value
+        foreach ($defaults as $option => $value) {
+            update_option($option, $value);
+        }
+
+        // Backup the reset settings to Shopify App
+        $this->scheduleSettingsBackup();
+        $this->runScheduledSettingsBackup();
+
+        wp_send_json_success([
+            'message' => __('All settings have been reset to defaults.', 'wash'),
+        ]);
     }
 
     /**
@@ -853,6 +948,25 @@ class WashAdmin {
         wp_send_json_success([
             'redirections' => $redirections,
             'count'        => count($redirections),
+        ]);
+    }
+
+    /**
+     * AJAX handler to save redirections settings.
+     */
+    public function ajaxSaveRedirectionsSettings() {
+        check_ajax_referer('wash_redirections', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $enabled = isset($_POST['enabled']) && $_POST['enabled'] === '1' ? '1' : '0';
+        update_option('wash_redirections_enabled', $enabled);
+
+        wp_send_json_success([
+            'message' => __('Settings saved', 'wash'),
+            'enabled' => $enabled,
         ]);
     }
 
@@ -1224,6 +1338,23 @@ JS;
      * Render admin notices for sync results.
      */
     public function renderSyncNotices() {
+        // Handle bulk action notices
+        if (isset($_GET['wash_bulk_action'])) {
+            $this->renderBulkActionNotice();
+            return;
+        }
+
+        // Handle bulk error notices
+        if (isset($_GET['wash_bulk_error'])) {
+            $error = sanitize_key($_GET['wash_bulk_error']);
+            if ($error === 'not_configured') {
+                echo '<div class="notice notice-error is-dismissible"><p><strong>Wash:</strong> ';
+                echo esc_html__('Plugin is not connected to Shopify. Please configure the connection first.', 'wash');
+                echo '</p></div>';
+            }
+            return;
+        }
+
         if (!isset($_GET['wash_result'])) {
             return;
         }
@@ -1272,6 +1403,67 @@ JS;
             echo esc_html__('Upgrade your plan', 'wash');
             echo '</a>';
         }
+        echo '</p></div>';
+    }
+
+    /**
+     * Render admin notice for bulk actions.
+     */
+    private function renderBulkActionNotice() {
+        $action = sanitize_key($_GET['wash_bulk_action']);
+        $processed = absint($_GET['wash_bulk_processed'] ?? 0);
+        $skipped = absint($_GET['wash_bulk_skipped'] ?? 0);
+        $errors = absint($_GET['wash_bulk_errors'] ?? 0);
+
+        $actionLabel = '';
+        switch ($action) {
+            case 'wash_publish':
+                $actionLabel = __('published to Shopify', 'wash');
+                break;
+            case 'wash_republish':
+                $actionLabel = __('re-published to Shopify', 'wash');
+                break;
+            case 'wash_unpublish':
+                $actionLabel = __('unpublished from Shopify', 'wash');
+                break;
+            default:
+                return;
+        }
+
+        $messages = [];
+
+        if ($processed > 0) {
+            $messages[] = sprintf(
+                /* translators: 1: number of posts, 2: action performed */
+                _n('%1$d post %2$s.', '%1$d posts %2$s.', $processed, 'wash'),
+                $processed,
+                $actionLabel
+            );
+        }
+
+        if ($skipped > 0) {
+            $messages[] = sprintf(
+                /* translators: %d: number of posts skipped */
+                _n('%d post skipped.', '%d posts skipped.', $skipped, 'wash'),
+                $skipped
+            );
+        }
+
+        if ($errors > 0) {
+            $messages[] = sprintf(
+                /* translators: %d: number of errors */
+                _n('%d error occurred.', '%d errors occurred.', $errors, 'wash'),
+                $errors
+            );
+        }
+
+        if (empty($messages)) {
+            return;
+        }
+
+        $class = $errors > 0 ? 'notice-warning' : ($processed > 0 ? 'notice-success' : 'notice-info');
+        echo '<div class="notice ' . esc_attr($class) . ' is-dismissible"><p><strong>Wash:</strong> ';
+        echo esc_html(implode(' ', $messages));
         echo '</p></div>';
     }
 
@@ -1368,5 +1560,162 @@ JS;
         }
 
         wp_send_json_success($results);
+    }
+
+    /**
+     * Add bulk actions for Shopify sync to posts list.
+     *
+     * @param array $bulkActions Existing bulk actions.
+     * @return array Modified bulk actions.
+     */
+    public function addBulkActions($bulkActions) {
+        if (!$this->apiClient->isConfigured()) {
+            return $bulkActions;
+        }
+
+        $bulkActions['wash_publish'] = __('Publish to Shopify', 'wash');
+        $bulkActions['wash_republish'] = __('Re-publish to Shopify', 'wash');
+        $bulkActions['wash_unpublish'] = __('Unpublish from Shopify', 'wash');
+
+        return $bulkActions;
+    }
+
+    /**
+     * Handle bulk actions for Shopify sync.
+     *
+     * @param string $redirectTo Redirect URL.
+     * @param string $doaction   Action being performed.
+     * @param array  $postIds    Array of post IDs.
+     * @return string Modified redirect URL.
+     */
+    public function handleBulkActions($redirectTo, $doaction, $postIds) {
+        error_log("[wash] handleBulkActions called: action={$doaction}, postIds=" . implode(',', $postIds));
+
+        if (!in_array($doaction, ['wash_publish', 'wash_republish', 'wash_unpublish'], true)) {
+            error_log("[wash] handleBulkActions: action not recognized, returning");
+            return $redirectTo;
+        }
+
+        if (!$this->apiClient->isConfigured()) {
+            error_log("[wash] handleBulkActions: API not configured");
+            return add_query_arg('wash_bulk_error', 'not_configured', $redirectTo);
+        }
+
+        $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+        error_log("[wash] handleBulkActions: allowedTypes=" . implode(',', $allowedTypes));
+        $sync = new WashSync();
+        $processed = 0;
+        $skipped = 0;
+        $errors = 0;
+
+        foreach ($postIds as $postId) {
+            $post = get_post($postId);
+            if (!$post) {
+                $skipped++;
+                continue;
+            }
+
+            if (!in_array($post->post_type, $allowedTypes, true)) {
+                $skipped++;
+                continue;
+            }
+
+            $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
+
+            switch ($doaction) {
+                case 'wash_publish':
+                    // Only publish posts that are not already synced and are published in WP
+                    if (!empty($shopifyArticleId)) {
+                        $skipped++;
+                        continue 2;
+                    }
+                    if ($post->post_status !== 'publish') {
+                        $skipped++;
+                        continue 2;
+                    }
+                    $sync->syncManually($postId, $post);
+                    $processed++;
+                    break;
+
+                case 'wash_republish':
+                    // Re-publish already synced posts
+                    if (empty($shopifyArticleId)) {
+                        $skipped++;
+                        continue 2;
+                    }
+                    if ($post->post_status !== 'publish') {
+                        $skipped++;
+                        continue 2;
+                    }
+                    $sync->syncManually($postId, $post);
+                    $processed++;
+                    break;
+
+                case 'wash_unpublish':
+                    // Only unpublish posts that are synced
+                    if (empty($shopifyArticleId)) {
+                        $skipped++;
+                        continue 2;
+                    }
+                    $result = $this->unpublishFromShopify($postId, $post);
+                    if (is_wp_error($result)) {
+                        $errors++;
+                    } else {
+                        $processed++;
+                    }
+                    break;
+            }
+        }
+
+        $redirectTo = add_query_arg([
+            'wash_bulk_action' => $doaction,
+            'wash_bulk_processed' => $processed,
+            'wash_bulk_skipped' => $skipped,
+            'wash_bulk_errors' => $errors,
+        ], $redirectTo);
+
+        return $redirectTo;
+    }
+
+    /**
+     * Unpublish a post from Shopify.
+     *
+     * @param int     $postId Post ID.
+     * @param WP_Post $post   Post object.
+     * @return true|WP_Error True on success, WP_Error on failure.
+     */
+    private function unpublishFromShopify($postId, $post) {
+        $endpoint = $post->post_type === 'page' ? '/api/page-sync' : '/api/content-sync';
+        error_log("[wash] unpublishFromShopify: postId={$postId}, endpoint={$endpoint}");
+
+        $result = $this->apiClient->post($endpoint, [
+            'action'   => 'delete',
+            'wpPostId' => $postId,
+            'wpSiteId' => get_current_blog_id(),
+        ]);
+
+        error_log("[wash] unpublishFromShopify result: " . print_r($result, true));
+
+        if (is_wp_error($result)) {
+            error_log("[wash] unpublishFromShopify error: " . $result->get_error_message());
+            return $result;
+        }
+
+        // Check if API returned an error in the response
+        if (is_array($result) && isset($result['error'])) {
+            error_log("[wash] unpublishFromShopify API error: " . $result['error']);
+            return new WP_Error('wash_api_error', $result['error']);
+        }
+
+        // Clear local sync meta
+        delete_post_meta($postId, '_wash_article_id');
+        delete_post_meta($postId, '_wash_blog_id');
+        delete_post_meta($postId, '_wash_blog_handle');
+        delete_post_meta($postId, '_wash_synced_at');
+        delete_post_meta($postId, '_wash_sync_status');
+        delete_post_meta($postId, '_wash_sync_error');
+
+        error_log("[wash] unpublishFromShopify: success, cleared meta for postId={$postId}");
+        return true;
     }
 }

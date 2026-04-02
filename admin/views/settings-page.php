@@ -3,6 +3,22 @@ $isConnected = !empty(get_option('wash_api_key'));
 $shopifyStore = get_option('wash_shopify_store', '');
 $shopifyAppSlug = (new WashApiClient())->getShopifyAppSlug();
 
+// Get WordPress permalink structure for URL examples
+$permalinkStructure = get_option('permalink_structure', '/%postname%/');
+$permalinkExample = str_replace(
+    ['%year%', '%monthnum%', '%day%', '%postname%', '%post_id%', '%category%', '%author%'],
+    [date('Y'), date('m'), date('d'), '{slug}', '{id}', '{category}', '{author}'],
+    $permalinkStructure ?: '/{slug}/'
+);
+$permalinkExample = home_url($permalinkExample);
+
+// Multi-language permalink (with {lang} prefix)
+$multiLangPermalink = home_url('/{lang}' . str_replace(home_url(''), '', $permalinkExample));
+
+// Category base from WordPress settings
+$categoryBase = get_option('category_base', 'category') ?: 'category';
+$categoryExample = home_url('/' . $categoryBase . '/{category}/');
+
 // Fetch plan info for feature gating
 $planInfo = null;
 $features = [];
@@ -34,6 +50,16 @@ if ($isConnected) {
     if (is_wp_error($permissions)) {
         $permissions = []; // Default to empty = all allowed
     }
+
+    // Check if user can modify settings based on admin-only permissions
+    $userCanModifySettings = $apiClient->canUserModifySettings($permissions);
+} else {
+    $userCanModifySettings = true; // Not connected, allow access
+}
+
+// If not defined above (e.g., not connected), default to true
+if (!isset($userCanModifySettings)) {
+    $userCanModifySettings = true;
 }
 
 // Tab to permission field mapping
@@ -304,6 +330,16 @@ function wash_render_permission_locked_banner() {
     </div>
     <?php endif; ?>
 
+    <?php if ($isConnected && !$userCanModifySettings) : ?>
+    <div class="notice notice-warning" style="margin: 15px 0;">
+        <p>
+            <span class="dashicons dashicons-visibility" style="color: #856404; vertical-align: text-bottom; margin-right: 5px;"></span>
+            <strong><?php esc_html_e('View Only Mode', 'wash'); ?></strong> —
+            <?php esc_html_e('Your account does not have permission to modify Wash settings. Settings are displayed in read-only mode. Contact your administrator for access.', 'wash'); ?>
+        </p>
+    </div>
+    <?php endif; ?>
+
     <nav class="nav-tab-wrapper wash-tabs">
         <?php wash_render_tab('connection', __('Connection', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, true, $permissions, $tabPermissions, $isConnected); ?>
         <?php wash_render_tab('blogs', __('Blogs', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
@@ -317,9 +353,10 @@ function wash_render_permission_locked_banner() {
         <?php wash_render_tab('advanced', __('Advanced', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
     </nav>
 
-    <form method="post" action="options.php" id="wash-settings-form">
+    <form method="post" action="options.php" id="wash-settings-form"<?php echo $userCanModifySettings ? '' : ' class="wash-readonly-mode"'; ?>>
         <?php settings_fields('wash_settings'); ?>
         <input type="hidden" name="_wp_http_referer_tab" id="wash-current-tab" value="connection" />
+        <input type="hidden" id="wash-user-can-modify" value="<?php echo $userCanModifySettings ? '1' : '0'; ?>" />
 
         <!-- Connection Tab -->
         <div class="wash-tab-content" id="tab-connection">
@@ -474,6 +511,105 @@ function wash_render_permission_locked_banner() {
                     </div>
                 </div>
             <?php endif; ?>
+
+            <!-- URL Structure Comparison -->
+            <details id="wash-url-structure-guide" style="margin-top: 30px; border: 1px solid #c3c4c7; border-radius: 4px;">
+                <summary style="padding: 12px 15px; background: #f6f7f7; cursor: pointer; font-weight: 600; border-radius: 4px;">
+                    <span class="dashicons dashicons-info" style="vertical-align: text-bottom;"></span>
+                    <?php esc_html_e('URL Structure Guide', 'wash'); ?>
+                </summary>
+                <div style="padding: 15px;">
+                    <p><?php esc_html_e('How your URLs transform from WordPress to Shopify:', 'wash'); ?></p>
+                    <table class="widefat striped" style="margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%;"><?php esc_html_e('Type', 'wash'); ?></th>
+                                <th style="width: 42.5%; background: #fef7f1;">
+                                    <span class="dashicons dashicons-wordpress" style="color: #21759b; vertical-align: text-bottom;"></span>
+                                    <?php esc_html_e('WordPress (Current)', 'wash'); ?>
+                                </th>
+                                <th style="width: 42.5%; background: #f0fff4;">
+                                    <span class="dashicons dashicons-store" style="color: #96bf48; vertical-align: text-bottom;"></span>
+                                    <?php esc_html_e('Shopify (After Sync)', 'wash'); ?>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong><?php esc_html_e('Blog Posts', 'wash'); ?></strong></td>
+                                <td style="background: #fef7f1;">
+                                    <code><?php echo esc_html($permalinkExample); ?></code><br>
+                                    <span style="color: #666; font-size: 11px;">
+                                        <?php esc_html_e('Current setting:', 'wash'); ?>
+                                        <a href="<?php echo esc_url(admin_url('options-permalink.php')); ?>" style="text-decoration: none;">
+                                            <code style="font-size: 10px;"><?php echo esc_html($permalinkStructure ?: __('Plain', 'wash')); ?></code>
+                                        </a>
+                                    </span>
+                                </td>
+                                <td style="background: #f0fff4;">
+                                    <code>https://<?php echo esc_html($shopifyStore ?: '{store}'); ?>.myshopify.com/blogs/{blog}/{slug}</code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Blog handle configured above', 'wash'); ?></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong><?php esc_html_e('Multi-language', 'wash'); ?></strong></td>
+                                <td style="background: #fef7f1;">
+                                    <code><?php echo esc_html($multiLangPermalink); ?></code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Language prefix + permalink structure', 'wash'); ?></span>
+                                </td>
+                                <td style="background: #f0fff4;">
+                                    <code>https://<?php echo esc_html($shopifyStore ?: '{store}'); ?>.myshopify.com/blogs/{blog}-{lang}/{slug}</code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Option A: Language in blog handle', 'wash'); ?></span><br>
+                                    <code style="margin-top: 4px; display: inline-block;">https://<?php echo esc_html($shopifyStore ?: '{store}'); ?>.myshopify.com/{lang}/blogs/{blog}/{slug}</code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Option B: Shopify Markets subfolders', 'wash'); ?></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong><?php esc_html_e('Pages', 'wash'); ?></strong></td>
+                                <td style="background: #fef7f1;">
+                                    <code><?php echo esc_html(home_url('/{slug}/')); ?></code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Page slug becomes URL', 'wash'); ?></span>
+                                </td>
+                                <td style="background: #f0fff4;">
+                                    <code>https://<?php echo esc_html($shopifyStore ?: '{store}'); ?>.myshopify.com/pages/{slug}</code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Prefixed with /pages/', 'wash'); ?></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong><?php esc_html_e('Categories', 'wash'); ?></strong></td>
+                                <td style="background: #fef7f1;">
+                                    <code><?php echo esc_html($categoryExample); ?></code><br>
+                                    <span style="color: #666; font-size: 11px;">
+                                        <?php esc_html_e('Category base:', 'wash'); ?>
+                                        <a href="<?php echo esc_url(admin_url('options-permalink.php')); ?>" style="text-decoration: none;">
+                                            <code style="font-size: 10px;">/<?php echo esc_html($categoryBase); ?>/</code>
+                                        </a>
+                                    </span>
+                                </td>
+                                <td style="background: #f0fff4;">
+                                    <code>https://<?php echo esc_html($shopifyStore ?: '{store}'); ?>.myshopify.com/blogs/{blog}</code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Categories become blogs', 'wash'); ?></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong><?php esc_html_e('Images', 'wash'); ?></strong></td>
+                                <td style="background: #fef7f1;">
+                                    <code><?php echo esc_html(content_url('/uploads/{year}/{month}/{file}')); ?></code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Served from WordPress', 'wash'); ?></span>
+                                </td>
+                                <td style="background: #f0fff4;">
+                                    <code>https://cdn.shopify.com/s/files/1/{id}/{file}</code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Shopify CDN delivery', 'wash'); ?></span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                        <span class="dashicons dashicons-info-outline" style="font-size: 14px; vertical-align: text-bottom;"></span>
+                        <?php esc_html_e('Variables: {slug} = post/page slug, {blog} = Shopify blog handle, {lang} = language code (en, de, pl), {store} = Shopify store name', 'wash'); ?>
+                    </p>
+                </div>
+            </details>
         </div>
 
         <!-- Redirections Tab -->
@@ -485,12 +621,42 @@ function wash_render_permission_locked_banner() {
             <h2 class="title"><?php esc_html_e('URL Redirections Management', 'wash'); ?></h2>
             <p class="description"><?php esc_html_e('Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration.', 'wash'); ?></p>
 
+            <table class="form-table" role="presentation">
+                <tbody>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Enable Smart Redirections', 'wash'); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="wash_redirections_enabled" id="wash_redirections_enabled" value="1" <?php checked(get_option('wash_redirections_enabled', '0'), '1'); ?>>
+                                <?php esc_html_e('Automatically create redirects when posts are synced to Shopify', 'wash'); ?>
+                            </label>
+                            <p class="description">
+                                <?php esc_html_e('When enabled, Wash will create 301 redirects from your WordPress URLs to the corresponding Shopify URLs automatically during sync.', 'wash'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p class="submit">
+                <button type="button" id="wash-save-redirections-settings" class="button button-primary">
+                    <?php esc_html_e('Save Settings', 'wash'); ?>
+                </button>
+                <span id="wash-redirections-save-status" style="margin-left: 10px;"></span>
+            </p>
+
             <?php if ($isConnected) : ?>
             <!-- Redirections Management Section -->
             <div class="wash-redirections-manager" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">
-                    <span class="dashicons dashicons-randomize" style="color: #2271b1;"></span>
-                    <?php esc_html_e('Redirections Manager', 'wash'); ?>
+                <h3 style="margin-top: 0; display: flex; justify-content: space-between; align-items: center;">
+                    <span>
+                        <span class="dashicons dashicons-randomize" style="color: #2271b1;"></span>
+                        <?php esc_html_e('Redirections Manager', 'wash'); ?>
+                    </span>
+                    <a href="https://wash.tradik.com/docs/smart-redirections/" target="_blank" style="font-size: 12px; font-weight: normal; color: #2271b1; text-decoration: none;">
+                        <span class="dashicons dashicons-book-alt" style="font-size: 14px; vertical-align: text-bottom;"></span>
+                        <?php esc_html_e('Documentation', 'wash'); ?>
+                    </a>
                 </h3>
 
                 <!-- Stats Bar -->
@@ -521,25 +687,46 @@ function wash_render_permission_locked_banner() {
 
                 <!-- Textarea for Redirections -->
                 <div style="margin-bottom: 15px;">
-                    <label for="wash-redirections-textarea" style="display: block; margin-bottom: 8px; font-weight: 600;">
-                        <?php esc_html_e('Redirections List', 'wash'); ?>
-                        <span style="font-weight: normal; color: #666;">
-                            (<?php esc_html_e('format: /old-path -> /new-path', 'wash'); ?>)
-                        </span>
-                    </label>
-                    <textarea id="wash-redirections-textarea" rows="15" style="width: 100%; font-family: monospace; font-size: 13px;" placeholder="<?php esc_attr_e('/blog/my-post -> /blogs/news/my-post
-/about-us -> /pages/about-us
-/category/news -> /blogs/news
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <label for="wash-redirections-textarea" style="font-weight: 600;">
+                            <?php esc_html_e('Redirections List', 'wash'); ?>
+                            <span style="font-weight: normal; color: #666;">
+                                (<?php esc_html_e('format: /old-path → /new-path', 'wash'); ?>)
+                            </span>
+                        </label>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" id="wash-verify-redirections" class="button button-secondary" title="<?php esc_attr_e('Verify syntax', 'wash'); ?>">
+                                <span class="dashicons dashicons-yes-alt" style="vertical-align: text-bottom;"></span>
+                                <?php esc_html_e('Verify', 'wash'); ?>
+                            </button>
+                            <button type="button" id="wash-unlock-redirections" class="button" title="<?php esc_attr_e('Unlock to edit', 'wash'); ?>">
+                                <span class="dashicons dashicons-lock" style="vertical-align: text-bottom;"></span>
+                                <?php esc_html_e('Unlock', 'wash'); ?>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="wash-redirections-container" style="position: relative;">
+                        <textarea id="wash-redirections-textarea" rows="15" readonly style="width: 100%; font-family: monospace; font-size: 13px; background: #f6f7f7; cursor: not-allowed;" placeholder="<?php esc_attr_e('/blog/my-post → /blogs/news/my-post
+/about-us → /pages/about-us
+/category/news → /blogs/news
 
 # Lines starting with # are comments', 'wash'); ?>"></textarea>
+                        <div id="wash-redirections-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.02); cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                            <span style="background: #fff; padding: 8px 16px; border-radius: 4px; border: 1px solid #c3c4c7; color: #666; font-size: 13px;">
+                                <span class="dashicons dashicons-lock" style="vertical-align: text-bottom; color: #d63638;"></span>
+                                <?php esc_html_e('Click unlock button to edit', 'wash'); ?>
+                            </span>
+                        </div>
+                    </div>
+                    <div id="wash-verify-results" style="display: none; margin-top: 10px; padding: 12px; border-radius: 4px;"></div>
                     <p class="description" style="margin-top: 8px;">
-                        <?php esc_html_e('Enter one redirection per line. You can use ->, =>, or → as separator. Lines starting with # are ignored.', 'wash'); ?>
+                        <?php esc_html_e('One redirection per line. Separators: →, ->, =>. Lines starting with # are comments.', 'wash'); ?>
                     </p>
                 </div>
 
-                <!-- Sync Button -->
+                <!-- Action Buttons -->
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <button type="button" id="wash-sync-redirections" class="button button-primary button-large">
+                    <button type="button" id="wash-sync-redirections" class="button button-primary button-large" disabled title="<?php esc_attr_e('Unlock to enable sync', 'wash'); ?>">
                         <span class="dashicons dashicons-update" style="vertical-align: text-bottom;"></span>
                         <?php esc_html_e('Sync Redirections to Shopify', 'wash'); ?>
                     </button>
@@ -556,261 +743,6 @@ function wash_render_permission_locked_banner() {
                 </div>
             </div>
             <?php endif; ?>
-
-            <!-- Informational Guide -->
-            <details style="margin-top: 30px; border: 1px solid #c3c4c7; border-radius: 4px;">
-                <summary style="padding: 12px 15px; background: #f6f7f7; cursor: pointer; font-weight: 600; border-radius: 4px;">
-                    <span class="dashicons dashicons-info" style="vertical-align: text-bottom;"></span>
-                    <?php esc_html_e('URL Structure Guide', 'wash'); ?>
-                </summary>
-                <div style="padding: 15px;">
-
-            <!-- Current WordPress URL Structure -->
-            <div class="wash-info-section" style="background: #fef7f1; border: 1px solid #f0c674; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0; color: #8b5a00;">
-                    <span class="dashicons dashicons-wordpress" style="color: #21759b;"></span>
-                    <?php esc_html_e('WordPress URL Structure (Current)', 'wash'); ?>
-                </h3>
-                <p><?php esc_html_e('Your WordPress site currently serves content with these URL patterns:', 'wash'); ?></p>
-                <table class="widefat" style="margin-top: 10px;">
-                    <tbody>
-                        <tr>
-                            <td style="width: 25%;"><strong><?php esc_html_e('Blog Posts', 'wash'); ?></strong></td>
-                            <td>
-                                <code>https://your-wp-site.com/blog/my-post-title/</code><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('Permalink structure depends on Settings → Permalinks', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Pages', 'wash'); ?></strong></td>
-                            <td>
-                                <code>https://your-wp-site.com/about-us/</code><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('Page slug becomes the URL', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Categories', 'wash'); ?></strong></td>
-                            <td>
-                                <code>https://your-wp-site.com/category/news/</code><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('Category archives with pagination', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Images', 'wash'); ?></strong></td>
-                            <td>
-                                <code>https://your-wp-site.com/wp-content/uploads/2024/01/image.jpg</code><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('Served from your WordPress server', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Shopify URL Structure -->
-            <div class="wash-info-section" style="background: #f0fff4; border: 1px solid #96bf48; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0; color: #5c6ac4;">
-                    <span class="dashicons dashicons-store" style="color: #96bf48;"></span>
-                    <?php esc_html_e('Shopify URL Structure (After Sync)', 'wash'); ?>
-                </h3>
-                <p><?php esc_html_e('After syncing, your content will be available on Shopify with these URL patterns:', 'wash'); ?></p>
-                <table class="widefat" style="margin-top: 10px;">
-                    <tbody>
-                        <tr>
-                            <td style="width: 25%;"><strong><?php esc_html_e('Blog Posts', 'wash'); ?></strong></td>
-                            <td>
-                                <code>https://<?php echo esc_html($shopifyStore ?: 'your-store'); ?>.myshopify.com/blogs/<strong>news</strong>/my-post-title</code><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('Blog handle is required in Shopify URLs. Configure in Blogs tab.', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Multi-language Posts', 'wash'); ?></strong></td>
-                            <td>
-                                <code>/blogs/<strong>blog-en</strong>/my-post</code> → <?php esc_html_e('English', 'wash'); ?><br>
-                                <code>/blogs/<strong>blog-de</strong>/mein-beitrag</code> → <?php esc_html_e('German', 'wash'); ?><br>
-                                <code>/blogs/<strong>blog-pl</strong>/moj-wpis</code> → <?php esc_html_e('Polish', 'wash'); ?><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('Each language gets its own blog with routing rules.', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Pages', 'wash'); ?></strong></td>
-                            <td>
-                                <code>https://<?php echo esc_html($shopifyStore ?: 'your-store'); ?>.myshopify.com/pages/about-us</code><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('Pages are prefixed with /pages/ in Shopify.', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Images', 'wash'); ?></strong></td>
-                            <td>
-                                <code>https://cdn.shopify.com/s/files/1/xxxx/image.jpg</code><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('Images are uploaded to Shopify CDN for faster global delivery.', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Image Handling -->
-            <div class="wash-info-section" style="background: #f8f9fa; border: 1px solid #e2e4e7; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">
-                    <span class="dashicons dashicons-format-image" style="color: #2271b1;"></span>
-                    <?php esc_html_e('Image Handling', 'wash'); ?>
-                </h3>
-                <table class="widefat" style="margin-top: 10px;">
-                    <thead>
-                        <tr>
-                            <th><?php esc_html_e('Image Type', 'wash'); ?></th>
-                            <th><?php esc_html_e('What Happens', 'wash'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong><?php esc_html_e('Featured Image', 'wash'); ?></strong></td>
-                            <td><?php esc_html_e('Uploaded to Shopify and set as article image. Displayed in blog listings and article headers.', 'wash'); ?></td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Content Images', 'wash'); ?></strong></td>
-                            <td><?php esc_html_e('Images in post content (img tags) are uploaded to Shopify CDN. URLs in HTML are automatically rewritten.', 'wash'); ?></td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('External Images', 'wash'); ?></strong></td>
-                            <td><?php esc_html_e('Images from external URLs (not WordPress) are kept as-is. Make sure external sources are reliable.', 'wash'); ?></td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Image Sizes', 'wash'); ?></strong></td>
-                            <td><?php esc_html_e('Original full-size images are uploaded. Shopify automatically generates responsive sizes.', 'wash'); ?></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- What Needs Manual Attention -->
-            <div class="wash-info-section" style="background: #fff8e5; border: 1px solid #f0c674; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">
-                    <span class="dashicons dashicons-warning" style="color: #d63638;"></span>
-                    <?php esc_html_e('What Needs Manual Attention', 'wash'); ?>
-                </h3>
-                <ul style="margin-left: 20px; line-height: 1.8;">
-                    <li><strong><?php esc_html_e('Internal Links:', 'wash'); ?></strong> <?php esc_html_e('Links to other WordPress posts/pages in your content are NOT automatically rewritten. Update them manually or use search-replace.', 'wash'); ?></li>
-                    <li><strong><?php esc_html_e('301 Redirects:', 'wash'); ?></strong> <?php esc_html_e('Set up redirects from old WordPress URLs to new Shopify URLs to preserve SEO. Use Shopify Admin → Settings → Navigation → URL Redirects.', 'wash'); ?></li>
-                    <li><strong><?php esc_html_e('Menu Links:', 'wash'); ?></strong> <?php esc_html_e('Shopify navigation menus need to be configured separately. WordPress menus are not synced.', 'wash'); ?></li>
-                    <li><strong><?php esc_html_e('Canonical URLs:', 'wash'); ?></strong> <?php esc_html_e('If keeping WordPress active, set canonical URLs to Shopify to avoid duplicate content penalties.', 'wash'); ?></li>
-                </ul>
-            </div>
-
-            <!-- Shopify Publications -->
-            <div class="wash-info-section" style="background: #f5f0ff; border: 1px solid #7c3aed; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">
-                    <span class="dashicons dashicons-megaphone" style="color: #7c3aed;"></span>
-                    <?php esc_html_e('Shopify Publications (Sales Channels)', 'wash'); ?>
-                </h3>
-                <p><?php esc_html_e('Shopify uses "Publications" to control where your content is visible. By default, synced articles are published to your Online Store.', 'wash'); ?></p>
-                <table class="widefat" style="margin-top: 10px;">
-                    <thead>
-                        <tr>
-                            <th><?php esc_html_e('Publication', 'wash'); ?></th>
-                            <th><?php esc_html_e('Description', 'wash'); ?></th>
-                            <th><?php esc_html_e('Status', 'wash'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong><?php esc_html_e('Online Store', 'wash'); ?></strong></td>
-                            <td><?php esc_html_e('Your main Shopify storefront (yourstore.myshopify.com or custom domain)', 'wash'); ?></td>
-                            <td><span style="color: #00a32a;">✓ <?php esc_html_e('Published', 'wash'); ?></span></td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Point of Sale', 'wash'); ?></strong></td>
-                            <td><?php esc_html_e('In-person sales via Shopify POS app', 'wash'); ?></td>
-                            <td><span style="color: #666;">— <?php esc_html_e('Not applicable', 'wash'); ?></span></td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Buy Button', 'wash'); ?></strong></td>
-                            <td><?php esc_html_e('Embeddable buy buttons for external websites', 'wash'); ?></td>
-                            <td><span style="color: #666;">— <?php esc_html_e('Not applicable', 'wash'); ?></span></td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Headless / Hydrogen', 'wash'); ?></strong></td>
-                            <td><?php esc_html_e('Custom storefronts using Storefront API', 'wash'); ?></td>
-                            <td><span style="color: #00a32a;">✓ <?php esc_html_e('Available via API', 'wash'); ?></span></td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Markets (International)', 'wash'); ?></strong></td>
-                            <td><?php esc_html_e('Region-specific content for international markets', 'wash'); ?></td>
-                            <td><span style="color: #2271b1;">⚙ <?php esc_html_e('Configure in Shopify', 'wash'); ?></span></td>
-                        </tr>
-                    </tbody>
-                </table>
-                <p style="margin-top: 15px; color: #666; font-size: 13px;">
-                    <span class="dashicons dashicons-info" style="font-size: 16px;"></span>
-                    <?php esc_html_e('To change publication settings for synced articles, go to Shopify Admin → Online Store → Blog posts → Edit article → Visibility.', 'wash'); ?>
-                </p>
-            </div>
-
-            <!-- Shopify Redirect Limits -->
-            <div class="wash-info-section" style="background: #fef0f0; border: 1px solid #d63638; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">
-                    <span class="dashicons dashicons-info-outline" style="color: #d63638;"></span>
-                    <?php esc_html_e('Shopify Redirect Limits', 'wash'); ?>
-                </h3>
-                <table class="widefat" style="margin-top: 10px;">
-                    <tbody>
-                        <tr>
-                            <td style="width: 30%;"><strong><?php esc_html_e('Maximum Redirects', 'wash'); ?></strong></td>
-                            <td>
-                                <?php esc_html_e('100,000 URL redirects per store (all plans)', 'wash'); ?><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('If you need more, consider using a third-party redirect app.', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Bulk Import', 'wash'); ?></strong></td>
-                            <td>
-                                <?php esc_html_e('You can import redirects via CSV file in Shopify Admin → Settings → Navigation → URL Redirects → Import.', 'wash'); ?><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('Format: two columns - "Redirect from" and "Redirect to" (relative paths).', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Path Only', 'wash'); ?></strong></td>
-                            <td>
-                                <?php esc_html_e('Redirects work with paths only (e.g., /old-page → /new-page). Domain is not included.', 'wash'); ?><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('Query strings (? parameters) are ignored in redirect matching.', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('No Wildcards', 'wash'); ?></strong></td>
-                            <td>
-                                <?php esc_html_e('Shopify does not support wildcard redirects (e.g., /blog/* → /blogs/news/*).', 'wash'); ?><br>
-                                <span style="color: #666; font-size: 12px;"><?php esc_html_e('Each URL must be redirected individually. Apps like "Bulk Redirect" can help.', 'wash'); ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong><?php esc_html_e('Processing Time', 'wash'); ?></strong></td>
-                            <td>
-                                <?php esc_html_e('Large CSV imports may take several minutes to process. Redirects become active immediately after import.', 'wash'); ?>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- SEO Checklist -->
-            <div class="wash-info-section" style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 20px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">
-                    <span class="dashicons dashicons-yes-alt" style="color: #00a32a;"></span>
-                    <?php esc_html_e('SEO Migration Checklist', 'wash'); ?>
-                </h3>
-                <ul style="margin-left: 20px; line-height: 1.8;">
-                    <li>☐ <?php esc_html_e('Export list of all WordPress URLs before migration', 'wash'); ?></li>
-                    <li>☐ <?php esc_html_e('Create 301 redirects in Shopify for each old URL', 'wash'); ?></li>
-                    <li>☐ <?php esc_html_e('Update Google Search Console with new sitemap', 'wash'); ?></li>
-                    <li>☐ <?php esc_html_e('Check meta titles and descriptions synced correctly', 'wash'); ?></li>
-                    <li>☐ <?php esc_html_e('Verify images load from Shopify CDN', 'wash'); ?></li>
-                    <li>☐ <?php esc_html_e('Test internal links and update broken ones', 'wash'); ?></li>
-                    <li>☐ <?php esc_html_e('Set up robots.txt to block WordPress from search engines (if keeping it)', 'wash'); ?></li>
-                </ul>
-            </div>
-
-                </div>
-            </details>
         </div>
 
         <!-- Hreflangs Tab -->
@@ -864,41 +796,6 @@ function wash_render_permission_locked_banner() {
                     </td>
                 </tr>
             </table>
-
-            <!-- Supported Plugins -->
-            <div class="wash-accordion wash-accordion--info">
-                <div class="wash-accordion__header" onclick="this.parentElement.classList.toggle('wash-accordion--open')">
-                    <h3 class="wash-accordion__title">
-                        <span class="dashicons dashicons-admin-plugins"></span>
-                        <?php esc_html_e('Supported Multilingual Plugins', 'wash'); ?>
-                    </h3>
-                    <span class="dashicons dashicons-arrow-down-alt2 wash-accordion__toggle"></span>
-                </div>
-                <div class="wash-accordion__content">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                        <div style="background: #f9f9f9; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
-                            <strong>WPML</strong>
-                            <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Full support with automatic translation detection', 'wash'); ?></p>
-                        </div>
-                        <div style="background: #f9f9f9; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
-                            <strong>Polylang</strong>
-                            <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Full support with locale detection', 'wash'); ?></p>
-                        </div>
-                        <div style="background: #f9f9f9; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
-                            <strong>TranslatePress</strong>
-                            <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Partial support (URL-based translations)', 'wash'); ?></p>
-                        </div>
-                        <div style="background: #f9f9f9; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
-                            <strong>Weglot</strong>
-                            <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Partial support (API-based)', 'wash'); ?></p>
-                        </div>
-                        <div style="background: #f9f9f9; padding: 15px; border-radius: 4px; border: 1px solid #ddd;">
-                            <strong>Lokalise</strong>
-                            <p style="margin: 5px 0 0; font-size: 12px; color: #666;"><?php esc_html_e('Via WPML integration', 'wash'); ?></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- How It Works -->
             <div class="wash-accordion wash-accordion--info">
@@ -1454,61 +1351,19 @@ function wash_render_permission_locked_banner() {
             </details>
 
             <!-- FAQ: Shopify Files Limits -->
-            <details class="wash-faq" style="background: #fef0f0; border: 1px solid #d63638; border-radius: 4px; padding: 15px; margin: 10px 0;">
-                <summary style="cursor: pointer; font-weight: 600; color: #d63638; outline: none;">
-                    <span class="dashicons dashicons-warning" style="vertical-align: middle;"></span>
+            <details class="wash-faq" style="background: #f0f6fc; border: 1px solid #0969da; border-radius: 4px; padding: 15px; margin: 10px 0;">
+                <summary style="cursor: pointer; font-weight: 600; color: #0969da; outline: none;">
+                    <span class="dashicons dashicons-info-outline" style="vertical-align: middle;"></span>
                     <?php esc_html_e('What are Shopify Files limits?', 'wash'); ?>
                 </summary>
-                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #d63638;">
-                    <table class="widefat" style="margin-bottom: 15px;">
-                        <thead>
-                            <tr>
-                                <th><?php esc_html_e('File Type', 'wash'); ?></th>
-                                <th><?php esc_html_e('Max File Size', 'wash'); ?></th>
-                                <th><?php esc_html_e('Supported Formats', 'wash'); ?></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><strong><?php esc_html_e('Images', 'wash'); ?></strong></td>
-                                <td>20 MB</td>
-                                <td>JPEG, PNG, GIF, WebP, HEIC, SVG, AVIF, BMP, ICO</td>
-                            </tr>
-                            <tr>
-                                <td><strong><?php esc_html_e('Videos', 'wash'); ?></strong></td>
-                                <td>1 GB</td>
-                                <td>MP4, MOV, WebM, AVI, WMV, FLV, 3GP, MKV</td>
-                            </tr>
-                            <tr>
-                                <td><strong><?php esc_html_e('Audio', 'wash'); ?></strong></td>
-                                <td>20 MB</td>
-                                <td>MP3, WAV, OGG, AAC, M4A, FLAC</td>
-                            </tr>
-                            <tr>
-                                <td><strong><?php esc_html_e('Documents', 'wash'); ?></strong></td>
-                                <td>20 MB</td>
-                                <td>PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, CSV</td>
-                            </tr>
-                            <tr>
-                                <td><strong><?php esc_html_e('3D Models', 'wash'); ?></strong></td>
-                                <td>15 MB</td>
-                                <td>GLB, GLTF, USDZ</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <div style="padding: 10px; background: #fff5f5; border-radius: 4px;">
-                        <strong><?php esc_html_e('Storage Limits:', 'wash'); ?></strong>
-                        <ul style="margin: 10px 0 0 20px; line-height: 1.6;">
-                            <li><?php esc_html_e('Basic plan: Unlimited images + 1 GB for other files', 'wash'); ?></li>
-                            <li><?php esc_html_e('Shopify plan: Unlimited images + 5 GB for other files', 'wash'); ?></li>
-                            <li><?php esc_html_e('Advanced plan: Unlimited images + 10 GB for other files', 'wash'); ?></li>
-                            <li><?php esc_html_e('Plus plan: Unlimited images + unlimited storage', 'wash'); ?></li>
-                        </ul>
-                    </div>
-                    <p style="margin-top: 15px; margin-bottom: 0; color: #666; font-size: 12px;">
-                        <span class="dashicons dashicons-info" style="font-size: 14px;"></span>
-                        <?php esc_html_e('Files larger than these limits will be skipped during sync. Check file sizes before uploading.', 'wash'); ?>
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #0969da;">
+                    <p style="margin: 0 0 10px;">
+                        <?php esc_html_e('File size and storage limits are enforced by Shopify and vary by plan. Files exceeding these limits will be skipped during sync.', 'wash'); ?>
                     </p>
+                    <a href="https://help.shopify.com/en/manual/shopify-admin/productivity-tools/file-uploads" target="_blank" rel="noopener noreferrer" class="button button-secondary" style="margin-top: 5px;">
+                        <span class="dashicons dashicons-external" style="vertical-align: text-bottom;"></span>
+                        <?php esc_html_e('View Shopify Files Documentation', 'wash'); ?>
+                    </a>
                 </div>
             </details>
 
@@ -1732,6 +1587,12 @@ function wash_render_permission_locked_banner() {
                             <?php esc_html_e('Discourage search engines from indexing this site (robots.txt)', 'wash'); ?>
                         </label>
                         <p class="description"><?php esc_html_e('Recommended for demo/staging sites. Outputs "Disallow: /" in robots.txt.', 'wash'); ?></p>
+                        <p class="description" style="margin-top: 8px;">
+                            <span class="dashicons dashicons-info-outline" style="color: #2271b1; font-size: 14px; vertical-align: text-bottom;"></span>
+                            <?php esc_html_e('For full protection:', 'wash'); ?>
+                            <a href="<?php echo esc_url(admin_url('options-reading.php')); ?>"><?php esc_html_e('Settings → Reading', 'wash'); ?></a>
+                            <?php esc_html_e('→ "Discourage search engines" + password protect the site.', 'wash'); ?>
+                        </p>
                     </td>
                 </tr>
             </table>
@@ -1754,6 +1615,20 @@ function wash_render_permission_locked_banner() {
                     </td>
                 </tr>
                 <tr>
+                    <th scope="row"><?php esc_html_e('Include Block CSS', 'wash'); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="wash_sync_blocks_css" value="1"
+                                <?php checked(get_option('wash_sync_blocks_css', '0'), '1'); ?> />
+                            <?php esc_html_e('Include WordPress block styles in synced content', 'wash'); ?>
+                        </label>
+                        <p class="description">
+                            <?php esc_html_e('Includes WordPress block CSS styles in synced content for consistent visual appearance on Shopify.', 'wash'); ?>
+                            <a href="https://wash.tradik.com/docs/wordpress-blocks/#shopify-theme-css" target="_blank" rel="noopener"><?php esc_html_e('Learn how to configure your Shopify theme', 'wash'); ?> &rarr;</a>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
                     <th scope="row"><?php esc_html_e('Sync Block Structure', 'wash'); ?></th>
                     <td>
                         <label>
@@ -1764,15 +1639,24 @@ function wash_render_permission_locked_banner() {
                         <p class="description"><?php esc_html_e('Saves Gutenberg block structure as JSON metafield, allowing Shopify themes to render blocks dynamically.', 'wash'); ?></p>
                     </td>
                 </tr>
+            </table>
+
+            <hr style="border: none; border-top: 1px solid #ccd0d4; margin: 24px 0;" />
+
+            <h3><?php esc_html_e('Reset Settings', 'wash'); ?></h3>
+            <p class="description"><?php esc_html_e('Reset all Wash settings to their default values. This will not affect your Shopify connection or synced content.', 'wash'); ?></p>
+
+            <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><?php esc_html_e('Include Block CSS', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Reset to Defaults', 'wash'); ?></th>
                     <td>
-                        <label>
-                            <input type="checkbox" name="wash_sync_blocks_css" value="1"
-                                <?php checked(get_option('wash_sync_blocks_css', '0'), '1'); ?> />
-                            <?php esc_html_e('Include WordPress block styles in synced content', 'wash'); ?>
-                        </label>
-                        <p class="description"><?php esc_html_e('Includes WordPress block CSS styles in synced content for consistent visual appearance on Shopify.', 'wash'); ?></p>
+                        <button type="button" id="wash-reset-to-defaults" class="button button-secondary">
+                            <span class="dashicons dashicons-image-rotate" style="vertical-align: text-bottom;"></span>
+                            <?php esc_html_e('Reset All Settings', 'wash'); ?>
+                        </button>
+                        <p class="description" style="color: #d63638;">
+                            <?php esc_html_e('Warning: This will reset all sync settings, metafield options, file settings, and advanced options to their default values.', 'wash'); ?>
+                        </p>
                     </td>
                 </tr>
             </table>
@@ -1856,13 +1740,11 @@ function wash_render_permission_locked_banner() {
         });
     });
 
-    // Initial submit visibility
-    updateSubmitVisibility('connection');
-
     // Restore from hash or URL parameter
     var hash = window.location.hash.replace('#', '');
     var urlParams = new URLSearchParams(window.location.search);
     var tabParam = urlParams.get('tab') || hash;
+    var activeTab = 'connection'; // default tab
 
     if (tabParam && document.getElementById('tab-' + tabParam)) {
         document.querySelectorAll('.wash-tabs .nav-tab').forEach(function(t) {
@@ -1874,6 +1756,7 @@ function wash_render_permission_locked_banner() {
         });
         document.getElementById('tab-' + tabParam).style.display = 'block';
         if (currentTabInput) currentTabInput.value = tabParam;
+        activeTab = tabParam;
     } else if (hash && document.getElementById('tab-' + hash)) {
         document.querySelectorAll('.wash-tabs .nav-tab').forEach(function(t) {
             t.classList.remove('nav-tab-active');
@@ -1883,7 +1766,11 @@ function wash_render_permission_locked_banner() {
             content.style.display = 'none';
         });
         document.getElementById('tab-' + hash).style.display = 'block';
+        activeTab = hash;
     }
+
+    // Initial submit visibility based on active tab
+    updateSubmitVisibility(activeTab);
 
     // Show/hide manual config
     // Connect button visibility
@@ -2003,6 +1890,29 @@ function wash_render_permission_locked_banner() {
         shopifyBlogSelect.value = currentVal;
     }
 
+    var wpPermalink = '<?php echo esc_js($permalinkExample); ?>';
+    var wpBase = '<?php echo esc_js(home_url('/')); ?>';
+    var wpCategoryBase = '<?php echo esc_js($categoryBase); ?>';
+    var shopifyDomain = 'https://<?php echo esc_js($shopifyStore ?: '{store}'); ?>.myshopify.com';
+
+    function getUrlExample(m) {
+        var wpUrl, shopifyUrl;
+        if (m.ruleType === 'default') {
+            wpUrl = wpPermalink;
+            shopifyUrl = shopifyDomain + '/blogs/' + (m.shopifyBlogHandle || 'news') + '/{slug}';
+        } else if (m.ruleType === 'language') {
+            // For language rules, prefix with language code
+            wpUrl = wpBase + m.ruleValue + '/' + wpPermalink.replace(wpBase, '');
+            shopifyUrl = shopifyDomain + '/blogs/' + (m.shopifyBlogHandle || 'blog-' + m.ruleValue) + '/{slug}';
+        } else if (m.ruleType === 'category') {
+            wpUrl = wpBase + wpCategoryBase + '/' + m.ruleValue + '/{slug}/';
+            shopifyUrl = shopifyDomain + '/blogs/' + (m.shopifyBlogHandle || m.ruleValue) + '/{slug}';
+        }
+        return '<code style="color:#8b5a00;font-size:11px;">' + wpUrl + '</code>' +
+            ' <span style="color:#2271b1;">→</span> ' +
+            '<code style="color:#155724;font-size:11px;">' + shopifyUrl + '</code>';
+    }
+
     function renderMappings() {
         if (!mappingsList) return;
         if (mappingsData.length === 0) {
@@ -2021,9 +1931,13 @@ function wash_render_permission_locked_banner() {
             var ruleLabel = m.ruleType === 'default' ? '<?php echo esc_js(__('Default', 'wash')); ?>' :
                 (m.ruleType === 'language' ? '<?php echo esc_js(__('Language', 'wash')); ?>: ' : '<?php echo esc_js(__('Category', 'wash')); ?>: ') + (m.ruleValue || '');
             var badgeClass = m.ruleType === 'default' ? 'background:#28a745;' : (m.ruleType === 'language' ? 'background:#007bff;' : 'background:#fd7e14;');
+            var urlExample = getUrlExample(m);
 
             html += '<tr>' +
-                '<td><span style="' + badgeClass + 'color:#fff;padding:2px 8px;border-radius:3px;font-size:12px;">' + ruleLabel + '</span></td>' +
+                '<td>' +
+                    '<span style="' + badgeClass + 'color:#fff;padding:2px 8px;border-radius:3px;font-size:12px;">' + ruleLabel + '</span>' +
+                    '<div style="margin-top:6px;padding:4px 6px;background:#f8f9fa;border-radius:3px;border:1px solid #e9ecef;">' + urlExample + '</div>' +
+                '</td>' +
                 '<td>' + (m.shopifyBlogHandle || m.shopifyBlogId) + '</td>' +
                 '<td>' + m.priority + '</td>' +
                 '<td>' +
@@ -2046,6 +1960,7 @@ function wash_render_permission_locked_banner() {
                 deleteMapping(this.getAttribute('data-id'));
             });
         });
+
     }
 
     // Show/hide rule value based on type

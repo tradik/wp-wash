@@ -339,15 +339,67 @@ class WashApiClient {
                 'canEditContent' => true,
                 'canEditRedirections' => true,
                 'canEditAdvanced' => true,
+                'settingsAdminOnly' => false,
+                'settingsAllowedUsers' => '',
             ];
         }
 
         $permissions = $result['permissions'] ?? [];
 
+        // Ensure admin-only fields have defaults
+        if (!isset($permissions['settingsAdminOnly'])) {
+            $permissions['settingsAdminOnly'] = false;
+        }
+        if (!isset($permissions['settingsAllowedUsers'])) {
+            $permissions['settingsAllowedUsers'] = '';
+        }
+
         // Cache for 5 minutes
         set_transient('wash_permissions', $permissions, 5 * MINUTE_IN_SECONDS);
 
         return $permissions;
+    }
+
+    /**
+     * Check if the current user can modify Wash settings based on admin-only permissions.
+     *
+     * @param array|null $permissions Optional permissions array. If null, fetches from cache/API.
+     * @return bool True if user can modify settings, false otherwise.
+     */
+    public function canUserModifySettings($permissions = null) {
+        if ($permissions === null) {
+            $permissions = $this->getPermissions();
+        }
+
+        // If permissions couldn't be fetched, allow access (fail-open)
+        if (is_wp_error($permissions)) {
+            return true;
+        }
+
+        // Get current user
+        $currentUser = wp_get_current_user();
+        if (!$currentUser || !$currentUser->exists()) {
+            return false;
+        }
+
+        // Check allowed usernames first (they always have access)
+        $allowedUsers = isset($permissions['settingsAllowedUsers']) ? $permissions['settingsAllowedUsers'] : '';
+        if (!empty($allowedUsers)) {
+            $allowedUsersList = array_map('trim', explode(',', $allowedUsers));
+            if (in_array($currentUser->user_login, $allowedUsersList, true)) {
+                return true;
+            }
+        }
+
+        // Check admin-only setting
+        $adminOnly = isset($permissions['settingsAdminOnly']) ? $permissions['settingsAdminOnly'] : false;
+        if ($adminOnly) {
+            // Only users with 'manage_options' capability (administrators) can modify
+            return current_user_can('manage_options');
+        }
+
+        // If not admin-only, anyone with manage_options can modify (standard WP permission)
+        return current_user_can('manage_options');
     }
 
     /**
@@ -657,6 +709,7 @@ class WashApiClient {
             'blocksEnabled'    => get_option('wash_blocks_enabled', '1'),
             'syncBlocksMeta'   => get_option('wash_sync_blocks_meta', '1'),
             'syncBlocksCss'    => get_option('wash_sync_blocks_css', '0'),
+            'redirectionsEnabled' => get_option('wash_redirections_enabled', '0'),
         ];
 
         return $this->post('/api/settings-sync', $settings);
@@ -702,6 +755,7 @@ class WashApiClient {
             'blocksEnabled'    => 'wash_blocks_enabled',
             'syncBlocksMeta'   => 'wash_sync_blocks_meta',
             'syncBlocksCss'    => 'wash_sync_blocks_css',
+            'redirectionsEnabled' => 'wash_redirections_enabled',
         ];
 
         foreach ($optionMap as $key => $option) {
