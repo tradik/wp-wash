@@ -64,6 +64,13 @@ class WashCallback {
             'callback'            => [$this, 'getContentStats'],
             'permission_callback' => [$this, 'verifyApiKey'],
         ]);
+
+        // Settings push endpoint - receives settings updates from Shopify App
+        register_rest_route('wash/v1', '/settings-push', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'handleSettingsPush'],
+            'permission_callback' => [$this, 'verifyApiKey'],
+        ]);
     }
 
     /**
@@ -482,5 +489,47 @@ class WashCallback {
         $created = $result['created'] ?? 0;
         $skipped = $result['skipped'] ?? 0;
         error_log("[wash] createAutomaticRedirect: Post {$postId} redirect {$normalizedWpPath} -> {$normalizedShopifyPath} (created: {$created}, skipped: {$skipped})");
+    }
+
+    /**
+     * Handle settings push from Shopify App.
+     * Called when settings are saved in Shopify App to sync them to WordPress.
+     *
+     * @param WP_REST_Request $request Request object.
+     * @return WP_REST_Response
+     */
+    public function handleSettingsPush($request) {
+        $body = $request->get_json_params();
+
+        if (empty($body) || !is_array($body)) {
+            return new WP_REST_Response([
+                'success' => false,
+                'error'   => 'Invalid or empty settings data',
+            ], 400);
+        }
+
+        error_log('[wash] Settings push received from Shopify App');
+
+        try {
+            $apiClient = new WashApiClient();
+            $apiClient->restoreSettings($body);
+
+            error_log('[wash] Settings push: Successfully applied settings from Shopify');
+
+            // Fire action for extensibility
+            do_action('wash_settings_pushed', $body);
+
+            return new WP_REST_Response([
+                'success' => true,
+                'message' => 'Settings applied successfully',
+            ], 200);
+        } catch (Exception $e) {
+            error_log('[wash] Settings push failed: ' . $e->getMessage());
+
+            return new WP_REST_Response([
+                'success' => false,
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
     }
 }

@@ -191,6 +191,43 @@
         });
 
         // =====================
+        // Sync Settings from Shopify
+        // =====================
+        $("#wash-sync-from-shopify").on("click", function () {
+            if (!confirm(i18n('confirmSyncFromShopify', 'This will overwrite your local settings with settings from Shopify App. Continue?'))) {
+                return;
+            }
+
+            const btn = $(this);
+            btn.prop("disabled", true).text(i18n('syncingFromShopify', 'Syncing...'));
+
+            $.ajax({
+                url: washAdmin.ajaxUrl,
+                type: "POST",
+                data: {
+                    action: "wash_sync_settings_from_shopify",
+                    nonce: washAdmin.nonce,
+                },
+                success: function (response) {
+                    if (response.success) {
+                        alert(response.data.message || i18n('syncFromShopifySuccess', 'Settings synced from Shopify App successfully.'));
+                        window.location.reload();
+                    } else {
+                        alert(i18n('failedSyncFromShopify', 'Failed to sync settings: ') + response.data);
+                    }
+                },
+                error: function () {
+                    alert(i18n('networkError', 'Network error'));
+                },
+                complete: function () {
+                    btn.prop("disabled", false).html(
+                        '<span class="dashicons dashicons-download" style="vertical-align: text-bottom;"></span> ' + i18n('syncFromShopify', 'Sync from Shopify')
+                    );
+                },
+            });
+        });
+
+        // =====================
         // Redirections Management
         // =====================
         const textarea = $("#wash-redirections-textarea");

@@ -78,6 +78,18 @@ $tabPermissions = [
 // Check if update refresh was requested
 $forceRefreshUpdates = isset($_GET['refresh_updates']) && $_GET['refresh_updates'] === '1';
 
+// Check if settings sync was requested
+$forceRefreshSettings = isset($_GET['refresh_settings']) && $_GET['refresh_settings'] === '1';
+
+// Sync settings from Shopify if requested
+if ($forceRefreshSettings && $isConnected) {
+    $apiClient = $apiClient ?? new WashApiClient();
+    $settingsResponse = $apiClient->getBackedUpSettings();
+    if (!is_wp_error($settingsResponse) && !empty($settingsResponse['settings'])) {
+        $apiClient->restoreSettings($settingsResponse['settings']);
+    }
+}
+
 // Check for plugin update
 $updateAvailable = false;
 $latestVersion = WASH_VERSION;
@@ -274,17 +286,14 @@ function wash_render_permission_locked_banner() {
         <span style="font-size: 12px; font-weight: normal; color: #646970; margin-left: 8px; vertical-align: middle;">
             v<?php echo esc_html(WASH_VERSION); ?>
         </span>
-        <?php if ($isConnected) : ?>
-            <a href="<?php echo esc_url(add_query_arg('refresh_updates', '1')); ?>" title="<?php esc_attr_e('Check for updates', 'wash'); ?>" style="color: #646970; margin-left: 4px; vertical-align: middle; text-decoration: none;">
-                <span class="dashicons dashicons-update" style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle;"></span>
-            </a>
-        <?php endif; ?>
         <?php if ($isConnected && $planName) : ?>
             <span class="wash-plan-badge" style="font-size: 12px; font-weight: 600; background: <?php echo $planName === 'FREE' ? '#f0f0f1' : '#d4edda'; ?>; color: <?php echo $planName === 'FREE' ? '#666' : '#155724'; ?>; padding: 4px 10px; border-radius: 12px; margin-left: 10px; vertical-align: middle;">
                 <?php echo esc_html($planName); ?>
             </span>
-            <a href="<?php echo esc_url(add_query_arg('refresh_plan', '1')); ?>" title="<?php esc_attr_e('Refresh plan info', 'wash'); ?>" style="color: #646970; margin-left: 4px; vertical-align: middle; text-decoration: none;">
-                <span class="dashicons dashicons-update" style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle;"></span>
+        <?php endif; ?>
+        <?php if ($isConnected) : ?>
+            <a href="<?php echo esc_url(add_query_arg(['refresh_plan' => '1', 'refresh_updates' => '1', 'refresh_settings' => '1'])); ?>" title="<?php esc_attr_e('Sync all: settings, plan info, and check for updates', 'wash'); ?>" style="color: #646970; margin-left: 8px; vertical-align: middle; text-decoration: none;">
+                <span class="dashicons dashicons-update" style="font-size: 18px; width: 18px; height: 18px; vertical-align: middle;"></span>
             </a>
         <?php endif; ?>
         <?php if ($updateAvailable) : ?>
@@ -1637,6 +1646,26 @@ function wash_render_permission_locked_banner() {
                             <?php esc_html_e('Save block structure as Shopify metafields', 'wash'); ?>
                         </label>
                         <p class="description"><?php esc_html_e('Saves Gutenberg block structure as JSON metafield, allowing Shopify themes to render blocks dynamically.', 'wash'); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <hr style="border: none; border-top: 1px solid #ccd0d4; margin: 24px 0;" />
+
+            <h3><?php esc_html_e('Sync Settings', 'wash'); ?></h3>
+            <p class="description"><?php esc_html_e('Synchronize settings between WordPress and Shopify App.', 'wash'); ?></p>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e('Sync from Shopify', 'wash'); ?></th>
+                    <td>
+                        <button type="button" id="wash-sync-from-shopify" class="button button-secondary">
+                            <span class="dashicons dashicons-download" style="vertical-align: text-bottom;"></span>
+                            <?php esc_html_e('Sync from Shopify', 'wash'); ?>
+                        </button>
+                        <p class="description">
+                            <?php esc_html_e('Pull settings from Shopify App and apply them here. Use this if you changed settings in Shopify Admin.', 'wash'); ?>
+                        </p>
                     </td>
                 </tr>
             </table>

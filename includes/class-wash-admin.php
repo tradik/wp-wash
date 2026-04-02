@@ -26,6 +26,7 @@ class WashAdmin {
         add_action('wp_ajax_wash_reset_session', [$this, 'ajaxResetSession']);
         add_action('wp_ajax_wash_fix_session', [$this, 'ajaxFixSession']);
         add_action('wp_ajax_wash_reset_to_defaults', [$this, 'ajaxResetToDefaults']);
+        add_action('wp_ajax_wash_sync_settings_from_shopify', [$this, 'ajaxSyncSettingsFromShopify']);
         // Blog mappings AJAX handlers
         add_action('wp_ajax_wash_get_mappings', [$this, 'ajaxGetMappings']);
         add_action('wp_ajax_wash_get_shopify_blogs', [$this, 'ajaxGetShopifyBlogs']);
@@ -467,6 +468,12 @@ class WashAdmin {
                 'verifyErrors'          => __('Errors', 'wash'),
                 'verifyWarnings'        => __('Warnings', 'wash'),
                 'saved'                 => __('Saved', 'wash'),
+                // Sync from Shopify
+                'syncFromShopify'       => __('Sync from Shopify', 'wash'),
+                'syncingFromShopify'    => __('Syncing...', 'wash'),
+                'confirmSyncFromShopify' => __('This will overwrite your local settings with settings from Shopify App. Continue?', 'wash'),
+                'syncFromShopifySuccess' => __('Settings synced from Shopify App successfully.', 'wash'),
+                'failedSyncFromShopify' => __('Failed to sync settings: ', 'wash'),
             ],
         ]);
     }
@@ -630,6 +637,34 @@ class WashAdmin {
 
         wp_send_json_success([
             'message' => __('All settings have been reset to defaults.', 'wash'),
+        ]);
+    }
+
+    /**
+     * AJAX handler for syncing settings from Shopify App to WordPress.
+     * Pulls settings stored in Shopify and applies them locally.
+     */
+    public function ajaxSyncSettingsFromShopify() {
+        check_ajax_referer('wash_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $response = $this->apiClient->getBackedUpSettings();
+
+        if (is_wp_error($response)) {
+            wp_send_json_error($response->get_error_message());
+        }
+
+        if (empty($response['success']) || empty($response['settings'])) {
+            wp_send_json_error(__('No settings found in Shopify App. Save settings in Shopify first.', 'wash'));
+        }
+
+        $this->apiClient->restoreSettings($response['settings']);
+
+        wp_send_json_success([
+            'message' => __('Settings synced from Shopify App successfully.', 'wash'),
         ]);
     }
 
