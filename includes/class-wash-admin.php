@@ -92,6 +92,10 @@ class WashAdmin {
         add_action('update_option_wash_webp_convert', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_allowed_file_types', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_rewrite_internal_urls', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wash_redirections_enabled', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wash_blocks_enabled', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wash_sync_blocks_meta', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wash_sync_blocks_css', [$this, 'scheduleSettingsBackup']);
 
         // Run the actual backup after all settings are updated (at shutdown)
         add_action('shutdown', [$this, 'runScheduledSettingsBackup']);
@@ -102,6 +106,12 @@ class WashAdmin {
      * This prevents multiple API calls when multiple settings are updated at once.
      */
     public function scheduleSettingsBackup() {
+        // Skip if restore is in progress (prevents backup loop from Shopify push)
+        global $washRestoreInProgress;
+        if (!empty($washRestoreInProgress)) {
+            return;
+        }
+
         // Set a transient flag to indicate backup is needed
         set_transient('wash_settings_backup_pending', true, 60);
     }

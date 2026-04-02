@@ -736,6 +736,11 @@ class WashApiClient {
             return false;
         }
 
+        // Set flag to prevent backup loop when restoring settings from Shopify push
+        // This prevents: Shopify push -> WP restore -> WP backup -> overwrite Shopify
+        global $washRestoreInProgress;
+        $washRestoreInProgress = true;
+
         $optionMap = [
             'syncOnPublish'    => 'wash_sync_on_publish',
             'syncImages'       => 'wash_sync_images',
@@ -763,6 +768,8 @@ class WashApiClient {
                 update_option($option, $settings[$key]);
             }
         }
+
+        $washRestoreInProgress = false;
 
         return true;
     }
