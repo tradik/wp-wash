@@ -30,6 +30,7 @@ class WashAdmin {
         // Blog mappings AJAX handlers
         add_action('wp_ajax_wash_get_mappings', [$this, 'ajaxGetMappings']);
         add_action('wp_ajax_wash_get_shopify_blogs', [$this, 'ajaxGetShopifyBlogs']);
+        add_action('wp_ajax_wash_get_shopify_markets', [$this, 'ajaxGetShopifyMarkets']);
         add_action('wp_ajax_wash_create_mapping', [$this, 'ajaxCreateMapping']);
         add_action('wp_ajax_wash_update_mapping', [$this, 'ajaxUpdateMapping']);
         add_action('wp_ajax_wash_delete_mapping', [$this, 'ajaxDeleteMapping']);
@@ -717,6 +718,25 @@ class WashAdmin {
     }
 
     /**
+     * AJAX handler for fetching Shopify markets with locales.
+     */
+    public function ajaxGetShopifyMarkets() {
+        check_ajax_referer('wash_mappings', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $result = $this->apiClient->get('/api/shopify-markets');
+
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        }
+
+        wp_send_json_success(['markets' => $result['markets'] ?? []]);
+    }
+
+    /**
      * AJAX handler for creating a blog mapping.
      */
     public function ajaxCreateMapping() {
@@ -727,11 +747,13 @@ class WashAdmin {
         }
 
         $data = [
-            'ruleType'      => sanitize_text_field($_POST['ruleType'] ?? 'default'),
-            'ruleValue'     => sanitize_text_field($_POST['ruleValue'] ?? ''),
-            'shopifyBlogId' => sanitize_text_field($_POST['shopifyBlogId'] ?? ''),
-            'newBlogName'   => sanitize_text_field($_POST['newBlogName'] ?? ''),
-            'priority'      => absint($_POST['priority'] ?? 0),
+            'ruleType'       => sanitize_text_field($_POST['ruleType'] ?? 'default'),
+            'ruleValue'      => sanitize_text_field($_POST['ruleValue'] ?? ''),
+            'shopifyBlogId'  => sanitize_text_field($_POST['shopifyBlogId'] ?? ''),
+            'newBlogName'    => sanitize_text_field($_POST['newBlogName'] ?? ''),
+            'priority'       => absint($_POST['priority'] ?? 0),
+            'marketId'       => sanitize_text_field($_POST['marketId'] ?? ''),
+            'shopifyLocale'  => sanitize_text_field($_POST['shopifyLocale'] ?? ''),
         ];
 
         $result = $this->apiClient->post('/api/blog-mappings', $data);
@@ -762,10 +784,12 @@ class WashAdmin {
         }
 
         $data = [
-            'ruleType'      => sanitize_text_field($_POST['ruleType'] ?? 'default'),
-            'ruleValue'     => sanitize_text_field($_POST['ruleValue'] ?? ''),
-            'shopifyBlogId' => sanitize_text_field($_POST['shopifyBlogId'] ?? ''),
-            'priority'      => absint($_POST['priority'] ?? 0),
+            'ruleType'       => sanitize_text_field($_POST['ruleType'] ?? 'default'),
+            'ruleValue'      => sanitize_text_field($_POST['ruleValue'] ?? ''),
+            'shopifyBlogId'  => sanitize_text_field($_POST['shopifyBlogId'] ?? ''),
+            'priority'       => absint($_POST['priority'] ?? 0),
+            'marketId'       => sanitize_text_field($_POST['marketId'] ?? ''),
+            'shopifyLocale'  => sanitize_text_field($_POST['shopifyLocale'] ?? ''),
         ];
 
         $result = $this->apiClient->post('/api/blog-mappings/' . $mappingId, $data);

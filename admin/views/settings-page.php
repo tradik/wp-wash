@@ -486,15 +486,22 @@ function wash_render_permission_locked_banner() {
                             </tr>
                             <tr>
                                 <th scope="row">
-                                    <label for="wash-shopify-blog"><?php esc_html_e('Target Shopify Blog', 'wash'); ?></label>
+                                    <label for="wash-shopify-blog"><?php esc_html_e('Target Shopify Blog & Translation', 'wash'); ?></label>
                                 </th>
                                 <td>
-                                    <select id="wash-shopify-blog" class="regular-text">
+                                    <select id="wash-shopify-blog" class="regular-text" style="margin-bottom: 10px;">
                                         <option value=""><?php esc_html_e('Select a blog...', 'wash'); ?></option>
                                         <option value="_new"><?php esc_html_e('➕ Create new blog', 'wash'); ?></option>
                                     </select>
-                                    <div id="wash-new-blog-row" style="display: none; margin-top: 10px;">
+                                    <div id="wash-new-blog-row" style="display: none; margin-bottom: 10px;">
                                         <input type="text" id="wash-new-blog-name" class="regular-text" placeholder="<?php esc_attr_e('New blog name (e.g., blog-en)', 'wash'); ?>" />
+                                    </div>
+                                    <div id="wash-market-locale-row">
+                                        <select id="wash-market-locale" class="regular-text">
+                                            <option value=""><?php esc_html_e('Default (primary market)', 'wash'); ?></option>
+                                            <!-- Options loaded via JavaScript from Shopify Markets API -->
+                                        </select>
+                                        <p class="description"><?php esc_html_e('Select market and language for URL routing (e.g., /en-ch for Switzerland English)', 'wash'); ?></p>
                                     </div>
                                 </td>
                             </tr>
@@ -1865,14 +1872,17 @@ function wash_render_permission_locked_banner() {
     var ruleValueRow = document.getElementById('wash-rule-value-row');
     var shopifyBlogSelect = document.getElementById('wash-shopify-blog');
     var newBlogRow = document.getElementById('wash-new-blog-row');
+    var marketLocaleSelect = document.getElementById('wash-market-locale');
 
     var mappingsData = [];
     var shopifyBlogs = [];
+    var shopifyMarkets = [];
 
     // Load mappings on page load (only if connected)
     if (mappingsList && <?php echo $isConnected ? 'true' : 'false'; ?>) {
         loadMappings();
         loadShopifyBlogs();
+        loadShopifyMarkets();
     }
 
     function loadMappings() {
@@ -1917,6 +1927,51 @@ function wash_render_permission_locked_banner() {
         newOpt.textContent = '➕ <?php echo esc_js(__('Create new blog', 'wash')); ?>';
         shopifyBlogSelect.appendChild(newOpt);
         shopifyBlogSelect.value = currentVal;
+    }
+
+    function loadShopifyMarkets() {
+        fetch('<?php echo admin_url('admin-ajax.php'); ?>?action=wash_get_shopify_markets&nonce=<?php echo wp_create_nonce('wash_mappings'); ?>')
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
+                if (response.success) {
+                    shopifyMarkets = response.data.markets || [];
+                    updateMarketLocaleSelect();
+                }
+            });
+    }
+
+    function updateMarketLocaleSelect() {
+        if (!marketLocaleSelect) return;
+        var currentVal = marketLocaleSelect.value;
+        marketLocaleSelect.innerHTML = '<option value=""><?php echo esc_js(__('Default (primary market)', 'wash')); ?></option>';
+
+        shopifyMarkets.forEach(function(market) {
+            if (market.webPresence && market.webPresence.defaultLocale) {
+                var optgroup = document.createElement('optgroup');
+                optgroup.label = '📍 ' + market.name;
+
+                // Add default locale
+                var defaultLocale = market.webPresence.defaultLocale;
+                var opt = document.createElement('option');
+                opt.value = market.id + '|' + defaultLocale;
+                opt.textContent = defaultLocale + ' (default)';
+                optgroup.appendChild(opt);
+
+                // Add alternate locales
+                if (market.webPresence.alternateLocales) {
+                    market.webPresence.alternateLocales.forEach(function(locale) {
+                        var altOpt = document.createElement('option');
+                        altOpt.value = market.id + '|' + locale;
+                        altOpt.textContent = locale;
+                        optgroup.appendChild(altOpt);
+                    });
+                }
+
+                marketLocaleSelect.appendChild(optgroup);
+            }
+        });
+
+        marketLocaleSelect.value = currentVal;
     }
 
     var wpPermalink = '<?php echo esc_js($permalinkExample); ?>';
@@ -2015,6 +2070,7 @@ function wash_render_permission_locked_banner() {
             document.getElementById('wash-rule-value').value = '';
             shopifyBlogSelect.value = '';
             document.getElementById('wash-priority').value = '0';
+            if (marketLocaleSelect) marketLocaleSelect.value = '';
             ruleValueRow.style.display = 'none';
             newBlogRow.style.display = 'none';
             mappingForm.style.display = 'block';
@@ -2032,6 +2088,16 @@ function wash_render_permission_locked_banner() {
     if (saveMappingBtn) {
         saveMappingBtn.addEventListener('click', function() {
             var mappingId = document.getElementById('wash-mapping-id').value;
+            // Parse market|locale value
+            var marketLocaleValue = marketLocaleSelect ? marketLocaleSelect.value : '';
+            var marketId = '';
+            var shopifyLocale = '';
+            if (marketLocaleValue && marketLocaleValue.indexOf('|') > -1) {
+                var parts = marketLocaleValue.split('|');
+                marketId = parts[0];
+                shopifyLocale = parts[1];
+            }
+
             var data = {
                 action: mappingId ? 'wash_update_mapping' : 'wash_create_mapping',
                 nonce: '<?php echo wp_create_nonce('wash_mappings'); ?>',
@@ -2040,7 +2106,9 @@ function wash_render_permission_locked_banner() {
                 ruleValue: document.getElementById('wash-rule-value').value,
                 shopifyBlogId: shopifyBlogSelect.value,
                 newBlogName: document.getElementById('wash-new-blog-name').value,
-                priority: document.getElementById('wash-priority').value
+                priority: document.getElementById('wash-priority').value,
+                marketId: marketId,
+                shopifyLocale: shopifyLocale
             };
 
             saveMappingBtn.disabled = true;
@@ -2087,6 +2155,12 @@ function wash_render_permission_locked_banner() {
         document.getElementById('wash-priority').value = mapping.priority;
         ruleValueRow.style.display = mapping.ruleType === 'default' ? 'none' : '';
         newBlogRow.style.display = 'none';
+        // Set market/locale value
+        if (marketLocaleSelect && mapping.marketId && mapping.shopifyLocale) {
+            marketLocaleSelect.value = mapping.marketId + '|' + mapping.shopifyLocale;
+        } else if (marketLocaleSelect) {
+            marketLocaleSelect.value = '';
+        }
         mappingForm.style.display = 'block';
     }
 
