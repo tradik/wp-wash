@@ -173,15 +173,19 @@ class WashAdmin {
      * Register plugin settings with the Settings API.
      */
     public function registerSettings() {
-        $settings = [
+        $textSettings = [
             'wash_shopify_store',
             'wash_api_key',
             'wash_http_user',
             'wash_http_pass',
+            'wash_post_types',
+            'wash_allowed_html_tags',
+        ];
+
+        $checkboxSettings = [
             'wash_sync_on_publish',
             'wash_sync_images',
             'wash_sync_metafields',
-            'wash_post_types',
             'wash_block_robots',
             'wash_meta_wp_core',
             'wash_meta_yoast',
@@ -192,16 +196,21 @@ class WashAdmin {
             'wash_files_enabled',
             'wash_webp_convert',
             'wash_rewrite_internal_urls',
-            'wash_allowed_html_tags',
             'wash_blocks_enabled',
             'wash_sync_blocks_meta',
             'wash_sync_blocks_css',
             'wash_redirections_enabled',
         ];
 
-        foreach ($settings as $setting) {
+        foreach ($textSettings as $setting) {
             register_setting('wash_settings', $setting, [
                 'sanitize_callback' => 'sanitize_text_field',
+            ]);
+        }
+
+        foreach ($checkboxSettings as $setting) {
+            register_setting('wash_settings', $setting, [
+                'sanitize_callback' => [$this, 'sanitizeCheckbox'],
             ]);
         }
 
@@ -214,6 +223,18 @@ class WashAdmin {
         register_setting('wash_settings', 'wash_allowed_file_types', [
             'sanitize_callback' => [$this, 'sanitizeAllowedFileTypes'],
         ]);
+    }
+
+    /**
+     * Sanitize checkbox value.
+     * Unchecked checkboxes are not sent in HTML forms,
+     * so absent values must be treated as '0'.
+     *
+     * @param mixed $input Raw input from form.
+     * @return string '1' or '0'.
+     */
+    public function sanitizeCheckbox($input) {
+        return $input === '1' ? '1' : '0';
     }
 
     /**

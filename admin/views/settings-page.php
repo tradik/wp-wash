@@ -643,6 +643,7 @@ function wash_render_permission_locked_banner() {
                         <th scope="row"><?php esc_html_e('Enable Smart Redirections', 'wash'); ?></th>
                         <td>
                             <label>
+                                <input type="hidden" name="wash_redirections_enabled" value="0" />
                                 <input type="checkbox" name="wash_redirections_enabled" id="wash_redirections_enabled" value="1" <?php checked(get_option('wash_redirections_enabled', '0'), '1'); ?>>
                                 <?php esc_html_e('Automatically create redirects when posts are synced to Shopify', 'wash'); ?>
                             </label>
@@ -803,6 +804,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Enable Hreflangs', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_hreflangs_enabled" value="0" />
                             <input type="checkbox" name="wash_hreflangs_enabled" value="1"
                                 <?php checked(get_option('wash_hreflangs_enabled'), '1'); ?>
                                 <?php disabled(!$hasPlugin); ?> />
@@ -965,11 +967,11 @@ function wash_render_permission_locked_banner() {
                 <?php
                 $wpCoreEnabled = get_option('wash_meta_wp_core', '1') === '1';
                 $yoastInstalled = defined('WPSEO_VERSION');
-                $yoastEnabled = $yoastInstalled && get_option('wash_meta_yoast') === '1';
+                $yoastEnabled = get_option('wash_meta_yoast') === '1';
                 $rankMathInstalled = class_exists('RankMath');
-                $rankMathEnabled = $rankMathInstalled && get_option('wash_meta_rankmath') === '1';
+                $rankMathEnabled = get_option('wash_meta_rankmath') === '1';
                 $acfInstalled = class_exists('ACF');
-                $acfEnabled = $acfInstalled && get_option('wash_meta_acf') === '1';
+                $acfEnabled = get_option('wash_meta_acf') === '1';
                 ?>
 
                 <!-- WordPress Core -->
@@ -977,6 +979,7 @@ function wash_render_permission_locked_banner() {
                     <div style="display: flex; align-items: flex-start; gap: 15px;">
                         <div style="flex-shrink: 0;">
                             <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="hidden" name="wash_meta_wp_core" value="0" />
                                 <input type="checkbox" name="wash_meta_wp_core" value="1"
                                     <?php checked($wpCoreEnabled); ?>
                                     style="width: 20px; height: 20px; margin: 0;" />
@@ -997,13 +1000,13 @@ function wash_render_permission_locked_banner() {
                 </div>
 
                 <!-- Yoast SEO -->
-                <div class="wash-meta-card" style="background: <?php echo $yoastEnabled ? '#f0fff4' : ($yoastInstalled ? '#fff' : '#f6f7f7'); ?>; border: 2px solid <?php echo $yoastEnabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius: 8px; padding: 20px; margin-bottom: 15px; <?php echo !$yoastInstalled ? 'opacity: 0.7;' : ''; ?>">
+                <div class="wash-meta-card" style="background: <?php echo $yoastEnabled ? '#f0fff4' : '#fff'; ?>; border: 2px solid <?php echo $yoastEnabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius: 8px; padding: 20px; margin-bottom: 15px;">
                     <div style="display: flex; align-items: flex-start; gap: 15px;">
                         <div style="flex-shrink: 0;">
-                            <label style="display: flex; align-items: center; cursor: <?php echo $yoastInstalled ? 'pointer' : 'not-allowed'; ?>;">
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="hidden" name="wash_meta_yoast" value="0" />
                                 <input type="checkbox" name="wash_meta_yoast" value="1"
                                     <?php checked($yoastEnabled); ?>
-                                    <?php disabled(!$yoastInstalled); ?>
                                     style="width: 20px; height: 20px; margin: 0;" />
                             </label>
                         </div>
@@ -1011,10 +1014,10 @@ function wash_render_permission_locked_banner() {
                             <h4 style="margin: 0 0 5px 0; display: flex; align-items: center; gap: 8px;">
                                 <span style="background: #a4286a; color: #fff; width: 20px; height: 20px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">Y</span>
                                 <?php esc_html_e('Yoast SEO', 'wash'); ?>
-                                <?php if (!$yoastInstalled) : ?>
-                                    <span style="background: #d63638; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Not Installed', 'wash'); ?></span>
-                                <?php elseif ($yoastInstalled) : ?>
+                                <?php if ($yoastInstalled) : ?>
                                     <span style="background: #00a32a; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Detected', 'wash'); ?></span>
+                                <?php else : ?>
+                                    <span style="background: #dba617; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Not detected', 'wash'); ?></span>
                                 <?php endif; ?>
                             </h4>
                             <p style="margin: 0 0 8px 0; color: #1e1e1e;"><?php esc_html_e('Sync Yoast SEO meta (title, description, focus keyword)', 'wash'); ?></p>
@@ -1026,13 +1029,13 @@ function wash_render_permission_locked_banner() {
                 </div>
 
                 <!-- Rank Math -->
-                <div class="wash-meta-card" style="background: <?php echo $rankMathEnabled ? '#f0fff4' : ($rankMathInstalled ? '#fff' : '#f6f7f7'); ?>; border: 2px solid <?php echo $rankMathEnabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius: 8px; padding: 20px; margin-bottom: 15px; <?php echo !$rankMathInstalled ? 'opacity: 0.7;' : ''; ?>">
+                <div class="wash-meta-card" style="background: <?php echo $rankMathEnabled ? '#f0fff4' : '#fff'; ?>; border: 2px solid <?php echo $rankMathEnabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius: 8px; padding: 20px; margin-bottom: 15px;">
                     <div style="display: flex; align-items: flex-start; gap: 15px;">
                         <div style="flex-shrink: 0;">
-                            <label style="display: flex; align-items: center; cursor: <?php echo $rankMathInstalled ? 'pointer' : 'not-allowed'; ?>;">
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="hidden" name="wash_meta_rankmath" value="0" />
                                 <input type="checkbox" name="wash_meta_rankmath" value="1"
                                     <?php checked($rankMathEnabled); ?>
-                                    <?php disabled(!$rankMathInstalled); ?>
                                     style="width: 20px; height: 20px; margin: 0;" />
                             </label>
                         </div>
@@ -1040,10 +1043,10 @@ function wash_render_permission_locked_banner() {
                             <h4 style="margin: 0 0 5px 0; display: flex; align-items: center; gap: 8px;">
                                 <span style="background: #e74c3c; color: #fff; width: 20px; height: 20px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">R</span>
                                 <?php esc_html_e('Rank Math', 'wash'); ?>
-                                <?php if (!$rankMathInstalled) : ?>
-                                    <span style="background: #d63638; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Not Installed', 'wash'); ?></span>
-                                <?php else : ?>
+                                <?php if ($rankMathInstalled) : ?>
                                     <span style="background: #00a32a; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Detected', 'wash'); ?></span>
+                                <?php else : ?>
+                                    <span style="background: #dba617; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Not detected', 'wash'); ?></span>
                                 <?php endif; ?>
                             </h4>
                             <p style="margin: 0 0 8px 0; color: #1e1e1e;"><?php esc_html_e('Sync Rank Math SEO meta (title, description, focus keyword)', 'wash'); ?></p>
@@ -1055,13 +1058,13 @@ function wash_render_permission_locked_banner() {
                 </div>
 
                 <!-- ACF -->
-                <div class="wash-meta-card" style="background: <?php echo $acfEnabled ? '#f0fff4' : ($acfInstalled ? '#fff' : '#f6f7f7'); ?>; border: 2px solid <?php echo $acfEnabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius: 8px; padding: 20px; margin-bottom: 15px; <?php echo !$acfInstalled ? 'opacity: 0.7;' : ''; ?>">
+                <div class="wash-meta-card" style="background: <?php echo $acfEnabled ? '#f0fff4' : '#fff'; ?>; border: 2px solid <?php echo $acfEnabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius: 8px; padding: 20px; margin-bottom: 15px;">
                     <div style="display: flex; align-items: flex-start; gap: 15px;">
                         <div style="flex-shrink: 0;">
-                            <label style="display: flex; align-items: center; cursor: <?php echo $acfInstalled ? 'pointer' : 'not-allowed'; ?>;">
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="hidden" name="wash_meta_acf" value="0" />
                                 <input type="checkbox" name="wash_meta_acf" value="1"
                                     <?php checked($acfEnabled); ?>
-                                    <?php disabled(!$acfInstalled); ?>
                                     style="width: 20px; height: 20px; margin: 0;" />
                             </label>
                         </div>
@@ -1069,10 +1072,10 @@ function wash_render_permission_locked_banner() {
                             <h4 style="margin: 0 0 5px 0; display: flex; align-items: center; gap: 8px;">
                                 <span style="background: #00d084; color: #fff; width: 20px; height: 20px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;">ACF</span>
                                 <?php esc_html_e('Advanced Custom Fields', 'wash'); ?>
-                                <?php if (!$acfInstalled) : ?>
-                                    <span style="background: #d63638; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Not Installed', 'wash'); ?></span>
-                                <?php else : ?>
+                                <?php if ($acfInstalled) : ?>
                                     <span style="background: #00a32a; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Detected', 'wash'); ?></span>
+                                <?php else : ?>
+                                    <span style="background: #dba617; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Not detected', 'wash'); ?></span>
                                 <?php endif; ?>
                             </h4>
                             <p style="margin: 0 0 8px 0; color: #1e1e1e;"><?php esc_html_e('Sync ACF custom fields to Shopify metafields', 'wash'); ?></p>
@@ -1155,6 +1158,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Enable Author Mapping', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_authors_enabled" value="0" />
                             <input type="checkbox" name="wash_authors_enabled" value="1" id="wash-authors-enabled"
                                 <?php checked($authorsEnabled); ?> />
                             <?php esc_html_e('Override WordPress author names with custom values', 'wash'); ?>
@@ -1258,6 +1262,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Upload Images', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_files_enabled" value="0" />
                             <input type="checkbox" name="wash_files_enabled" value="1" id="wash-files-enabled"
                                 <?php checked($filesEnabled); ?> />
                             <?php esc_html_e('Enable image uploads to Shopify Files', 'wash'); ?>
@@ -1269,6 +1274,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Convert to WebP', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_webp_convert" value="0" />
                             <input type="checkbox" name="wash_webp_convert" value="1" id="wash-webp-convert"
                                 <?php checked($webpConvert); ?> />
                             <?php esc_html_e('Convert images to modern WebP format', 'wash'); ?>
@@ -1481,6 +1487,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Auto-sync on Publish', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_sync_on_publish" value="0" />
                             <input type="checkbox" name="wash_sync_on_publish" value="1"
                                 <?php checked(get_option('wash_sync_on_publish'), '1'); ?> />
                             <?php esc_html_e('Automatically sync posts when published or updated', 'wash'); ?>
@@ -1491,6 +1498,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Sync Images', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_sync_images" value="0" />
                             <input type="checkbox" name="wash_sync_images" value="1"
                                 <?php checked(get_option('wash_sync_images'), '1'); ?> />
                             <?php esc_html_e('Upload media attachments to Shopify CDN', 'wash'); ?>
@@ -1501,6 +1509,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Sync Metafields', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_sync_metafields" value="0" />
                             <input type="checkbox" name="wash_sync_metafields" value="1"
                                 <?php checked(get_option('wash_sync_metafields'), '1'); ?> />
                             <?php esc_html_e('Sync ACF fields and custom meta to Shopify metafields', 'wash'); ?>
@@ -1511,6 +1520,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Rewrite Internal URLs', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_rewrite_internal_urls" value="0" />
                             <input type="checkbox" name="wash_rewrite_internal_urls" value="1"
                                 <?php checked(get_option('wash_rewrite_internal_urls', '1'), '1'); ?> />
                             <?php esc_html_e('Convert internal WordPress links to Shopify URL format', 'wash'); ?>
@@ -1598,6 +1608,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Block Search Engines', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_block_robots" value="0" />
                             <input type="checkbox" name="wash_block_robots" value="1"
                                 <?php checked(get_option('wash_block_robots', '1'), '1'); ?> />
                             <?php esc_html_e('Discourage search engines from indexing this site (robots.txt)', 'wash'); ?>
@@ -1623,6 +1634,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Enable Custom Blocks', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_blocks_enabled" value="0" />
                             <input type="checkbox" name="wash_blocks_enabled" value="1"
                                 <?php checked(get_option('wash_blocks_enabled', '1'), '1'); ?> />
                             <?php esc_html_e('Enable Wash custom blocks in Gutenberg editor', 'wash'); ?>
@@ -1634,6 +1646,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Include Block CSS', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_sync_blocks_css" value="0" />
                             <input type="checkbox" name="wash_sync_blocks_css" value="1"
                                 <?php checked(get_option('wash_sync_blocks_css', '0'), '1'); ?> />
                             <?php esc_html_e('Include WordPress block styles in synced content', 'wash'); ?>
@@ -1648,6 +1661,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Sync Block Structure', 'wash'); ?></th>
                     <td>
                         <label>
+                            <input type="hidden" name="wash_sync_blocks_meta" value="0" />
                             <input type="checkbox" name="wash_sync_blocks_meta" value="1"
                                 <?php checked(get_option('wash_sync_blocks_meta', '1'), '1'); ?> />
                             <?php esc_html_e('Save block structure as Shopify metafields', 'wash'); ?>

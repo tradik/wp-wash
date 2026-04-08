@@ -186,8 +186,8 @@ class WashMetafields {
             $metafields = array_merge($metafields, $this->buildWordPressMetafields($postId));
         }
 
-        // ACF fields
-        if (get_option('wash_meta_acf', '1') === '1' && function_exists('get_fields')) {
+        // ACF fields (uses ACF API when available, falls back to raw post_meta)
+        if (get_option('wash_meta_acf', '1') === '1') {
             $metafields = array_merge($metafields, $this->buildAcfMetafields($postId));
         }
 
@@ -282,25 +282,47 @@ class WashMetafields {
     private function buildAcfMetafields($postId) {
         $metafields = [];
 
-        if (!function_exists('get_fields') || !function_exists('acf_get_field')) {
-            return $metafields;
-        }
+        // Use ACF API if available for proper type mapping
+        if (function_exists('get_fields') && function_exists('acf_get_field')) {
+            $fields = get_fields($postId);
+            if ($fields && is_array($fields)) {
+                foreach ($fields as $fieldName => $fieldValue) {
+                    $fieldObject = acf_get_field($fieldName);
+                    if (!$fieldObject) {
+                        $fieldObject = get_field_object($fieldName, $postId);
+                    }
 
-        $fields = get_fields($postId);
-        if (!$fields || !is_array($fields)) {
-            return $metafields;
-        }
-
-        foreach ($fields as $fieldName => $fieldValue) {
-            $fieldObject = acf_get_field($fieldName);
-            if (!$fieldObject) {
-                // Fallback: try to get field by selector
-                $fieldObject = get_field_object($fieldName, $postId);
+                    $metafield = $this->convertAcfFieldToMetafield($fieldName, $fieldValue, $fieldObject);
+                    if ($metafield) {
+                        $metafields[] = $metafield;
+                    }
+                }
+                return $metafields;
             }
+        }
 
-            $metafield = $this->convertAcfFieldToMetafield($fieldName, $fieldValue, $fieldObject);
-            if ($metafield) {
-                $metafields[] = $metafield;
+        // Fallback: read raw post_meta when ACF plugin is not active
+        // ACF stores field values with the field name as meta_key
+        // and field references as _field_name (underscore prefix)
+        $allMeta = get_post_meta($postId);
+        foreach ($allMeta as $metaKey => $metaValues) {
+            // ACF stores a reference key like _fieldname => field_abc123
+            // If _fieldname exists, the fieldname is an ACF field
+            if (isset($allMeta['_' . $metaKey]) && is_array($allMeta['_' . $metaKey])) {
+                $ref = $allMeta['_' . $metaKey][0] ?? '';
+                if (strpos($ref, 'field_') === 0) {
+                    $value = $metaValues[0] ?? '';
+                    if ($value === '' || $value === null) {
+                        continue;
+                    }
+                    $unserialized = maybe_unserialize($value);
+                    $metafields[] = [
+                        'namespace' => self::$namespaces['acf'],
+                        'key'       => $this->sanitizeKey($metaKey),
+                        'value'     => is_array($unserialized) ? wp_json_encode($unserialized) : (string) $unserialized,
+                        'type'      => is_array($unserialized) ? 'json' : $this->inferType($unserialized),
+                    ];
+                }
             }
         }
 

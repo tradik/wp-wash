@@ -392,6 +392,32 @@ class WashCallback {
                 }
             }
 
+            // Sync metafields (ACF, custom fields, SEO) to Shopify
+            if ($shopifyId && get_option('wash_sync_metafields') === '1') {
+                $metafieldsHandler = new WashMetafields();
+                $metaResult = $metafieldsHandler->syncAllMetafields($wpPostId, $shopifyId);
+
+                if (is_wp_error($metaResult)) {
+                    error_log("[wash] Callback: Metafields sync error for post {$wpPostId}: " . $metaResult->get_error_message());
+                } else {
+                    $metaCount = $metaResult['count'] ?? 0;
+                    error_log("[wash] Callback: Synced {$metaCount} metafields for post {$wpPostId}");
+                }
+            }
+
+            // Sync hreflangs to Shopify
+            if ($shopifyId && get_option('wash_hreflangs_enabled') === '1') {
+                $hreflangsHandler = new WashHreflangs();
+                $hrefResult = $hreflangsHandler->syncHreflangs($wpPostId, $shopifyId);
+
+                if (is_wp_error($hrefResult)) {
+                    error_log("[wash] Callback: Hreflangs sync error for post {$wpPostId}: " . $hrefResult->get_error_message());
+                } else {
+                    $hrefCount = $hrefResult['count'] ?? 0;
+                    error_log("[wash] Callback: Synced {$hrefCount} hreflangs for post {$wpPostId}");
+                }
+            }
+
             // Clear queued status
             delete_post_meta($wpPostId, '_wash_sync_status');
             delete_post_meta($wpPostId, '_wash_job_id');
