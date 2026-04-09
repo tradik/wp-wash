@@ -696,10 +696,7 @@ class WashApiClient {
             'syncMetafields'   => get_option('wash_sync_metafields', '1'),
             'postTypes'        => get_option('wash_post_types', 'post,page'),
             'blockRobots'      => get_option('wash_block_robots', '1'),
-            'metaWpCore'       => get_option('wash_meta_wp_core', '1'),
-            'metaYoast'        => get_option('wash_meta_yoast', '0'),
-            'metaRankmath'     => get_option('wash_meta_rankmath', '0'),
-            'metaAcf'          => get_option('wash_meta_acf', '0'),
+            'metaFieldConfig'  => json_decode(get_option('wash_meta_field_config', '[]'), true),
             'hreflangsEnabled' => get_option('wash_hreflangs_enabled', '0'),
             'authorsEnabled'   => get_option('wash_authors_enabled', '0'),
             'authorMappings'   => get_option('wash_author_mappings', []),
@@ -747,10 +744,6 @@ class WashApiClient {
             'syncMetafields'   => 'wash_sync_metafields',
             'postTypes'        => 'wash_post_types',
             'blockRobots'      => 'wash_block_robots',
-            'metaWpCore'       => 'wash_meta_wp_core',
-            'metaYoast'        => 'wash_meta_yoast',
-            'metaRankmath'     => 'wash_meta_rankmath',
-            'metaAcf'          => 'wash_meta_acf',
             'hreflangsEnabled' => 'wash_hreflangs_enabled',
             'authorsEnabled'   => 'wash_authors_enabled',
             'authorMappings'   => 'wash_author_mappings',
@@ -767,6 +760,16 @@ class WashApiClient {
             if (isset($settings[$key])) {
                 update_option($option, $settings[$key]);
             }
+        }
+
+        // Per-field metafield config (JSON array)
+        if (isset($settings['metaFieldConfig'])) {
+            $value = $settings['metaFieldConfig'];
+            if (is_array($value)) {
+                $value = wp_json_encode($value);
+            }
+            update_option('wash_meta_field_config', $value);
+            WashMetafields::$fieldConfigCache = null;
         }
 
         $washRestoreInProgress = false;

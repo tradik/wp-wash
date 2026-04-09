@@ -34,6 +34,9 @@ class WashAdmin {
         add_action('wp_ajax_wash_create_mapping', [$this, 'ajaxCreateMapping']);
         add_action('wp_ajax_wash_update_mapping', [$this, 'ajaxUpdateMapping']);
         add_action('wp_ajax_wash_delete_mapping', [$this, 'ajaxDeleteMapping']);
+        // Meta fields AJAX handlers
+        add_action('wp_ajax_wash_detect_meta_fields', [$this, 'ajaxDetectMetaFields']);
+        add_action('wp_ajax_wash_save_meta_field_config', [$this, 'ajaxSaveMetaFieldConfig']);
         // Redirections AJAX handlers
         add_action('wp_ajax_wash_get_shopify_redirections', [$this, 'ajaxGetShopifyRedirections']);
         add_action('wp_ajax_wash_generate_redirections', [$this, 'ajaxGenerateRedirections']);
@@ -82,10 +85,7 @@ class WashAdmin {
         add_action('update_option_wash_sync_metafields', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_post_types', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_block_robots', [$this, 'scheduleSettingsBackup']);
-        add_action('update_option_wash_meta_wp_core', [$this, 'scheduleSettingsBackup']);
-        add_action('update_option_wash_meta_yoast', [$this, 'scheduleSettingsBackup']);
-        add_action('update_option_wash_meta_rankmath', [$this, 'scheduleSettingsBackup']);
-        add_action('update_option_wash_meta_acf', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wash_meta_field_config', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_hreflangs_enabled', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_authors_enabled', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_author_mappings', [$this, 'scheduleSettingsBackup']);
@@ -187,10 +187,6 @@ class WashAdmin {
             'wash_sync_images',
             'wash_sync_metafields',
             'wash_block_robots',
-            'wash_meta_wp_core',
-            'wash_meta_yoast',
-            'wash_meta_rankmath',
-            'wash_meta_acf',
             'wash_hreflangs_enabled',
             'wash_authors_enabled',
             'wash_files_enabled',
@@ -613,6 +609,70 @@ class WashAdmin {
     }
 
     /**
+     * AJAX handler for detecting available meta fields.
+     * Scans recent posts and returns field list, preserving existing sync toggles.
+     */
+    public function ajaxDetectMetaFields() {
+        check_ajax_referer('wash_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $metafields = new WashMetafields();
+        $detected = $metafields->detectAvailableFields();
+        $existing = $metafields->getFieldConfig();
+
+        // Build lookup of existing sync preferences
+        $existingMap = [];
+        foreach ($existing as $field) {
+            $existingMap[$field['namespace'] . '.' . $field['key']] = $field['syncEnabled'] ?? false;
+        }
+
+        // Merge: preserve user's syncEnabled for known fields, new fields default to false
+        foreach ($detected as &$field) {
+            $id = $field['namespace'] . '.' . $field['key'];
+            $field['syncEnabled'] = $existingMap[$id] ?? false;
+        }
+        unset($field);
+
+        $metafields->saveFieldConfig($detected);
+
+        // Backup to Shopify immediately
+        $this->apiClient->backupSettings();
+
+        wp_send_json_success(['fields' => $detected]);
+    }
+
+    /**
+     * AJAX handler for saving the full meta field config.
+     * Receives JSON array of field descriptors with syncEnabled flags.
+     */
+    public function ajaxSaveMetaFieldConfig() {
+        check_ajax_referer('wash_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $raw = wp_unslash($_POST['config'] ?? '');
+        $config = json_decode($raw, true);
+
+        if (!is_array($config)) {
+            wp_send_json_error(__('Invalid field config', 'wash'));
+        }
+
+        $metafields = new WashMetafields();
+        $metafields->saveFieldConfig($config);
+
+        // Backup to Shopify immediately (don't rely on shutdown hook in AJAX)
+        $backupResult = $this->apiClient->backupSettings();
+        $backed = !is_wp_error($backupResult);
+
+        wp_send_json_success(['saved' => count($config), 'synced' => $backed]);
+    }
+
+    /**
      * AJAX handler for resetting all settings to defaults.
      */
     public function ajaxResetToDefaults() {
@@ -637,10 +697,7 @@ class WashAdmin {
 
             // Metafields
             'wash_sync_metafields'   => '1',       // Enabled
-            'wash_meta_wp_core'      => '1',       // Enabled
-            'wash_meta_yoast'        => '0',       // Disabled
-            'wash_meta_rankmath'     => '0',       // Disabled
-            'wash_meta_acf'          => '0',       // Disabled
+            'wash_meta_field_config' => '[]',      // Empty — triggers re-detection
 
             // Gutenberg Blocks
             'wash_blocks_enabled'    => '1',       // Enabled

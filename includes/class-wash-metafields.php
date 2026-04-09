@@ -10,6 +10,9 @@ class WashMetafields {
     /** @var WashApiClient */
     private $apiClient;
 
+    /** @var array|null Cached field config for current request */
+    public static $fieldConfigCache = null;
+
     /** @var array ACF field type to Shopify metafield type mapping */
     private static $acfTypeMapping = [
         'text'           => 'single_line_text_field',
@@ -81,6 +84,250 @@ class WashMetafields {
     }
 
     /**
+     * Get per-field config from options. Returns cached value within request.
+     * @return array Array of field descriptors with syncEnabled flag
+     */
+    public function getFieldConfig() {
+        if (self::$fieldConfigCache !== null) {
+            return self::$fieldConfigCache;
+        }
+
+        $raw = get_option('wash_meta_field_config', '');
+        if (!empty($raw)) {
+            $config = is_string($raw) ? json_decode($raw, true) : $raw;
+            if (is_array($config)) {
+                self::$fieldConfigCache = $config;
+                return $config;
+            }
+        }
+
+        // Lazy migration from old per-plugin toggles
+        $config = $this->migrateFromPluginToggles();
+        self::$fieldConfigCache = $config;
+        return $config;
+    }
+
+    /**
+     * Save per-field config and invalidate cache.
+     * @param array $config Array of field descriptors
+     */
+    public function saveFieldConfig(array $config) {
+        self::$fieldConfigCache = $config;
+        update_option('wash_meta_field_config', wp_json_encode($config));
+    }
+
+    /**
+     * Build a lookup set of enabled field identifiers (namespace.key).
+     * @return array Associative array for O(1) lookups
+     */
+    private function getEnabledFieldSet() {
+        $config = $this->getFieldConfig();
+        $enabled = [];
+        foreach ($config as $field) {
+            if (!empty($field['syncEnabled'])) {
+                $enabled[$field['namespace'] . '.' . $field['key']] = true;
+            }
+        }
+        return $enabled;
+    }
+
+    /**
+     * Check if a specific field is enabled for sync.
+     */
+    private function isFieldEnabled($namespace, $key) {
+        $enabled = $this->getEnabledFieldSet();
+        return isset($enabled[$namespace . '.' . $key]);
+    }
+
+    /**
+     * Migrate from old per-plugin toggles to per-field config.
+     * Called once when wash_meta_field_config does not exist.
+     * @return array Migrated field config
+     */
+    public function migrateFromPluginToggles() {
+        $wpCoreEnabled = get_option('wash_meta_wp_core', '1') === '1';
+        $yoastEnabled = get_option('wash_meta_yoast', '0') === '1';
+        $rankmathEnabled = get_option('wash_meta_rankmath', '0') === '1';
+        $acfEnabled = get_option('wash_meta_acf', '0') === '1';
+
+        $fields = $this->detectAvailableFields();
+
+        foreach ($fields as &$field) {
+            switch ($field['source']) {
+                case 'wordpress':
+                    $field['syncEnabled'] = $wpCoreEnabled;
+                    break;
+                case 'yoast':
+                    $field['syncEnabled'] = $yoastEnabled;
+                    break;
+                case 'rankmath':
+                    $field['syncEnabled'] = $rankmathEnabled;
+                    break;
+                case 'acf':
+                    $field['syncEnabled'] = $acfEnabled;
+                    break;
+                default:
+                    $field['syncEnabled'] = true;
+                    break;
+            }
+        }
+        unset($field);
+
+        $this->saveFieldConfig($fields);
+        return $fields;
+    }
+
+    /**
+     * Detect all available meta fields by scanning recent posts.
+     * @return array Array of field descriptors (without syncEnabled)
+     */
+    public function detectAvailableFields() {
+        $fields = [];
+        $seen = [];
+
+        // WordPress core fields (always present)
+        $coreFields = [
+            ['namespace' => 'wash', 'key' => 'wp_post_id', 'source' => 'wordpress', 'type' => 'number_integer'],
+            ['namespace' => 'wash', 'key' => 'wp_permalink', 'source' => 'wordpress', 'type' => 'url'],
+            ['namespace' => 'wash', 'key' => 'wp_post_type', 'source' => 'wordpress', 'type' => 'single_line_text_field'],
+            ['namespace' => 'wash', 'key' => 'wp_modified_date', 'source' => 'wordpress', 'type' => 'date'],
+            ['namespace' => 'wash', 'key' => 'featured_image_url', 'source' => 'wordpress', 'type' => 'url'],
+        ];
+        foreach ($coreFields as $f) {
+            $id = $f['namespace'] . '.' . $f['key'];
+            $seen[$id] = true;
+            $f['label'] = $this->generateDefinitionName($f['key']);
+            $f['syncEnabled'] = false;
+            $fields[] = $f;
+        }
+
+        // Yoast SEO fields
+        if (defined('WPSEO_VERSION')) {
+            $yoastFields = [
+                ['key' => 'meta_title', 'type' => 'single_line_text_field'],
+                ['key' => 'meta_description', 'type' => 'multi_line_text_field'],
+                ['key' => 'focus_keyword', 'type' => 'single_line_text_field'],
+            ];
+            foreach ($yoastFields as $f) {
+                $id = self::$namespaces['seo'] . '.' . $f['key'];
+                if (!isset($seen[$id])) {
+                    $seen[$id] = true;
+                    $fields[] = [
+                        'namespace' => self::$namespaces['seo'],
+                        'key' => $f['key'],
+                        'source' => 'yoast',
+                        'type' => $f['type'],
+                        'label' => $this->generateDefinitionName($f['key']),
+                        'syncEnabled' => false,
+                    ];
+                }
+            }
+        }
+
+        // RankMath fields
+        if (class_exists('RankMath')) {
+            $rankFields = [
+                ['key' => 'meta_title', 'type' => 'single_line_text_field'],
+                ['key' => 'meta_description', 'type' => 'multi_line_text_field'],
+                ['key' => 'focus_keyword', 'type' => 'single_line_text_field'],
+            ];
+            foreach ($rankFields as $f) {
+                $id = self::$namespaces['seo'] . '.' . $f['key'];
+                if (!isset($seen[$id])) {
+                    $seen[$id] = true;
+                    $fields[] = [
+                        'namespace' => self::$namespaces['seo'],
+                        'key' => $f['key'],
+                        'source' => 'rankmath',
+                        'type' => $f['type'],
+                        'label' => $this->generateDefinitionName($f['key']),
+                        'syncEnabled' => false,
+                    ];
+                }
+            }
+        }
+
+        // Scan recent posts for ACF + custom fields
+        $postTypes = get_option('wash_post_types', 'post,page');
+        $postTypesArray = array_map('trim', explode(',', $postTypes));
+
+        $recentPosts = get_posts([
+            'post_type' => $postTypesArray,
+            'post_status' => ['publish', 'draft'],
+            'posts_per_page' => 50,
+            'orderby' => 'modified',
+            'order' => 'DESC',
+            'fields' => 'ids',
+        ]);
+
+        foreach ($recentPosts as $postId) {
+            $allMeta = get_post_meta($postId);
+            foreach ($allMeta as $metaKey => $metaValues) {
+                if ($this->shouldSkipMeta($metaKey)) {
+                    continue;
+                }
+
+                // ACF field detection
+                if (isset($allMeta['_' . $metaKey]) && is_array($allMeta['_' . $metaKey])) {
+                    $ref = $allMeta['_' . $metaKey][0] ?? '';
+                    if (strpos($ref, 'field_') === 0) {
+                        $sanitized = $this->sanitizeKey($metaKey);
+                        $id = self::$namespaces['acf'] . '.' . $sanitized;
+                        if (!isset($seen[$id])) {
+                            $seen[$id] = true;
+                            $type = 'single_line_text_field';
+                            if (function_exists('acf_get_field')) {
+                                $fieldObj = acf_get_field($metaKey);
+                                if ($fieldObj) {
+                                    $type = self::$acfTypeMapping[$fieldObj['type']] ?? 'single_line_text_field';
+                                }
+                            }
+                            $fields[] = [
+                                'namespace' => self::$namespaces['acf'],
+                                'key' => $sanitized,
+                                'source' => 'acf',
+                                'type' => $type,
+                                'label' => $this->generateDefinitionName($sanitized),
+                                'syncEnabled' => false,
+                            ];
+                        }
+                        continue;
+                    }
+                }
+
+                // Custom fields (non-underscore, non-ACF, non-SEO)
+                if (str_starts_with($metaKey, '_')) {
+                    continue;
+                }
+                $sanitized = $this->sanitizeKey($metaKey);
+                $id = self::$namespaces['custom'] . '.' . $sanitized;
+                if (!isset($seen[$id])) {
+                    $seen[$id] = true;
+                    $value = $metaValues[0] ?? '';
+                    $fields[] = [
+                        'namespace' => self::$namespaces['custom'],
+                        'key' => $sanitized,
+                        'source' => 'custom',
+                        'type' => $this->inferType($value),
+                        'label' => $this->generateDefinitionName($sanitized),
+                        'syncEnabled' => false,
+                    ];
+                }
+            }
+        }
+
+        // Sort: source then key
+        usort($fields, function ($a, $b) {
+            $sourceOrder = ['wordpress' => 0, 'yoast' => 1, 'rankmath' => 2, 'acf' => 3, 'custom' => 4];
+            $sa = $sourceOrder[$a['source']] ?? 9;
+            $sb = $sourceOrder[$b['source']] ?? 9;
+            return $sa !== $sb ? $sa - $sb : strcmp($a['key'], $b['key']);
+        });
+
+        return $fields;
+    }
+
+    /**
      * Handle post meta update — sync changed metafield to Shopify.
      */
     public function onMetaUpdate($metaId, $postId, $metaKey, $metaValue) {
@@ -108,11 +355,17 @@ class WashMetafields {
         }
 
         $namespace = $this->resolveNamespace($metaKey);
+        $sanitizedKey = $this->sanitizeKey($metaKey);
+
+        if (!$this->isFieldEnabled($namespace, $sanitizedKey)) {
+            return;
+        }
+
         $this->apiClient->post('/api/metafields', [
             'action'           => 'delete',
             'shopifyArticleId' => $shopifyId,
             'wpSiteId'         => is_multisite() ? get_current_blog_id() : 1,
-            'metafieldKeys'    => [['namespace' => $namespace, 'key' => $this->sanitizeKey($metaKey)]],
+            'metafieldKeys'    => [['namespace' => $namespace, 'key' => $sanitizedKey]],
         ]);
     }
 
@@ -120,10 +373,6 @@ class WashMetafields {
      * Handle ACF save_post hook for better field type detection.
      */
     public function onAcfSavePost($postId) {
-        if (get_option('wash_meta_acf') !== '1') {
-            return;
-        }
-
         $shopifyId = $this->getShopifyResourceId($postId);
         if (empty($shopifyId)) {
             return;
@@ -151,6 +400,13 @@ class WashMetafields {
         }
 
         $namespace = $this->resolveNamespace($metaKey);
+        $sanitizedKey = $this->sanitizeKey($metaKey);
+
+        // Check if this field is enabled in per-field config
+        if (!$this->isFieldEnabled($namespace, $sanitizedKey)) {
+            return;
+        }
+
         $type = $this->inferType($metaValue);
 
         $this->apiClient->post('/api/metafields', [
@@ -179,25 +435,24 @@ class WashMetafields {
             return ['skipped' => true, 'reason' => 'Metafields sync disabled'];
         }
 
-        $metafields = [];
-
-        // WordPress core meta
-        if (get_option('wash_meta_wp_core', '1') === '1') {
-            $metafields = array_merge($metafields, $this->buildWordPressMetafields($postId));
+        $enabledSet = $this->getEnabledFieldSet();
+        if (empty($enabledSet)) {
+            return ['success' => true, 'count' => 0, 'message' => 'No fields enabled'];
         }
 
-        // ACF fields (uses ACF API when available, falls back to raw post_meta)
-        if (get_option('wash_meta_acf', '1') === '1') {
-            $metafields = array_merge($metafields, $this->buildAcfMetafields($postId));
-        }
+        // Build all metafields from all sources
+        $metafields = array_merge(
+            $this->buildWordPressMetafields($postId),
+            $this->buildAcfMetafields($postId),
+            $this->buildSeoMetafields($postId),
+            $this->buildCustomMetafields($postId)
+        );
 
-        // SEO fields (Yoast/RankMath)
-        if (get_option('wash_meta_yoast', '1') === '1' || get_option('wash_meta_rankmath', '1') === '1') {
-            $metafields = array_merge($metafields, $this->buildSeoMetafields($postId));
-        }
-
-        // Custom fields (non-prefixed post meta)
-        $metafields = array_merge($metafields, $this->buildCustomMetafields($postId));
+        // Filter to only enabled fields
+        $metafields = array_filter($metafields, function ($mf) use ($enabledSet) {
+            return isset($enabledSet[$mf['namespace'] . '.' . $mf['key']]);
+        });
+        $metafields = array_values($metafields);
 
         if (empty($metafields)) {
             return ['success' => true, 'count' => 0, 'message' => 'No metafields to sync'];
@@ -502,7 +757,7 @@ class WashMetafields {
         $metafields = [];
 
         // Yoast SEO
-        if (get_option('wash_meta_yoast', '1') === '1') {
+        if (defined('WPSEO_VERSION')) {
             $yoastTitle = get_post_meta($postId, '_yoast_wpseo_title', true);
             $yoastDesc = get_post_meta($postId, '_yoast_wpseo_metadesc', true);
             $yoastFocusKw = get_post_meta($postId, '_yoast_wpseo_focuskw', true);
@@ -534,7 +789,7 @@ class WashMetafields {
         }
 
         // Rank Math
-        if (get_option('wash_meta_rankmath', '1') === '1') {
+        if (class_exists('RankMath')) {
             $rankTitle = get_post_meta($postId, 'rank_math_title', true);
             $rankDesc = get_post_meta($postId, 'rank_math_description', true);
             $rankFocusKw = get_post_meta($postId, 'rank_math_focus_keyword', true);
@@ -606,6 +861,13 @@ class WashMetafields {
      */
     private function syncAcfFields($postId, $shopifyId) {
         $metafields = $this->buildAcfMetafields($postId);
+
+        // Filter to only enabled fields
+        $enabledSet = $this->getEnabledFieldSet();
+        $metafields = array_filter($metafields, function ($mf) use ($enabledSet) {
+            return isset($enabledSet[$mf['namespace'] . '.' . $mf['key']]);
+        });
+        $metafields = array_values($metafields);
 
         if (empty($metafields)) {
             return;

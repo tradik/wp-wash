@@ -23,6 +23,7 @@ $optionKeys = [
     'wash_meta_yoast',
     'wash_meta_rankmath',
     'wash_meta_acf',
+    'wash_meta_field_config',
     'wash_hreflangs_enabled',
 ];
 

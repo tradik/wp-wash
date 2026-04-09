@@ -961,177 +961,141 @@ function wash_render_permission_locked_banner() {
                 <?php wash_render_permission_locked_banner(); ?>
             <?php endif; ?>
             <h2 class="title"><?php esc_html_e('Meta Fields Configuration', 'wash'); ?></h2>
-            <p class="description"><?php esc_html_e('Select which meta field providers to sync to Shopify metafields. Click Save Changes to apply.', 'wash'); ?></p>
+            <p class="description"><?php esc_html_e('WordPress detects available meta fields from your posts. Toggle sync per field.', 'wash'); ?></p>
 
-            <div class="wash-meta-providers" style="margin-top: 20px;">
-                <?php
-                $wpCoreEnabled = get_option('wash_meta_wp_core', '1') === '1';
-                $yoastInstalled = defined('WPSEO_VERSION');
-                $yoastEnabled = get_option('wash_meta_yoast') === '1';
-                $rankMathInstalled = class_exists('RankMath');
-                $rankMathEnabled = get_option('wash_meta_rankmath') === '1';
-                $acfInstalled = class_exists('ACF');
-                $acfEnabled = get_option('wash_meta_acf') === '1';
-                ?>
+            <?php
+            $metafieldsHandler = new WashMetafields();
+            $fieldConfig = $metafieldsHandler->getFieldConfig();
+            $sourceBadges = [
+                'wordpress' => ['bg' => '#e8f4fd', 'color' => '#21759b'],
+                'yoast'     => ['bg' => '#f5e6f0', 'color' => '#a4286a'],
+                'rankmath'  => ['bg' => '#fde8e8', 'color' => '#e74c3c'],
+                'acf'       => ['bg' => '#e6f9f0', 'color' => '#00875a'],
+                'custom'    => ['bg' => '#f1f1f1', 'color' => '#646970'],
+            ];
+            ?>
 
-                <!-- WordPress Core -->
-                <div class="wash-meta-card" style="background: <?php echo $wpCoreEnabled ? '#f0fff4' : '#fff'; ?>; border: 2px solid <?php echo $wpCoreEnabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius: 8px; padding: 20px; margin-bottom: 15px;">
-                    <div style="display: flex; align-items: flex-start; gap: 15px;">
-                        <div style="flex-shrink: 0;">
-                            <label style="display: flex; align-items: center; cursor: pointer;">
-                                <input type="hidden" name="wash_meta_wp_core" value="0" />
-                                <input type="checkbox" name="wash_meta_wp_core" value="1"
-                                    <?php checked($wpCoreEnabled); ?>
-                                    style="width: 20px; height: 20px; margin: 0;" />
-                            </label>
-                        </div>
-                        <div style="flex-grow: 1;">
-                            <h4 style="margin: 0 0 5px 0; display: flex; align-items: center; gap: 8px;">
-                                <span class="dashicons dashicons-wordpress" style="color: #21759b;"></span>
-                                <?php esc_html_e('WordPress Core', 'wash'); ?>
-                                <span style="background: #21759b; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Recommended', 'wash'); ?></span>
-                            </h4>
-                            <p style="margin: 0 0 8px 0; color: #1e1e1e;"><?php esc_html_e('Sync WordPress post meta (featured image, excerpt, custom fields)', 'wash'); ?></p>
-                            <p style="margin: 0; color: #646970; font-size: 12px;">
-                                <code>_thumbnail_id</code>, <code>post_excerpt</code>, <code>_wp_page_template</code>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Yoast SEO -->
-                <div class="wash-meta-card" style="background: <?php echo $yoastEnabled ? '#f0fff4' : '#fff'; ?>; border: 2px solid <?php echo $yoastEnabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius: 8px; padding: 20px; margin-bottom: 15px;">
-                    <div style="display: flex; align-items: flex-start; gap: 15px;">
-                        <div style="flex-shrink: 0;">
-                            <label style="display: flex; align-items: center; cursor: pointer;">
-                                <input type="hidden" name="wash_meta_yoast" value="0" />
-                                <input type="checkbox" name="wash_meta_yoast" value="1"
-                                    <?php checked($yoastEnabled); ?>
-                                    style="width: 20px; height: 20px; margin: 0;" />
-                            </label>
-                        </div>
-                        <div style="flex-grow: 1;">
-                            <h4 style="margin: 0 0 5px 0; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: #a4286a; color: #fff; width: 20px; height: 20px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">Y</span>
-                                <?php esc_html_e('Yoast SEO', 'wash'); ?>
-                                <?php if ($yoastInstalled) : ?>
-                                    <span style="background: #00a32a; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Detected', 'wash'); ?></span>
-                                <?php else : ?>
-                                    <span style="background: #dba617; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Not detected', 'wash'); ?></span>
-                                <?php endif; ?>
-                            </h4>
-                            <p style="margin: 0 0 8px 0; color: #1e1e1e;"><?php esc_html_e('Sync Yoast SEO meta (title, description, focus keyword)', 'wash'); ?></p>
-                            <p style="margin: 0; color: #646970; font-size: 12px;">
-                                <code>_yoast_wpseo_title</code>, <code>_yoast_wpseo_metadesc</code>, <code>_yoast_wpseo_focuskw</code>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Rank Math -->
-                <div class="wash-meta-card" style="background: <?php echo $rankMathEnabled ? '#f0fff4' : '#fff'; ?>; border: 2px solid <?php echo $rankMathEnabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius: 8px; padding: 20px; margin-bottom: 15px;">
-                    <div style="display: flex; align-items: flex-start; gap: 15px;">
-                        <div style="flex-shrink: 0;">
-                            <label style="display: flex; align-items: center; cursor: pointer;">
-                                <input type="hidden" name="wash_meta_rankmath" value="0" />
-                                <input type="checkbox" name="wash_meta_rankmath" value="1"
-                                    <?php checked($rankMathEnabled); ?>
-                                    style="width: 20px; height: 20px; margin: 0;" />
-                            </label>
-                        </div>
-                        <div style="flex-grow: 1;">
-                            <h4 style="margin: 0 0 5px 0; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: #e74c3c; color: #fff; width: 20px; height: 20px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">R</span>
-                                <?php esc_html_e('Rank Math', 'wash'); ?>
-                                <?php if ($rankMathInstalled) : ?>
-                                    <span style="background: #00a32a; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Detected', 'wash'); ?></span>
-                                <?php else : ?>
-                                    <span style="background: #dba617; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Not detected', 'wash'); ?></span>
-                                <?php endif; ?>
-                            </h4>
-                            <p style="margin: 0 0 8px 0; color: #1e1e1e;"><?php esc_html_e('Sync Rank Math SEO meta (title, description, focus keyword)', 'wash'); ?></p>
-                            <p style="margin: 0; color: #646970; font-size: 12px;">
-                                <code>rank_math_title</code>, <code>rank_math_description</code>, <code>rank_math_focus_keyword</code>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ACF -->
-                <div class="wash-meta-card" style="background: <?php echo $acfEnabled ? '#f0fff4' : '#fff'; ?>; border: 2px solid <?php echo $acfEnabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius: 8px; padding: 20px; margin-bottom: 15px;">
-                    <div style="display: flex; align-items: flex-start; gap: 15px;">
-                        <div style="flex-shrink: 0;">
-                            <label style="display: flex; align-items: center; cursor: pointer;">
-                                <input type="hidden" name="wash_meta_acf" value="0" />
-                                <input type="checkbox" name="wash_meta_acf" value="1"
-                                    <?php checked($acfEnabled); ?>
-                                    style="width: 20px; height: 20px; margin: 0;" />
-                            </label>
-                        </div>
-                        <div style="flex-grow: 1;">
-                            <h4 style="margin: 0 0 5px 0; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: #00d084; color: #fff; width: 20px; height: 20px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;">ACF</span>
-                                <?php esc_html_e('Advanced Custom Fields', 'wash'); ?>
-                                <?php if ($acfInstalled) : ?>
-                                    <span style="background: #00a32a; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Detected', 'wash'); ?></span>
-                                <?php else : ?>
-                                    <span style="background: #dba617; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: normal;"><?php esc_html_e('Not detected', 'wash'); ?></span>
-                                <?php endif; ?>
-                            </h4>
-                            <p style="margin: 0 0 8px 0; color: #1e1e1e;"><?php esc_html_e('Sync ACF custom fields to Shopify metafields', 'wash'); ?></p>
-                            <p style="margin: 0; color: #646970; font-size: 12px;">
-                                <?php esc_html_e('All ACF fields → namespace', 'wash'); ?> <code>acf.{field_name}</code>
-                            </p>
-                        </div>
-                    </div>
-                </div>
+            <div style="margin: 16px 0 12px; display: flex; align-items: center; gap: 10px;">
+                <button type="button" id="wash-refresh-fields" class="button">
+                    <span class="dashicons dashicons-update" style="vertical-align: text-bottom; margin-right: 4px;"></span>
+                    <?php esc_html_e('Refresh Fields', 'wash'); ?>
+                </button>
+                <span id="wash-fields-status" style="font-size: 13px; color: #646970;"></span>
             </div>
 
-            <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 15px; margin: 20px 0;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
-                    <div style="flex-grow: 1;">
-                        <h4 style="margin-top: 0;">
-                            <span class="dashicons dashicons-info" style="color: #2271b1;"></span>
-                            <?php esc_html_e('How Meta Fields are Synced', 'wash'); ?>
-                        </h4>
-                        <p style="margin-bottom: 10px;"><?php esc_html_e('WordPress meta fields are converted to Shopify metafields using the following format:', 'wash'); ?></p>
-                        <table class="widefat" style="max-width: 600px;">
-                            <thead>
-                                <tr>
-                                    <th><?php esc_html_e('Source', 'wash'); ?></th>
-                                    <th><?php esc_html_e('Shopify Namespace', 'wash'); ?></th>
-                                    <th><?php esc_html_e('Example', 'wash'); ?></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>WordPress Core</td>
-                                    <td><code>wordpress</code></td>
-                                    <td><code>wordpress.featured_image</code></td>
-                                </tr>
-                                <tr>
-                                    <td>Yoast SEO</td>
-                                    <td><code>seo</code></td>
-                                    <td><code>seo.title</code>, <code>seo.description</code></td>
-                                </tr>
-                                <tr>
-                                    <td>Rank Math</td>
-                                    <td><code>seo</code></td>
-                                    <td><code>seo.title</code>, <code>seo.description</code></td>
-                                </tr>
-                                <tr>
-                                    <td>ACF</td>
-                                    <td><code>acf</code></td>
-                                    <td><code>acf.{field_name}</code></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <a href="https://wash.tradik.com/docs/custom-fields.html" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0;">
-                        <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
-                        <?php esc_html_e('Documentation', 'wash'); ?>
-                    </a>
+            <?php if (empty($fieldConfig)) : ?>
+                <div style="background: #f6f6f7; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+                    <p style="margin: 0; color: #646970;"><?php esc_html_e('No fields detected. Click Refresh to scan your posts.', 'wash'); ?></p>
                 </div>
+            <?php else : ?>
+                <table class="widefat striped" id="wash-meta-fields-table" style="margin-bottom: 20px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px; text-align: center;"><?php esc_html_e('Sync', 'wash'); ?></th>
+                            <th><?php esc_html_e('Field', 'wash'); ?></th>
+                            <th><?php esc_html_e('Namespace', 'wash'); ?></th>
+                            <th><?php esc_html_e('Source', 'wash'); ?></th>
+                            <th><?php esc_html_e('Type', 'wash'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($fieldConfig as $i => $field) :
+                            $badge = $sourceBadges[$field['source']] ?? $sourceBadges['custom'];
+                        ?>
+                            <tr>
+                                <td style="text-align: center;">
+                                    <input type="checkbox" class="wash-field-toggle"
+                                        data-index="<?php echo (int)$i; ?>"
+                                        <?php checked(!empty($field['syncEnabled'])); ?>
+                                        style="width: 16px; height: 16px;" />
+                                </td>
+                                <td><strong><?php echo esc_html($field['label'] ?? $field['key']); ?></strong></td>
+                                <td><code style="font-size: 12px;"><?php echo esc_html($field['namespace']); ?></code></td>
+                                <td>
+                                    <span style="background: <?php echo esc_attr($badge['bg']); ?>; color: <?php echo esc_attr($badge['color']); ?>; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                                        <?php echo esc_html($field['source']); ?>
+                                    </span>
+                                </td>
+                                <td style="font-size: 12px; color: #646970;"><?php echo esc_html($field['type']); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+
+            <script>
+            (function() {
+                var fieldConfig = <?php echo wp_json_encode($fieldConfig); ?>;
+                var saveTimer = null;
+                var statusEl = document.getElementById('wash-fields-status');
+
+                function saveFieldConfig() {
+                    clearTimeout(saveTimer);
+                    saveTimer = setTimeout(function() {
+                        if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Saving...', 'wash')); ?>';
+                        fetch(washAdmin.ajaxUrl, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body: 'action=wash_save_meta_field_config&nonce=' + washAdmin.nonce + '&config=' + encodeURIComponent(JSON.stringify(fieldConfig))
+                        })
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (!statusEl) return;
+                            if (!data.success) {
+                                statusEl.textContent = '<?php echo esc_js(__('Error saving', 'wash')); ?>';
+                            } else if (data.data && data.data.synced) {
+                                statusEl.textContent = '<?php echo esc_js(__('Saved & synced to Shopify', 'wash')); ?>';
+                            } else {
+                                statusEl.textContent = '<?php echo esc_js(__('Saved (Shopify sync pending)', 'wash')); ?>';
+                            }
+                        })
+                        .catch(function() {
+                            if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Error saving', 'wash')); ?>';
+                        });
+                    }, 300);
+                }
+
+                document.querySelectorAll('.wash-field-toggle').forEach(function(cb) {
+                    cb.addEventListener('change', function() {
+                        var idx = parseInt(this.dataset.index, 10);
+                        fieldConfig[idx].syncEnabled = this.checked;
+                        saveFieldConfig();
+                    });
+                });
+
+                document.getElementById('wash-refresh-fields')?.addEventListener('click', function() {
+                    var btn = this;
+                    btn.disabled = true;
+                    if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Scanning...', 'wash')); ?>';
+
+                    fetch(washAdmin.ajaxUrl, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: 'action=wash_detect_meta_fields&nonce=' + washAdmin.nonce
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            statusEl.textContent = data.data.fields.length + ' <?php echo esc_js(__('fields detected', 'wash')); ?>';
+                            setTimeout(function() { location.reload(); }, 800);
+                        } else {
+                            statusEl.textContent = '<?php echo esc_js(__('Error', 'wash')); ?>';
+                        }
+                        btn.disabled = false;
+                    })
+                    .catch(function() {
+                        if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Error', 'wash')); ?>';
+                        btn.disabled = false;
+                    });
+                });
+            })();
+            </script>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                <a href="https://wash.tradik.com/docs/custom-fields.html" target="_blank" rel="noopener noreferrer" class="button" style="margin-right: 10px;">
+                    <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
+                    <?php esc_html_e('Documentation', 'wash'); ?>
+                </a>
             </div>
         </div>
 

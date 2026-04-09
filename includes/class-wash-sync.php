@@ -814,21 +814,178 @@ class WashSync {
     private function getSeoData($postId) {
         $seo = ['metaTitle' => '', 'metaDescription' => ''];
 
-        // Yoast SEO
-        $yoastTitle = get_post_meta($postId, '_yoast_wpseo_title', true);
-        $yoastDesc = get_post_meta($postId, '_yoast_wpseo_metadesc', true);
-        if ($yoastTitle) $seo['metaTitle'] = $yoastTitle;
-        if ($yoastDesc) $seo['metaDescription'] = $yoastDesc;
+        // Try Yoast rendered output first (resolves %%title%% variables)
+        if (defined('WPSEO_VERSION') && class_exists('WPSEO_Meta')) {
+            $yoastTitle = $this->getYoastRenderedTitle($postId);
+            $yoastDesc = $this->getYoastRenderedDesc($postId);
+            if ($yoastTitle) $seo['metaTitle'] = $yoastTitle;
+            if ($yoastDesc) $seo['metaDescription'] = $yoastDesc;
+        }
 
-        // RankMath
+        // Try RankMath rendered output (resolves %title% %sep% variables)
+        if (class_exists('RankMath') && (empty($seo['metaTitle']) || empty($seo['metaDescription']))) {
+            $rankTitle = $this->getRankMathRenderedTitle($postId);
+            $rankDesc = $this->getRankMathRenderedDesc($postId);
+            if ($rankTitle && empty($seo['metaTitle'])) $seo['metaTitle'] = $rankTitle;
+            if ($rankDesc && empty($seo['metaDescription'])) $seo['metaDescription'] = $rankDesc;
+        }
+
+        // Fallback: use post title
         if (empty($seo['metaTitle'])) {
-            $rankTitle = get_post_meta($postId, 'rank_math_title', true);
-            $rankDesc = get_post_meta($postId, 'rank_math_description', true);
-            if ($rankTitle) $seo['metaTitle'] = $rankTitle;
-            if ($rankDesc) $seo['metaDescription'] = $rankDesc;
+            $seo['metaTitle'] = get_the_title($postId);
+        }
+
+        // Fallback: use excerpt or trimmed content
+        if (empty($seo['metaDescription'])) {
+            $excerpt = get_the_excerpt($postId);
+            if (empty($excerpt)) {
+                $excerpt = wp_trim_words(get_post_field('post_content', $postId), 30, '...');
+            }
+            $seo['metaDescription'] = $excerpt;
         }
 
         return $seo;
+    }
+
+    /**
+     * Get Yoast SEO rendered title (resolves %%title%% %%sep%% etc.)
+     */
+    private function getYoastRenderedTitle($postId) {
+        $template = get_post_meta($postId, '_yoast_wpseo_title', true);
+        if (empty($template)) return '';
+
+        // If no variables, return as-is
+        if (strpos($template, '%%') === false) return $template;
+
+        // Use Yoast API to resolve variables
+        if (class_exists('WPSEO_Replace_Vars')) {
+            $replacer = new \WPSEO_Replace_Vars();
+            return $replacer->replace($template, get_post($postId));
+        }
+
+        // Manual fallback
+        return $this->resolveSeoVariables($template, $postId);
+    }
+
+    /**
+     * Get Yoast SEO rendered description
+     */
+    private function getYoastRenderedDesc($postId) {
+        $template = get_post_meta($postId, '_yoast_wpseo_metadesc', true);
+        if (empty($template)) return '';
+        if (strpos($template, '%%') === false) return $template;
+
+        if (class_exists('WPSEO_Replace_Vars')) {
+            $replacer = new \WPSEO_Replace_Vars();
+            return $replacer->replace($template, get_post($postId));
+        }
+
+        return $this->resolveSeoVariables($template, $postId);
+    }
+
+    /**
+     * Get RankMath rendered title (resolves %title% %sep% etc.)
+     */
+    private function getRankMathRenderedTitle($postId) {
+        // Try RankMath Paper API first
+        if (method_exists('RankMath\Paper\Paper', 'get')) {
+            try {
+                $paper = \RankMath\Paper\Paper::get();
+                if ($paper && method_exists($paper, 'get_title')) {
+                    $title = $paper->get_title();
+                    if ($title) return $title;
+                }
+            } catch (\Exception $e) { /* fall through */ }
+        }
+
+        $template = get_post_meta($postId, 'rank_math_title', true);
+        if (empty($template)) return '';
+        if (strpos($template, '%') === false) return $template;
+
+        // Use RankMath helper if available
+        if (function_exists('rank_math_replace_vars')) {
+            return rank_math_replace_vars($template, get_post($postId));
+        }
+
+        return $this->resolveSeoVariables($template, $postId);
+    }
+
+    /**
+     * Get RankMath rendered description
+     */
+    private function getRankMathRenderedDesc($postId) {
+        $template = get_post_meta($postId, 'rank_math_description', true);
+        if (empty($template)) return '';
+        if (strpos($template, '%') === false) return $template;
+
+        if (function_exists('rank_math_replace_vars')) {
+            return rank_math_replace_vars($template, get_post($postId));
+        }
+
+        return $this->resolveSeoVariables($template, $postId);
+    }
+
+    /**
+     * Manual fallback: resolve common SEO template variables.
+     * Handles both Yoast (%%var%%) and RankMath (%var%) syntax.
+     */
+    private function resolveSeoVariables($template, $postId) {
+        $post = get_post($postId);
+        $sep = apply_filters('document_title_separator', '-');
+        $siteName = get_bloginfo('name');
+
+        $vars = [
+            // RankMath style (%var%)
+            '%title%'        => $post->post_title,
+            '%sep%'          => $sep,
+            '%sitename%'     => $siteName,
+            '%sitetitle%'    => $siteName,
+            '%excerpt%'      => get_the_excerpt($postId),
+            '%date%'         => get_the_date('', $postId),
+            '%author%'       => get_the_author_meta('display_name', $post->post_author),
+            '%category%'     => $this->getPrimaryCategory($postId),
+            '%currentyear%'  => date('Y'),
+            '%sitedesc%'     => get_bloginfo('description'),
+            // Yoast style (%%var%%)
+            '%%title%%'      => $post->post_title,
+            '%%sep%%'        => $sep,
+            '%%sitename%%'   => $siteName,
+            '%%sitedesc%%'   => get_bloginfo('description'),
+            '%%excerpt%%'    => get_the_excerpt($postId),
+            '%%date%%'       => get_the_date('', $postId),
+            '%%category%%'   => $this->getPrimaryCategory($postId),
+            '%%currentyear%%' => date('Y'),
+            '%%primary_category%%' => $this->getPrimaryCategory($postId),
+        ];
+
+        $result = str_replace(array_keys($vars), array_values($vars), $template);
+        // Clean up any remaining unresolved variables
+        $result = preg_replace('/%%[a-z_]+%%/', '', $result);
+        $result = preg_replace('/%[a-z_]+%/', '', $result);
+        return trim(preg_replace('/\s+/', ' ', $result));
+    }
+
+    /**
+     * Get primary category name for a post.
+     */
+    private function getPrimaryCategory($postId) {
+        // RankMath primary term
+        $primaryTermId = get_post_meta($postId, 'rank_math_primary_category', true);
+        if ($primaryTermId) {
+            $term = get_term($primaryTermId);
+            if ($term && !is_wp_error($term)) return $term->name;
+        }
+
+        // Yoast primary term
+        $yoastPrimary = get_post_meta($postId, '_yoast_wpseo_primary_category', true);
+        if ($yoastPrimary) {
+            $term = get_term($yoastPrimary);
+            if ($term && !is_wp_error($term)) return $term->name;
+        }
+
+        // First category
+        $cats = get_the_category($postId);
+        return !empty($cats) ? $cats[0]->name : '';
     }
 
     /**
