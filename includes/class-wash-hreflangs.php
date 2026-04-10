@@ -158,6 +158,89 @@ class WashHreflangs {
     }
 
     /**
+     * Get the "source" (canonical) post ID for a translation group.
+     * This is the post that should hold the Shopify article;
+     * all other translations register as locale variants.
+     *
+     * Primary language post is returned regardless of which post in the group is passed in.
+     *
+     * @param int $postId WordPress post ID
+     * @return array ['sourcePostId' => int, 'sourceLang' => string, 'currentLang' => string, 'isSource' => bool]
+     */
+    public function getTranslationGroupSource($postId) {
+        $activePlugin = $this->detectActivePlugin();
+
+        if ($activePlugin === 'polylang' && function_exists('pll_get_post_translations') && function_exists('pll_default_language')) {
+            $pllTranslations = pll_get_post_translations($postId);
+            if (!is_array($pllTranslations) || empty($pllTranslations)) {
+                return null;
+            }
+            $defaultLang = pll_default_language('slug');
+            $sourcePostId = $pllTranslations[$defaultLang] ?? null;
+            if (!$sourcePostId) {
+                // No default-lang version exists — use the lowest ID as source
+                $sourcePostId = min(array_values($pllTranslations));
+            }
+            $currentLang = function_exists('pll_get_post_language') ? pll_get_post_language($postId, 'slug') : null;
+            return [
+                'sourcePostId' => (int) $sourcePostId,
+                'sourceLang'   => $defaultLang,
+                'currentLang'  => $currentLang,
+                'isSource'     => (int) $sourcePostId === (int) $postId,
+            ];
+        }
+
+        if ($activePlugin === 'wpml' && function_exists('wpml_get_language_information')) {
+            $post = get_post($postId);
+            if (!$post) {
+                return null;
+            }
+            $elementType = 'post_' . $post->post_type;
+            $trid = apply_filters('wpml_element_trid', null, $postId, $elementType);
+            if (!$trid) {
+                return null;
+            }
+            $wpmlTranslations = apply_filters('wpml_get_element_translations', null, $trid, $elementType);
+            if (!is_array($wpmlTranslations) || empty($wpmlTranslations)) {
+                return null;
+            }
+
+            $defaultLang = apply_filters('wpml_default_language', null);
+            $sourcePostId = null;
+            foreach ($wpmlTranslations as $langCode => $t) {
+                if ($langCode === $defaultLang && !empty($t->element_id)) {
+                    $sourcePostId = (int) $t->element_id;
+                    break;
+                }
+            }
+            if (!$sourcePostId) {
+                // Use original_id or lowest element_id
+                foreach ($wpmlTranslations as $t) {
+                    if (!empty($t->original) && !empty($t->element_id)) {
+                        $sourcePostId = (int) $t->element_id;
+                        break;
+                    }
+                }
+            }
+            if (!$sourcePostId) {
+                return null;
+            }
+
+            $currentLangInfo = wpml_get_language_information(null, $postId);
+            $currentLang = $currentLangInfo['language_code'] ?? null;
+
+            return [
+                'sourcePostId' => $sourcePostId,
+                'sourceLang'   => $defaultLang,
+                'currentLang'  => $currentLang,
+                'isSource'     => $sourcePostId === (int) $postId,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
      * Detect which multilingual plugin is active.
      *
      * @return string|null Plugin identifier or null
@@ -193,6 +276,88 @@ class WashHreflangs {
 
         self::$activePlugin = false;
         return null;
+    }
+
+    /**
+     * Get list of available languages configured in the active translation plugin.
+     * @return array Array of ['code' => 'en', 'name' => 'English'] or empty if no plugin
+     */
+    public function getAvailableLanguages() {
+        $plugin = $this->detectActivePlugin();
+        if (!$plugin) {
+            return [];
+        }
+
+        switch ($plugin) {
+            case 'wpml':
+                return $this->getWpmlLanguages();
+            case 'polylang':
+                return $this->getPolylangLanguages();
+            case 'translatepress':
+                return $this->getTranslatePressLanguages();
+            case 'weglot':
+                return $this->getWeglotLanguages();
+            default:
+                return [];
+        }
+    }
+
+    private function getWpmlLanguages() {
+        $languages = apply_filters('wpml_active_languages', null, ['skip_missing' => 0]);
+        if (!is_array($languages)) {
+            return [];
+        }
+        $result = [];
+        foreach ($languages as $code => $lang) {
+            $result[] = ['code' => $code, 'name' => $lang['native_name'] ?? $lang['translated_name'] ?? $code];
+        }
+        return $result;
+    }
+
+    private function getPolylangLanguages() {
+        if (!function_exists('pll_languages_list')) {
+            return [];
+        }
+        $slugs = pll_languages_list(['fields' => 'slug']);
+        $names = pll_languages_list(['fields' => 'name']);
+        $result = [];
+        foreach ($slugs as $i => $slug) {
+            $result[] = ['code' => $slug, 'name' => $names[$i] ?? $slug];
+        }
+        return $result;
+    }
+
+    private function getTranslatePressLanguages() {
+        if (!class_exists('TRP_Translate_Press')) {
+            return [];
+        }
+        $trp = \TRP_Translate_Press::get_trp_instance();
+        $settings = $trp->get_component('settings');
+        $trpSettings = $settings->get_settings();
+        $result = [];
+        $allLangs = $trpSettings['translation-languages'] ?? [];
+        foreach ($allLangs as $lang) {
+            $code = strtolower(substr($lang, 0, 2));
+            $result[] = ['code' => $code, 'name' => $lang];
+        }
+        return $result;
+    }
+
+    private function getWeglotLanguages() {
+        if (!function_exists('weglot_get_destination_languages')) {
+            return [];
+        }
+        $result = [];
+        $original = weglot_get_original_language();
+        if ($original) {
+            $result[] = ['code' => $original, 'name' => $original];
+        }
+        $destinations = weglot_get_destination_languages();
+        foreach ($destinations as $lang) {
+            $code = is_object($lang) ? $lang->getIso639() : (string)$lang;
+            $result[] = ['code' => $code, 'name' => $code];
+        }
+        return $result;
     }
 
     /**

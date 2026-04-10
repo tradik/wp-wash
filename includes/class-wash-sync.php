@@ -106,11 +106,22 @@ class WashSync {
         }
 
         $endpoint = $this->resolveEndpoint($post->post_type);
-        $result = $this->apiClient->post($endpoint, [
+        $payload = [
             'action'   => 'delete',
             'wpPostId' => $postId,
             'wpSiteId' => $this->getCurrentSiteId(),
-        ]);
+            'language' => $this->getPostLanguage($postId),
+        ];
+
+        // Translation-aware delete: include group info so queue worker knows
+        // whether to delete whole article (source) or just remove locale variant
+        $hreflangs = new WashHreflangs();
+        $group = $hreflangs->getTranslationGroupSource($postId);
+        if ($group) {
+            $payload['translationGroup'] = $group;
+        }
+
+        $result = $this->apiClient->post($endpoint, $payload);
 
         $this->logSync($postId, 'delete', $result);
     }
@@ -127,11 +138,22 @@ class WashSync {
         if ($oldStatus === 'publish' && $newStatus !== 'publish') {
             error_log("[wash] onStatusTransition: {$oldStatus} → {$newStatus} for post {$post->ID}");
             $endpoint = $this->resolveEndpoint($post->post_type);
-            $result = $this->apiClient->post($endpoint, [
+
+            $payload = [
                 'action'   => 'delete',
                 'wpPostId' => $post->ID,
                 'wpSiteId' => $this->getCurrentSiteId(),
-            ]);
+                'language' => $this->getPostLanguage($post->ID),
+            ];
+
+            // Translation-aware delete: include group info
+            $hreflangs = new WashHreflangs();
+            $group = $hreflangs->getTranslationGroupSource($post->ID);
+            if ($group) {
+                $payload['translationGroup'] = $group;
+            }
+
+            $result = $this->apiClient->post($endpoint, $payload);
 
             // Clear local sync meta so republishing creates a fresh article
             $this->clearSyncMeta($post->ID);
@@ -349,6 +371,13 @@ class WashSync {
 
         // Add categories for rule-based blog mapping
         $data['categories'] = $this->getPostCategories($postId);
+
+        // Add translation group info so Shopify sync merges siblings into one article
+        $hreflangs = new WashHreflangs();
+        $group = $hreflangs->getTranslationGroupSource($postId);
+        if ($group) {
+            $data['translationGroup'] = $group;
+        }
 
         $thumbnailId = get_post_thumbnail_id($postId);
         if ($thumbnailId) {
@@ -733,7 +762,20 @@ class WashSync {
      * @return string Author name for Shopify article.
      */
     private function getMappedAuthorName($authorId) {
-        $defaultName = get_the_author_meta('display_name', $authorId);
+        // Resolve WP author with fallbacks (display_name → user_login → nicename → site name)
+        $defaultName = '';
+        if ($authorId) {
+            $defaultName = get_the_author_meta('display_name', $authorId);
+            if (empty($defaultName)) {
+                $defaultName = get_the_author_meta('user_login', $authorId);
+            }
+            if (empty($defaultName)) {
+                $defaultName = get_the_author_meta('user_nicename', $authorId);
+            }
+        }
+        if (empty($defaultName)) {
+            $defaultName = get_bloginfo('name');
+        }
 
         // Check if author mapping is enabled
         if (get_option('wash_authors_enabled', '0') !== '1') {
@@ -784,6 +826,11 @@ class WashSync {
         // WPML
         if (function_exists('wpml_get_language_information')) {
             $langInfo = wpml_get_language_information(null, $postId);
+            error_log("[wash] getPostLanguage($postId) WPML returned: " . wp_json_encode($langInfo));
+            if (!empty($langInfo['locale'])) {
+                // Use full locale (e.g., fr_CH → fr-ch) for region-specific matching
+                return strtolower(str_replace('_', '-', $langInfo['locale']));
+            }
             if (!empty($langInfo['language_code'])) {
                 return strtolower($langInfo['language_code']);
             }

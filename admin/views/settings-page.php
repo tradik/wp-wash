@@ -460,30 +460,50 @@ function wash_render_permission_locked_banner() {
                         <h3 id="wash-mapping-form-title"><?php esc_html_e('Add Mapping Rule', 'wash'); ?></h3>
                         <input type="hidden" id="wash-mapping-id" value="" />
 
+                        <?php
+                        $hreflangsHandler = new WashHreflangs();
+                        $translationPlugin = $hreflangsHandler->detectActivePlugin();
+                        $availableLanguages = $translationPlugin ? $hreflangsHandler->getAvailableLanguages() : [];
+                        $categories = get_categories(['hide_empty' => false, 'orderby' => 'name']);
+                        ?>
+                        <input type="hidden" id="wash-rule-type" value="default" />
                         <table class="form-table" role="presentation">
                             <tr>
                                 <th scope="row">
-                                    <label for="wash-rule-type"><?php esc_html_e('Rule Type', 'wash'); ?></label>
+                                    <label for="wash-rule-value-cat"><?php esc_html_e('Category', 'wash'); ?></label>
                                 </th>
                                 <td>
-                                    <select id="wash-rule-type" class="regular-text">
-                                        <option value="default"><?php esc_html_e('Default (catch-all)', 'wash'); ?></option>
-                                        <option value="language"><?php esc_html_e('By Language', 'wash'); ?></option>
-                                        <option value="category"><?php esc_html_e('By Category', 'wash'); ?></option>
+                                    <select id="wash-rule-value-cat" class="regular-text">
+                                        <option value=""><?php esc_html_e('All categories (catch-all)', 'wash'); ?></option>
+                                        <?php foreach ($categories as $cat) : ?>
+                                            <option value="<?php echo esc_attr($cat->slug); ?>">
+                                                <?php echo esc_html($cat->name . ' (' . $cat->slug . ')'); ?>
+                                            </option>
+                                        <?php endforeach; ?>
                                     </select>
+                                    <p class="description"><?php esc_html_e('Filter by WordPress category, or leave as catch-all.', 'wash'); ?></p>
                                 </td>
                             </tr>
-                            <tr id="wash-rule-value-row">
+                            <?php if ($translationPlugin) : ?>
+                            <tr>
                                 <th scope="row">
-                                    <label for="wash-rule-value"><?php esc_html_e('Value', 'wash'); ?></label>
+                                    <label for="wash-rule-value-lang"><?php esc_html_e('Language', 'wash'); ?></label>
                                 </th>
                                 <td>
-                                    <input type="text" id="wash-rule-value" class="regular-text" placeholder="en, de, pl..." />
-                                    <p class="description" id="wash-rule-value-help">
-                                        <?php esc_html_e('Language code (en, de, pl) or category slug', 'wash'); ?>
+                                    <select id="wash-rule-value-lang" class="regular-text">
+                                        <option value=""><?php esc_html_e('All languages', 'wash'); ?></option>
+                                        <?php foreach ($availableLanguages as $lang) : ?>
+                                            <option value="<?php echo esc_attr($lang['code']); ?>">
+                                                <?php echo esc_html($lang['name'] . ' (' . $lang['code'] . ')'); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <p class="description">
+                                        <?php printf(esc_html__('Detected plugin: %s', 'wash'), '<strong>' . esc_html($translationPlugin) . '</strong>'); ?>
                                     </p>
                                 </td>
                             </tr>
+                            <?php endif; ?>
                             <tr>
                                 <th scope="row">
                                     <label for="wash-shopify-blog"><?php esc_html_e('Target Shopify Blog & Translation', 'wash'); ?></label>
@@ -1924,27 +1944,39 @@ function wash_render_permission_locked_banner() {
         marketLocaleSelect.innerHTML = '<option value=""><?php echo esc_js(__('Default (primary market)', 'wash')); ?></option>';
 
         shopifyMarkets.forEach(function(market) {
-            if (market.webPresence && market.webPresence.defaultLocale) {
-                var optgroup = document.createElement('optgroup');
-                optgroup.label = '📍 ' + market.name;
+            var optgroup = document.createElement('optgroup');
+            optgroup.label = market.name + (market.primary ? ' (primary)' : '');
+            var hasOptions = false;
 
-                // Add default locale
+            if (market.webPresence && market.webPresence.defaultLocale) {
+                // Market with web presence — show all configured locales
                 var defaultLocale = market.webPresence.defaultLocale;
                 var opt = document.createElement('option');
                 opt.value = market.id + '|' + defaultLocale;
-                opt.textContent = defaultLocale + ' (default)';
+                opt.textContent = market.name + ' / ' + defaultLocale + ' (default)';
                 optgroup.appendChild(opt);
+                hasOptions = true;
 
-                // Add alternate locales
                 if (market.webPresence.alternateLocales) {
                     market.webPresence.alternateLocales.forEach(function(locale) {
                         var altOpt = document.createElement('option');
                         altOpt.value = market.id + '|' + locale;
-                        altOpt.textContent = locale;
+                        altOpt.textContent = market.name + ' / ' + locale;
                         optgroup.appendChild(altOpt);
                     });
                 }
+            } else {
+                // Market without web presence — derive locale from first region code
+                var regionCode = (market.regions && market.regions[0]) ? market.regions[0].code : null;
+                var locale = regionCode ? regionCode.toLowerCase() : 'en';
+                var opt = document.createElement('option');
+                opt.value = market.id + '|' + locale;
+                opt.textContent = market.name + ' / ' + locale;
+                optgroup.appendChild(opt);
+                hasOptions = true;
+            }
 
+            if (hasOptions) {
                 marketLocaleSelect.appendChild(optgroup);
             }
         });
@@ -2025,11 +2057,37 @@ function wash_render_permission_locked_banner() {
 
     }
 
-    // Show/hide rule value based on type
-    if (ruleTypeSelect) {
-        ruleTypeSelect.addEventListener('change', function() {
-            ruleValueRow.style.display = this.value === 'default' ? 'none' : '';
-        });
+    var ruleValueLang = document.getElementById('wash-rule-value-lang');
+    var ruleValueCat = document.getElementById('wash-rule-value-cat');
+    var ruleTypeHidden = document.getElementById('wash-rule-type');
+
+    /**
+     * Derive ruleType and ruleValue from the two selectors.
+     * Both can be set = combined rule, or one = single filter, none = default.
+     */
+    function getRuleData() {
+        var lang = ruleValueLang ? ruleValueLang.value : '';
+        var cat = ruleValueCat ? ruleValueCat.value : '';
+        if (lang && cat) return { ruleType: 'language_category', ruleValue: lang + ':' + cat };
+        if (lang) return { ruleType: 'language', ruleValue: lang };
+        if (cat) return { ruleType: 'category', ruleValue: cat };
+        return { ruleType: 'default', ruleValue: '' };
+    }
+
+    /** Set selectors from saved mapping data */
+    function setRuleSelectors(ruleType, ruleValue) {
+        if (ruleValueLang) ruleValueLang.value = '';
+        if (ruleValueCat) ruleValueCat.value = '';
+        if (!ruleType || ruleType === 'default') return;
+        if (ruleType === 'language') {
+            if (ruleValueLang) ruleValueLang.value = ruleValue || '';
+        } else if (ruleType === 'category') {
+            if (ruleValueCat) ruleValueCat.value = ruleValue || '';
+        } else if (ruleType === 'language_category' && ruleValue) {
+            var parts = ruleValue.split(':');
+            if (ruleValueLang) ruleValueLang.value = parts[0] || '';
+            if (ruleValueCat) ruleValueCat.value = parts[1] || '';
+        }
     }
 
     // Show/hide new blog input
@@ -2044,12 +2102,10 @@ function wash_render_permission_locked_banner() {
         addMappingBtn.addEventListener('click', function() {
             document.getElementById('wash-mapping-id').value = '';
             document.getElementById('wash-mapping-form-title').textContent = '<?php echo esc_js(__('Add Mapping Rule', 'wash')); ?>';
-            ruleTypeSelect.value = 'default';
-            document.getElementById('wash-rule-value').value = '';
+            setRuleSelectors('default', '');
             shopifyBlogSelect.value = '';
             document.getElementById('wash-priority').value = '0';
             if (marketLocaleSelect) marketLocaleSelect.value = '';
-            ruleValueRow.style.display = 'none';
             newBlogRow.style.display = 'none';
             mappingForm.style.display = 'block';
         });
@@ -2080,8 +2136,8 @@ function wash_render_permission_locked_banner() {
                 action: mappingId ? 'wash_update_mapping' : 'wash_create_mapping',
                 nonce: '<?php echo wp_create_nonce('wash_mappings'); ?>',
                 mappingId: mappingId,
-                ruleType: ruleTypeSelect.value,
-                ruleValue: document.getElementById('wash-rule-value').value,
+                ruleType: getRuleData().ruleType,
+                ruleValue: getRuleData().ruleValue,
                 shopifyBlogId: shopifyBlogSelect.value,
                 newBlogName: document.getElementById('wash-new-blog-name').value,
                 priority: document.getElementById('wash-priority').value,
@@ -2127,15 +2183,28 @@ function wash_render_permission_locked_banner() {
 
         document.getElementById('wash-mapping-id').value = mapping.id;
         document.getElementById('wash-mapping-form-title').textContent = '<?php echo esc_js(__('Edit Mapping Rule', 'wash')); ?>';
-        ruleTypeSelect.value = mapping.ruleType;
-        document.getElementById('wash-rule-value').value = mapping.ruleValue || '';
+        setRuleSelectors(mapping.ruleType, mapping.ruleValue);
         shopifyBlogSelect.value = mapping.shopifyBlogId;
         document.getElementById('wash-priority').value = mapping.priority;
-        ruleValueRow.style.display = mapping.ruleType === 'default' ? 'none' : '';
         newBlogRow.style.display = 'none';
-        // Set market/locale value
-        if (marketLocaleSelect && mapping.marketId && mapping.shopifyLocale) {
-            marketLocaleSelect.value = mapping.marketId + '|' + mapping.shopifyLocale;
+        // Set market/locale — use exact marketId|locale if available, fallback to locale match
+        if (marketLocaleSelect && mapping.shopifyLocale) {
+            var exactMatch = mapping.shopifyMarketId
+                ? mapping.shopifyMarketId + '|' + mapping.shopifyLocale
+                : null;
+            if (exactMatch) {
+                marketLocaleSelect.value = exactMatch;
+            }
+            if (!exactMatch || !marketLocaleSelect.value) {
+                // Fallback: find first option matching locale
+                for (var i = 0; i < marketLocaleSelect.options.length; i++) {
+                    var optVal = marketLocaleSelect.options[i].value;
+                    if (optVal && optVal.split('|')[1] === mapping.shopifyLocale) {
+                        marketLocaleSelect.value = optVal;
+                        break;
+                    }
+                }
+            }
         } else if (marketLocaleSelect) {
             marketLocaleSelect.value = '';
         }
