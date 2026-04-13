@@ -2025,6 +2025,7 @@ function wash_render_permission_locked_banner() {
                 if (response.success) {
                     shopifyMarkets = response.data.markets || [];
                     updateMarketLocaleSelect();
+                    renderMappings();
                 }
             });
     }
@@ -2089,18 +2090,72 @@ function wash_render_permission_locked_banner() {
         return null;
     }
 
+    /**
+     * Find market data by ID from loaded shopifyMarkets.
+     */
+    function getMarketById(marketId) {
+        if (!marketId) return null;
+        for (var i = 0; i < shopifyMarkets.length; i++) {
+            if (String(shopifyMarkets[i].id) === String(marketId)) {
+                return shopifyMarkets[i];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Build the real Shopify destination URL from mapping data + markets config.
+     */
     function getUrlExample(m) {
-        var wpUrl, shopifyUrl;
+        var wpUrl;
         var handle = getBlogHandle(m.shopifyBlogId) || m.shopifyBlogHandle || 'news';
+        var market = getMarketById(m.shopifyMarketId);
+
+        // WP source URL
         if (m.ruleType === 'default') {
             wpUrl = wpPermalink;
         } else if (m.ruleType === 'language') {
             wpUrl = wpBase + m.ruleValue + '/' + wpPermalink.replace(wpBase, '');
         } else if (m.ruleType === 'category') {
             wpUrl = wpBase + wpCategoryBase + '/' + m.ruleValue + '/{slug}/';
+        } else if (m.ruleType === 'language_category') {
+            var parts = (m.ruleValue || '').split(':');
+            wpUrl = wpBase + (parts[0] || '') + '/' + wpCategoryBase + '/' + (parts[1] || '') + '/{slug}/';
         }
-        shopifyUrl = shopifyDomain + '/blogs/' + handle + '/{slug}';
-        return '<code style="color:#8b5a00;font-size:11px;">' + wpUrl + '</code>' +
+
+        // Shopify destination URL — use real market config if available
+        var shopifyBase = shopifyDomain;
+        var pathPrefix = '';
+
+        if (market && market.webPresence) {
+            var wp = market.webPresence;
+            // Use rootUrl for this locale if available
+            if (wp.rootUrls && m.shopifyLocale) {
+                for (var i = 0; i < wp.rootUrls.length; i++) {
+                    if (wp.rootUrls[i].locale === m.shopifyLocale) {
+                        var rootUrl = wp.rootUrls[i].url.replace(/\/$/, '');
+                        return '<code style="color:#8b5a00;font-size:11px;">' + (wpUrl || wpPermalink) + '</code>' +
+                            ' <span style="color:#2271b1;">→</span> ' +
+                            '<code style="color:#155724;font-size:11px;">' + rootUrl + '/blogs/' + handle + '/{slug}</code>';
+                    }
+                }
+            }
+            // Fallback: use subfolderSuffix
+            if (wp.subfolderSuffix) {
+                pathPrefix = '/' + wp.subfolderSuffix;
+            }
+            // Use market domain if different from default
+            if (wp.domainUrl) {
+                shopifyBase = wp.domainUrl.replace(/\/$/, '');
+            }
+        } else if (m.shopifyLocale) {
+            // No market data loaded yet — show locale as path prefix
+            pathPrefix = '/' + m.shopifyLocale;
+        }
+
+        var shopifyUrl = shopifyBase + pathPrefix + '/blogs/' + handle + '/{slug}';
+
+        return '<code style="color:#8b5a00;font-size:11px;">' + (wpUrl || wpPermalink) + '</code>' +
             ' <span style="color:#2271b1;">→</span> ' +
             '<code style="color:#155724;font-size:11px;">' + shopifyUrl + '</code>';
     }

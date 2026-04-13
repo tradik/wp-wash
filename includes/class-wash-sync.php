@@ -415,6 +415,21 @@ class WashSync {
             if ($acfFields) {
                 $data['acfFields'] = $acfFields;
             }
+        } elseif (get_option('wash_meta_acf', '0') === '1') {
+            // Fallback: read raw ACF post_meta when ACF plugin is deactivated
+            $allMeta = get_post_meta($postId);
+            $acfRaw = [];
+            foreach ($allMeta as $metaKey => $metaValues) {
+                if (isset($allMeta['_' . $metaKey][0]) && strpos($allMeta['_' . $metaKey][0], 'field_') === 0) {
+                    $value = maybe_unserialize($metaValues[0] ?? '');
+                    if ($value !== '' && $value !== null) {
+                        $acfRaw[$metaKey] = $value;
+                    }
+                }
+            }
+            if (!empty($acfRaw)) {
+                $data['acfFields'] = $acfRaw;
+            }
         }
 
         $data['customFields'] = $this->getCustomFields($postId);
@@ -950,7 +965,7 @@ class WashSync {
      * Get SEO metadata from Yoast, RankMath, or post meta.
      */
     private function getSeoData($postId) {
-        $seo = ['metaTitle' => '', 'metaDescription' => ''];
+        $seo = ['metaTitle' => '', 'metaDescription' => '', 'focusKeyword' => ''];
 
         // Try Yoast rendered output first (resolves %%title%% variables)
         if (defined('WPSEO_VERSION') && class_exists('WPSEO_Meta')) {
@@ -958,6 +973,8 @@ class WashSync {
             $yoastDesc = $this->getYoastRenderedDesc($postId);
             if ($yoastTitle) $seo['metaTitle'] = $yoastTitle;
             if ($yoastDesc) $seo['metaDescription'] = $yoastDesc;
+            $focusKw = get_post_meta($postId, '_yoast_wpseo_focuskw', true);
+            if ($focusKw) $seo['focusKeyword'] = $focusKw;
         }
 
         // Try RankMath rendered output (resolves %title% %sep% variables)
@@ -966,6 +983,10 @@ class WashSync {
             $rankDesc = $this->getRankMathRenderedDesc($postId);
             if ($rankTitle && empty($seo['metaTitle'])) $seo['metaTitle'] = $rankTitle;
             if ($rankDesc && empty($seo['metaDescription'])) $seo['metaDescription'] = $rankDesc;
+            if (empty($seo['focusKeyword'])) {
+                $rankKw = get_post_meta($postId, 'rank_math_focus_keyword', true);
+                if ($rankKw) $seo['focusKeyword'] = $rankKw;
+            }
         }
 
         // Fallback: use post title
