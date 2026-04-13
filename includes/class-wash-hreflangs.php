@@ -413,7 +413,7 @@ class WashHreflangs {
                 'element_type' => $elementType,
             ]);
 
-            $locale = $langDetails['locale'] ?? $langCode;
+            $locale = is_object($langDetails) ? ($langDetails->locale ?? $langCode) : ($langDetails['locale'] ?? $langCode);
 
             // Get Shopify URL for this translation
             $shopifyUrl = $this->getShopifyUrlForPost($translatedPostId);
@@ -695,7 +695,7 @@ class WashHreflangs {
             $defaultLang = apply_filters('wpml_default_language', null);
             if ($defaultLang) {
                 $langDetails = apply_filters('wpml_language_details', null, $defaultLang);
-                return $langDetails['locale'] ?? $defaultLang;
+                return is_object($langDetails) ? ($langDetails->locale ?? $defaultLang) : ($langDetails['locale'] ?? $defaultLang);
             }
         }
         return get_locale();
