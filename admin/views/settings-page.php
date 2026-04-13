@@ -1991,6 +1991,7 @@ function wash_render_permission_locked_banner() {
                 if (response.success) {
                     shopifyBlogs = response.data.blogs || [];
                     updateBlogSelect();
+                    renderMappings();
                 }
             });
     }
