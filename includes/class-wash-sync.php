@@ -981,19 +981,9 @@ class WashSync {
         $sep = apply_filters('document_title_separator', '-');
         $siteName = get_bloginfo('name');
 
-        $vars = [
-            // RankMath style (%var%)
-            '%title%'        => $post->post_title,
-            '%sep%'          => $sep,
-            '%sitename%'     => $siteName,
-            '%sitetitle%'    => $siteName,
-            '%excerpt%'      => get_the_excerpt($postId),
-            '%date%'         => get_the_date('', $postId),
-            '%author%'       => get_the_author_meta('display_name', $post->post_author),
-            '%category%'     => $this->getPrimaryCategory($postId),
-            '%currentyear%'  => date('Y'),
-            '%sitedesc%'     => get_bloginfo('description'),
-            // Yoast style (%%var%%)
+        // Yoast style (%%var%%) — must be replaced BEFORE RankMath (%var%)
+        // to prevent %title% matching inside %%title%%
+        $yoastVars = [
             '%%title%%'      => $post->post_title,
             '%%sep%%'        => $sep,
             '%%sitename%%'   => $siteName,
@@ -1005,7 +995,22 @@ class WashSync {
             '%%primary_category%%' => $this->getPrimaryCategory($postId),
         ];
 
-        $result = str_replace(array_keys($vars), array_values($vars), $template);
+        // RankMath style (%var%)
+        $rankVars = [
+            '%title%'        => $post->post_title,
+            '%sep%'          => $sep,
+            '%sitename%'     => $siteName,
+            '%sitetitle%'    => $siteName,
+            '%excerpt%'      => get_the_excerpt($postId),
+            '%date%'         => get_the_date('', $postId),
+            '%author%'       => get_the_author_meta('display_name', $post->post_author),
+            '%category%'     => $this->getPrimaryCategory($postId),
+            '%currentyear%'  => date('Y'),
+            '%sitedesc%'     => get_bloginfo('description'),
+        ];
+
+        $result = str_replace(array_keys($yoastVars), array_values($yoastVars), $template);
+        $result = str_replace(array_keys($rankVars), array_values($rankVars), $result);
         // Clean up any remaining unresolved variables
         $result = preg_replace('/%%[a-z_]+%%/', '', $result);
         $result = preg_replace('/%[a-z_]+%/', '', $result);

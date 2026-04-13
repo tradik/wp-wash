@@ -1,0 +1,8 @@
+{
+    "redefinable-internals": [
+        "error_log",
+        "header",
+        "time",
+        "date"
+    ]
+}

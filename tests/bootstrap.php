@@ -1,0 +1,34 @@
+<?php
+/**
+ * PHPUnit bootstrap for Wash plugin tests.
+ * Uses Brain\Monkey to mock WordPress functions without loading WordPress.
+ */
+
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+
+// Define WordPress constants needed by plugin code
+if (!defined('ABSPATH')) {
+    define('ABSPATH', '/tmp/fake-wp/');
+}
+if (!defined('WASH_VERSION')) {
+    define('WASH_VERSION', '1.15.1');
+}
+if (!defined('WASH_PLUGIN_DIR')) {
+    define('WASH_PLUGIN_DIR', dirname(__DIR__) . '/');
+}
+if (!defined('WASH_PLUGIN_BASENAME')) {
+    define('WASH_PLUGIN_BASENAME', 'wash/wash.php');
+}
+
+// Stub WordPress functions that are used at file include time
+// Brain\Monkey handles most, but some need to exist before class files are loaded
+if (!function_exists('plugin_dir_path')) {
+    function plugin_dir_path($file) {
+        return dirname($file) . '/';
+    }
+}
+if (!function_exists('plugin_basename')) {
+    function plugin_basename($file) {
+        return basename(dirname($file)) . '/' . basename($file);
+    }
+}
