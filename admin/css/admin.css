@@ -424,3 +424,43 @@ td.column-wash_sync span {
   pointer-events: none;
   opacity: 0.6;
 }
+
+/* Search & Replace table */
+.wash-sr-table {
+  border-collapse: collapse;
+}
+
+.wash-sr-table thead th {
+  background: #f6f7f7;
+  font-weight: 600;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.wash-sr-table tbody td {
+  padding: 8px 12px;
+  vertical-align: top;
+}
+
+.wash-sr-table .wash-sr-num {
+  color: #999;
+  font-weight: 600;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.wash-sr-table textarea {
+  width: 100%;
+  font-family: monospace;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 40px;
+}
+
+.wash-sr-table .wash-sr-remove {
+  padding: 4px 8px;
+}
+
+.wash-sr-row:hover {
+  background: #f9f9f9;
+}

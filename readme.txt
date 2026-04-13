@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.15.2
+Stable tag: 1.15.3
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -23,6 +23,7 @@ Edit content in WordPress and have it automatically published to your Shopify st
 * Hreflang sync for multilingual sites (WPML, Polylang, TranslatePress, Weglot)
 * WP Multisite → multiple Shopify blogs
 * Yoast SEO and RankMath integration
+* Search & Replace rules for content transformation before sync (Business plan)
 * HMAC-signed API communication
 * Rate limit handling with exponential backoff
 
@@ -45,6 +46,10 @@ Yes. The companion Shopify app (included in this monorepo) must be deployed and 
 Yes. Each site in the network maps to a separate Shopify blog.
 
 == Changelog ==
+
+= 1.15.3 =
+* Added Search & Replace tab — define text replacement rules applied to content before syncing to Shopify (Business plan)
+* Useful for converting shortcodes, rewriting URLs, removing unwanted HTML attributes
 
 = 1.12.13 =
 * Updated POT translation template with all new strings

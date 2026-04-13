@@ -43,6 +43,9 @@ class WashAdmin {
         add_action('wp_ajax_wash_sync_redirections', [$this, 'ajaxSyncRedirections']);
         add_action('wp_ajax_wash_fetch_wp_redirections', [$this, 'ajaxFetchWpRedirections']);
         add_action('wp_ajax_wash_save_redirections_settings', [$this, 'ajaxSaveRedirectionsSettings']);
+        // Search & Replace AJAX handlers
+        add_action('wp_ajax_wash_get_search_replace_rules', [$this, 'ajaxGetSearchReplaceRules']);
+        add_action('wp_ajax_wash_save_search_replace_rules', [$this, 'ajaxSaveSearchReplaceRules']);
         // Preserve tab after settings save
         add_filter('wp_redirect', [$this, 'preserveTabAfterSave']);
         // Shopify preview link in post editor
@@ -97,6 +100,7 @@ class WashAdmin {
         add_action('update_option_wash_blocks_enabled', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_sync_blocks_meta', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_sync_blocks_css', [$this, 'scheduleSettingsBackup']);
+        add_action('update_option_wash_search_replace_rules', [$this, 'scheduleSettingsBackup']);
 
         // Run the actual backup after all settings are updated (at shutdown)
         add_action('shutdown', [$this, 'runScheduledSettingsBackup']);
@@ -502,8 +506,22 @@ class WashAdmin {
                 'confirmSyncFromShopify' => __('This will overwrite your local settings with settings from Shopify App. Continue?', 'wash'),
                 'syncFromShopifySuccess' => __('Settings synced from Shopify App successfully.', 'wash'),
                 'failedSyncFromShopify' => __('Failed to sync settings: ', 'wash'),
+                // Search & Replace
+                'srSaving'              => __('Saving...', 'wash'),
+                'srSaved'               => __('Rules saved.', 'wash'),
+                'srSaveFailed'          => __('Failed to save rules: ', 'wash'),
+                'srNoRules'             => __('No rules defined yet. Click "Add Rule" to create one.', 'wash'),
+                'srRemoveConfirm'       => __('Remove this rule?', 'wash'),
             ],
         ]);
+
+        wp_enqueue_script(
+            'wash-search-replace',
+            $pluginUrl . 'admin/js/search-replace.js',
+            ['jquery', 'wash-admin'],
+            WASH_VERSION . '.' . filemtime(WASH_PLUGIN_DIR . 'admin/js/search-replace.js'),
+            true
+        );
     }
 
     /**
@@ -1114,6 +1132,62 @@ class WashAdmin {
         wp_send_json_success([
             'message' => __('Settings saved', 'wash'),
             'enabled' => $enabled,
+        ]);
+    }
+
+    /**
+     * AJAX handler: get search & replace rules.
+     */
+    public function ajaxGetSearchReplaceRules() {
+        check_ajax_referer('wash_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $rules = get_option('wash_search_replace_rules', []);
+        if (!is_array($rules)) {
+            $rules = [];
+        }
+
+        wp_send_json_success(['rules' => $rules]);
+    }
+
+    /**
+     * AJAX handler: save search & replace rules.
+     */
+    public function ajaxSaveSearchReplaceRules() {
+        check_ajax_referer('wash_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $rawRules = isset($_POST['rules']) ? $_POST['rules'] : [];
+        if (!is_array($rawRules)) {
+            $rawRules = [];
+        }
+
+        $sanitized = [];
+        foreach ($rawRules as $rule) {
+            $search = isset($rule['search']) ? wp_kses_post($rule['search']) : '';
+            $replace = isset($rule['replace']) ? wp_kses_post($rule['replace']) : '';
+
+            if ($search === '') {
+                continue;
+            }
+
+            $sanitized[] = [
+                'search'  => $search,
+                'replace' => $replace,
+            ];
+        }
+
+        update_option('wash_search_replace_rules', $sanitized);
+
+        wp_send_json_success([
+            'message' => __('Rules saved', 'wash'),
+            'rules'   => $sanitized,
         ]);
     }
 

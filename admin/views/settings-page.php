@@ -72,6 +72,7 @@ $tabPermissions = [
     'files' => 'canEditFiles',
     'content' => 'canEditContent',
     'redirections' => 'canEditRedirections',
+    'searchreplace' => 'canEditSearchReplace',
     'advanced' => 'canEditAdvanced',
 ];
 
@@ -120,6 +121,7 @@ $tabFeatures = [
     'hreflangs' => 'hreflang',
     'metafields' => 'metafields',
     'authors' => 'authorMapping',
+    'searchreplace' => 'searchReplace',
 ];
 
 // Required plans for locked features
@@ -131,6 +133,7 @@ $featurePlans = [
     'authorMapping' => 'PRO',
     'acfSync' => 'BUSINESS',
     'seoSync' => 'PRO',
+    'searchReplace' => 'BUSINESS',
 ];
 
 /**
@@ -358,6 +361,7 @@ function wash_render_permission_locked_banner() {
         <?php wash_render_tab('authors', __('Authors', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
         <?php wash_render_tab('files', __('Files & Media', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
         <?php wash_render_tab('content', __('Content Processing', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
+        <?php wash_render_tab('searchreplace', __('Search & Replace', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
         <?php wash_render_tab('sync', __('Sync Settings', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
         <?php wash_render_tab('advanced', __('Advanced', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
     </nav>
@@ -1578,6 +1582,87 @@ function wash_render_permission_locked_banner() {
             </div>
         </div>
 
+        <!-- Search & Replace Tab -->
+        <?php $searchReplaceTabAttrs = wash_get_tab_content_class('searchreplace', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
+        <div class="<?php echo esc_attr($searchReplaceTabAttrs['class']); ?>" id="tab-searchreplace" style="display: none;" data-locked="<?php echo $searchReplaceTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($searchReplaceTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($searchReplaceTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($searchReplaceTabAttrs['isPermissionLocked'])) : ?>
+                <?php wash_render_permission_locked_banner(); ?>
+            <?php elseif (!empty($searchReplaceTabAttrs['isPlanLocked'])) : ?>
+                <?php wash_render_locked_banner($searchReplaceTabAttrs['requiredPlan'], $searchReplaceTabAttrs['upgradeUrl']); ?>
+            <?php endif; ?>
+            <h2 class="title"><?php esc_html_e('Search & Replace Rules', 'wash'); ?></h2>
+            <p class="description">
+                <?php esc_html_e('Define text replacements applied to post content before syncing to Shopify. Useful for converting shortcodes, rewriting links, or replacing any text patterns.', 'wash'); ?>
+            </p>
+
+            <div id="wash-search-replace-rules" style="margin-top: 20px;">
+                <table class="widefat wash-sr-table" id="wash-sr-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%;">#</th>
+                            <th style="width: 40%;"><?php esc_html_e('Search (find this)', 'wash'); ?></th>
+                            <th style="width: 5%; text-align: center;">→</th>
+                            <th style="width: 40%;"><?php esc_html_e('Replace (with this)', 'wash'); ?></th>
+                            <th style="width: 10%; text-align: center;"><?php esc_html_e('Actions', 'wash'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody id="wash-sr-tbody">
+                        <!-- Rules loaded via JavaScript -->
+                        <tr id="wash-sr-loading">
+                            <td colspan="5" style="text-align: center; padding: 20px; color: #666;">
+                                <?php esc_html_e('Loading rules...', 'wash'); ?>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
+                    <button type="button" id="wash-sr-add-rule" class="button button-secondary">
+                        <span class="dashicons dashicons-plus-alt2" style="vertical-align: text-bottom;"></span>
+                        <?php esc_html_e('Add Rule', 'wash'); ?>
+                    </button>
+                    <button type="button" id="wash-sr-save-rules" class="button button-primary">
+                        <span class="dashicons dashicons-saved" style="vertical-align: text-bottom;"></span>
+                        <?php esc_html_e('Save Rules', 'wash'); ?>
+                    </button>
+                    <span id="wash-sr-save-status" style="margin-left: 10px;"></span>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: flex-start; gap: 20px; margin-top: 30px; flex-wrap: wrap;">
+                <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 15px; max-width: 600px; flex: 1;">
+                    <strong><?php esc_html_e('Examples:', 'wash'); ?></strong><br />
+                    <div style="margin-top: 8px;">
+                        <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">[[shortcode id=1]]</code>
+                        → <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">&lt;div class="embed"&gt;...&lt;/div&gt;</code>
+                        <br /><span style="color: #666; font-size: 12px;"><?php esc_html_e('Replace shortcodes with HTML blocks', 'wash'); ?></span>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">https://old-domain.com</code>
+                        → <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">https://new-domain.com</code>
+                        <br /><span style="color: #666; font-size: 12px;"><?php esc_html_e('Rewrite domain URLs', 'wash'); ?></span>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">target="_blank"</code>
+                        → <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;"></code>
+                        <br /><span style="color: #666; font-size: 12px;"><?php esc_html_e('Remove text by replacing with empty string', 'wash'); ?></span>
+                    </div>
+                </div>
+                <div style="background: #fff8e6; border: 1px solid #ffc96b; border-radius: 4px; padding: 15px; max-width: 400px; flex: 1;">
+                    <strong style="color: #856404;">
+                        <span class="dashicons dashicons-warning" style="font-size: 16px; vertical-align: text-bottom;"></span>
+                        <?php esc_html_e('Important:', 'wash'); ?>
+                    </strong>
+                    <ul style="margin: 8px 0 0; padding-left: 18px; color: #856404; font-size: 13px;">
+                        <li><?php esc_html_e('Rules are applied in order, top to bottom.', 'wash'); ?></li>
+                        <li><?php esc_html_e('Search is case-sensitive and uses exact text matching.', 'wash'); ?></li>
+                        <li><?php esc_html_e('Replacements are applied to the final HTML content before sending to Shopify.', 'wash'); ?></li>
+                        <li><?php esc_html_e('Test your rules carefully — incorrect replacements can break content.', 'wash'); ?></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- Advanced Tab -->
         <?php $advancedTabAttrs = wash_get_tab_content_class('advanced', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
         <div class="<?php echo esc_attr($advancedTabAttrs['class']); ?>" id="tab-advanced" style="display: none;">
@@ -1741,7 +1826,7 @@ function wash_render_permission_locked_banner() {
     function updateSubmitVisibility(tabId) {
         if (!submitWrapper) return;
         // Hide submit on tabs that use AJAX (Connection, Blogs, Redirections)
-        var ajaxTabs = ['connection', 'blogs', 'redirections'];
+        var ajaxTabs = ['connection', 'blogs', 'redirections', 'searchreplace'];
         if (ajaxTabs.indexOf(tabId) !== -1) {
             submitWrapper.style.display = 'none';
         } else {
@@ -1989,19 +2074,26 @@ function wash_render_permission_locked_banner() {
     var wpCategoryBase = '<?php echo esc_js($categoryBase); ?>';
     var shopifyDomain = 'https://<?php echo esc_js($shopifyStore ?: '{store}'); ?>.myshopify.com';
 
+    function getBlogHandle(blogId) {
+        for (var i = 0; i < shopifyBlogs.length; i++) {
+            if (String(shopifyBlogs[i].id) === String(blogId)) {
+                return shopifyBlogs[i].handle;
+            }
+        }
+        return null;
+    }
+
     function getUrlExample(m) {
         var wpUrl, shopifyUrl;
+        var handle = getBlogHandle(m.shopifyBlogId) || m.shopifyBlogHandle || 'news';
         if (m.ruleType === 'default') {
             wpUrl = wpPermalink;
-            shopifyUrl = shopifyDomain + '/blogs/' + (m.shopifyBlogHandle || 'news') + '/{slug}';
         } else if (m.ruleType === 'language') {
-            // For language rules, prefix with language code
             wpUrl = wpBase + m.ruleValue + '/' + wpPermalink.replace(wpBase, '');
-            shopifyUrl = shopifyDomain + '/blogs/' + (m.shopifyBlogHandle || 'blog-' + m.ruleValue) + '/{slug}';
         } else if (m.ruleType === 'category') {
             wpUrl = wpBase + wpCategoryBase + '/' + m.ruleValue + '/{slug}/';
-            shopifyUrl = shopifyDomain + '/blogs/' + (m.shopifyBlogHandle || m.ruleValue) + '/{slug}';
         }
+        shopifyUrl = shopifyDomain + '/blogs/' + handle + '/{slug}';
         return '<code style="color:#8b5a00;font-size:11px;">' + wpUrl + '</code>' +
             ' <span style="color:#2271b1;">→</span> ' +
             '<code style="color:#155724;font-size:11px;">' + shopifyUrl + '</code>';
@@ -2032,7 +2124,7 @@ function wash_render_permission_locked_banner() {
                     '<span style="' + badgeClass + 'color:#fff;padding:2px 8px;border-radius:3px;font-size:12px;">' + ruleLabel + '</span>' +
                     '<div style="margin-top:6px;padding:4px 6px;background:#f8f9fa;border-radius:3px;border:1px solid #e9ecef;">' + urlExample + '</div>' +
                 '</td>' +
-                '<td>' + (m.shopifyBlogHandle || m.shopifyBlogId) + '</td>' +
+                '<td>' + (getBlogHandle(m.shopifyBlogId) || m.shopifyBlogHandle || m.shopifyBlogId) + '</td>' +
                 '<td>' + m.priority + '</td>' +
                 '<td>' +
                 '<button type="button" class="button button-small wash-edit-mapping" data-id="' + m.id + '"><?php echo esc_js(__('Edit', 'wash')); ?></button> ' +

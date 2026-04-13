@@ -343,6 +343,9 @@ class WashSync {
             $content = $this->rewriteInternalUrls($content);
         }
 
+        // Apply search & replace rules (Business plan feature)
+        $content = $this->applySearchReplaceRules($content);
+
         // Build blocks metafields if enabled
         $blocksMetafields = [];
         if (!empty($blocksMeta) && get_option('wash_sync_blocks_meta', '1') === '1') {
@@ -627,6 +630,44 @@ class WashSync {
         );
 
         return $rewrittenContent;
+    }
+
+    /**
+     * Apply user-defined search & replace rules to content.
+     * Rules are stored as wash_search_replace_rules option (array of {search, replace}).
+     * Applied in order, using exact string matching (str_replace).
+     *
+     * @param string $content Post content HTML.
+     * @return string Content with replacements applied.
+     */
+    private function applySearchReplaceRules($content) {
+        $rules = get_option('wash_search_replace_rules', []);
+        if (!is_array($rules) || empty($rules)) {
+            return $content;
+        }
+
+        $count = 0;
+        foreach ($rules as $rule) {
+            $search = $rule['search'] ?? '';
+            $replace = $rule['replace'] ?? '';
+
+            if ($search === '') {
+                continue;
+            }
+
+            $before = $content;
+            $content = str_replace($search, $replace, $content);
+            if ($content !== $before) {
+                $count++;
+                error_log("[wash] applySearchReplaceRules() - Applied rule: " . mb_substr($search, 0, 50) . " -> " . mb_substr($replace, 0, 50));
+            }
+        }
+
+        if ($count > 0) {
+            error_log("[wash] applySearchReplaceRules() - Applied {$count} rule(s)");
+        }
+
+        return $content;
     }
 
     /**
