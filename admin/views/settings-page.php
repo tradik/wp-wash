@@ -45,6 +45,11 @@ if ($isConnected) {
         $planName = $planInfo['plan'] ?? 'FREE';
     }
 
+    // Local feature overrides for features not yet returned by API
+    if (in_array($planName, ['BUSINESS', 'ENTERPRISE'], true)) {
+        $features['searchReplace'] = true;
+    }
+
     // Fetch permissions from Shopify App
     $permissions = $apiClient->getPermissions();
     if (is_wp_error($permissions)) {
