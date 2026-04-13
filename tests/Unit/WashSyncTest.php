@@ -194,4 +194,121 @@ class WashSyncTest extends TestCase
         $result = $this->invokePrivate('getPrimaryCategory', [1]);
         $this->assertSame('', $result);
     }
+
+    // ---------------------------------------------------------------
+    // getPostTagsWithCategories
+    // ---------------------------------------------------------------
+
+    public function testGetPostTagsWithCategoriesMergesTagsAndCategories(): void
+    {
+        $tag = (object) ['name' => 'Tech', 'term_id' => 1];
+        Functions\when('get_the_tags')->justReturn([$tag]);
+        $cat = (object) ['name' => 'News', 'slug' => 'news', 'term_id' => 2];
+        Functions\when('get_the_category')->justReturn([$cat]);
+
+        $result = $this->invokePrivate('getPostTagsWithCategories', [1]);
+        $this->assertSame(['Tech', 'News'], $result);
+    }
+
+    public function testGetPostTagsWithCategoriesDeduplicates(): void
+    {
+        $tag = (object) ['name' => 'News', 'term_id' => 1];
+        Functions\when('get_the_tags')->justReturn([$tag]);
+        $cat = (object) ['name' => 'News', 'slug' => 'news', 'term_id' => 2];
+        Functions\when('get_the_category')->justReturn([$cat]);
+
+        $result = $this->invokePrivate('getPostTagsWithCategories', [1]);
+        $this->assertSame(['News'], $result);
+    }
+
+    public function testGetPostTagsWithCategoriesFiltersUncategorized(): void
+    {
+        Functions\when('get_the_tags')->justReturn(false);
+        $uncat = (object) ['name' => 'Uncategorized', 'slug' => 'uncategorized', 'term_id' => 1];
+        $cat = (object) ['name' => 'Blog', 'slug' => 'blog', 'term_id' => 2];
+        Functions\when('get_the_category')->justReturn([$uncat, $cat]);
+
+        $result = $this->invokePrivate('getPostTagsWithCategories', [1]);
+        $this->assertSame(['Blog'], $result);
+    }
+
+    public function testGetPostTagsWithCategoriesReturnsEmptyWhenNone(): void
+    {
+        Functions\when('get_the_tags')->justReturn(false);
+        Functions\when('get_the_category')->justReturn(false);
+
+        $result = $this->invokePrivate('getPostTagsWithCategories', [1]);
+        $this->assertSame([], $result);
+    }
+
+    public function testGetPostTagsWithCategoriesOnlyTags(): void
+    {
+        $tag1 = (object) ['name' => 'PHP', 'term_id' => 1];
+        $tag2 = (object) ['name' => 'Go', 'term_id' => 2];
+        Functions\when('get_the_tags')->justReturn([$tag1, $tag2]);
+        Functions\when('get_the_category')->justReturn([]);
+
+        $result = $this->invokePrivate('getPostTagsWithCategories', [1]);
+        $this->assertSame(['PHP', 'Go'], $result);
+    }
+
+    // ---------------------------------------------------------------
+    // stripDuplicateTitle
+    // ---------------------------------------------------------------
+
+    public function testStripDuplicateTitleRemovesMatchingH1(): void
+    {
+        $content = '<h1>My Post Title</h1><p>Body text here.</p>';
+        $result = $this->invokePrivate('stripDuplicateTitle', [$content, 'My Post Title']);
+        $this->assertSame('<p>Body text here.</p>', $result);
+    }
+
+    public function testStripDuplicateTitleRemovesH1WithAttributes(): void
+    {
+        $content = '<h1 class="entry-title" id="main">My Post Title</h1><p>Body.</p>';
+        $result = $this->invokePrivate('stripDuplicateTitle', [$content, 'My Post Title']);
+        $this->assertSame('<p>Body.</p>', $result);
+    }
+
+    public function testStripDuplicateTitleIgnoresNonMatchingH1(): void
+    {
+        $content = '<h1>Different Heading</h1><p>Body.</p>';
+        $result = $this->invokePrivate('stripDuplicateTitle', [$content, 'My Post Title']);
+        $this->assertSame($content, $result);
+    }
+
+    public function testStripDuplicateTitleIgnoresH2(): void
+    {
+        $content = '<h2>My Post Title</h2><p>Body.</p>';
+        $result = $this->invokePrivate('stripDuplicateTitle', [$content, 'My Post Title']);
+        $this->assertSame($content, $result);
+    }
+
+    public function testStripDuplicateTitleIgnoresContentWithoutLeadingH1(): void
+    {
+        $content = '<p>Intro.</p><h1>My Post Title</h1><p>Body.</p>';
+        $result = $this->invokePrivate('stripDuplicateTitle', [$content, 'My Post Title']);
+        $this->assertSame($content, $result);
+    }
+
+    public function testStripDuplicateTitleHandlesLeadingWhitespace(): void
+    {
+        $content = "\n  <h1>My Post Title</h1>\n<p>Body.</p>";
+        $result = $this->invokePrivate('stripDuplicateTitle', [$content, 'My Post Title']);
+        $this->assertSame('<p>Body.</p>', $result);
+    }
+
+    public function testStripDuplicateTitleIsCaseInsensitive(): void
+    {
+        $content = '<H1>My Post Title</H1><p>Body.</p>';
+        $result = $this->invokePrivate('stripDuplicateTitle', [$content, 'My Post Title']);
+        $this->assertSame('<p>Body.</p>', $result);
+    }
+
+    public function testStripDuplicateTitleOnlyRemovesFirstOccurrence(): void
+    {
+        $content = '<h1>My Post Title</h1><h1>My Post Title</h1><p>Body.</p>';
+        $result = $this->invokePrivate('stripDuplicateTitle', [$content, 'My Post Title']);
+        $this->assertSame('<h1>My Post Title</h1><p>Body.</p>', $result);
+    }
 }

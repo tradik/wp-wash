@@ -20,6 +20,38 @@ if (!defined('WASH_PLUGIN_BASENAME')) {
     define('WASH_PLUGIN_BASENAME', 'wash/wash.php');
 }
 
+// Stub WordPress REST API classes used by WashCallback tests
+if (!class_exists('WP_REST_Request')) {
+    class WP_REST_Request
+    {
+        private array $params;
+
+        public function __construct(array $params = [])
+        {
+            $this->params = $params;
+        }
+
+        public function get_json_params(): array
+        {
+            return $this->params;
+        }
+    }
+}
+
+if (!class_exists('WP_REST_Response')) {
+    class WP_REST_Response
+    {
+        public $data;
+        public $status;
+
+        public function __construct($data = null, int $status = 200)
+        {
+            $this->data = $data;
+            $this->status = $status;
+        }
+    }
+}
+
 // Stub WordPress functions that are used at file include time
 // Brain\Monkey handles most, but some need to exist before class files are loaded
 if (!function_exists('plugin_dir_path')) {

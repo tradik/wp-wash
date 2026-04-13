@@ -328,6 +328,13 @@ class WashCallback {
         $shopifyBlogId = $body['shopifyBlogId'] ?? null;
         $shopifyBlogHandle = $body['shopifyBlogHandle'] ?? null;
         $shopifyHandle = $body['shopifyHandle'] ?? null;
+        $translationGroup = $body['translationGroup'] ?? null;
+
+        // Fallback: detect translation group server-side if not in callback payload
+        if (!$translationGroup && $wpPostId) {
+            $hreflangs = new WashHreflangs();
+            $translationGroup = $hreflangs->getTranslationGroupSource($wpPostId);
+        }
 
         if (empty($wpPostId)) {
             return new WP_REST_Response([
@@ -393,7 +400,9 @@ class WashCallback {
             }
 
             // Sync metafields (ACF, custom fields, SEO) to Shopify
-            if ($shopifyId && get_option('wash_sync_metafields') === '1') {
+            // Skip for non-source translations — they share the source article's metafields
+            $isNonSourceTranslation = $translationGroup && isset($translationGroup['isSource']) && !$translationGroup['isSource'];
+            if ($shopifyId && get_option('wash_sync_metafields') === '1' && !$isNonSourceTranslation) {
                 $metafieldsHandler = new WashMetafields();
                 $metaResult = $metafieldsHandler->syncAllMetafields($wpPostId, $shopifyId);
 
@@ -403,6 +412,8 @@ class WashCallback {
                     $metaCount = $metaResult['count'] ?? 0;
                     error_log("[wash] Callback: Synced {$metaCount} metafields for post {$wpPostId}");
                 }
+            } elseif ($isNonSourceTranslation) {
+                error_log("[wash] Callback: Skipping metafield sync for non-source translation post {$wpPostId}");
             }
 
             // Sync hreflangs to Shopify

@@ -328,6 +328,11 @@ class WashSync {
         // Apply the_content filter to processed content
         $content = apply_filters('the_content', $rawContent);
 
+        // Strip leading <h1> that matches post title — some themes/plugins inject
+        // the title into the_content output, causing it to appear twice on Shopify
+        // (once from article.title, once from article.content/body).
+        $content = $this->stripDuplicateTitle($content, $post->post_title);
+
         // Rewrite WordPress image URLs to Shopify CDN URLs
         if (get_option('wash_files_enabled', '1') === '1') {
             $content = $this->rewriteImageUrls($content);
@@ -362,7 +367,7 @@ class WashSync {
             'slug'        => $post->post_name,
             'status'      => $post->post_status === 'publish' ? 'published' : 'draft',
             'author'      => $this->getMappedAuthorName($post->post_author),
-            'tags'        => $this->getPostTags($postId),
+            'tags'        => $this->getPostTagsWithCategories($postId),
             'publishedAt' => get_the_date('c', $postId),
         ];
 
@@ -487,6 +492,32 @@ class WashSync {
         }
 
         return $rewrittenContent;
+    }
+
+    /**
+     * Remove a leading <h1> tag whose text matches the post title.
+     * Themes/plugins sometimes inject the title into the_content output;
+     * Shopify already renders article.title separately, so the duplicate
+     * must be stripped to avoid showing the title twice.
+     *
+     * @param string $content  Rendered HTML content
+     * @param string $title    Post title to match against
+     * @return string Content with the duplicate title removed (if found)
+     */
+    private function stripDuplicateTitle($content, $title) {
+        $trimmed = ltrim($content);
+        if (stripos($trimmed, '<h1') !== 0) {
+            return $content;
+        }
+
+        $pattern = '/^\s*<h1[^>]*>\s*' . preg_quote(trim($title), '/') . '\s*<\/h1>\s*/i';
+        $stripped = preg_replace($pattern, '', $content, 1);
+
+        if ($stripped !== $content) {
+            error_log("[wash] stripDuplicateTitle() - Removed duplicate title from content");
+        }
+
+        return $stripped;
     }
 
     /**
@@ -753,6 +784,25 @@ class WashSync {
         $tagNames = array_map(fn($tag) => $tag->name, $tags);
         error_log("[wash] getPostTags() - Found " . count($tagNames) . " tags: " . implode(', ', $tagNames));
         return $tagNames;
+    }
+
+    /**
+     * Get post tags merged with category names (deduplicated).
+     * WordPress categories are included as Shopify article tags.
+     */
+    private function getPostTagsWithCategories($postId) {
+        $tags = $this->getPostTags($postId);
+
+        $categories = get_the_category($postId);
+        if ($categories && !is_wp_error($categories)) {
+            $categoryNames = array_map(fn($cat) => $cat->name, $categories);
+            // Filter out "Uncategorized" default category
+            $categoryNames = array_filter($categoryNames, fn($name) => strtolower($name) !== 'uncategorized');
+            $tags = array_values(array_unique(array_merge($tags, $categoryNames)));
+        }
+
+        error_log("[wash] getPostTagsWithCategories() - Final tags for post {$postId}: " . implode(', ', $tags));
+        return $tags;
     }
 
     /**
