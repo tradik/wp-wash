@@ -49,6 +49,9 @@ class ContentSyncContractTest extends TestCase
         Functions\when('get_permalink')->justReturn('https://example.com/test-post/');
         Functions\when('is_multisite')->justReturn(false);
         Functions\when('get_current_blog_id')->justReturn(1);
+        Functions\when('get_the_tags')->justReturn(false);
+        Functions\when('get_the_category')->justReturn([]);
+        Functions\when('get_post_meta')->justReturn([]);
 
         $this->sync = new \WashSync();
     }

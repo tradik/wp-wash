@@ -64,6 +64,30 @@ if (!function_exists('plugin_basename')) {
         return basename(dirname($file)) . '/' . basename($file);
     }
 }
+if (!class_exists('WP_Error')) {
+    class WP_Error
+    {
+        private string $code;
+        private string $message;
+
+        public function __construct(string $code = '', string $message = '')
+        {
+            $this->code = $code;
+            $this->message = $message;
+        }
+
+        public function get_error_message(): string
+        {
+            return $this->message;
+        }
+
+        public function get_error_code(): string
+        {
+            return $this->code;
+        }
+    }
+}
+
 // Note: is_multisite() and get_current_blog_id() are NOT stubbed here.
 // Brain\Monkey (Patchwork) needs to define them itself for unit tests.
 // For integration tests (ContentSyncContractTest), they are stubbed
