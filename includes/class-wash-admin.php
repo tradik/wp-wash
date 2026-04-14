@@ -47,6 +47,8 @@ class WashAdmin {
         // Search & Replace AJAX handlers
         add_action('wp_ajax_wash_get_search_replace_rules', [$this, 'ajaxGetSearchReplaceRules']);
         add_action('wp_ajax_wash_save_search_replace_rules', [$this, 'ajaxSaveSearchReplaceRules']);
+        add_action('wp_ajax_wash_scan_content_links', [$this, 'ajaxScanContentLinks']);
+        add_action('wp_ajax_wash_get_shopify_links', [$this, 'ajaxGetShopifyLinks']);
         // Preserve tab after settings save
         add_filter('wp_redirect', [$this, 'preserveTabAfterSave']);
         // Shopify preview link in post editor
@@ -1213,10 +1215,12 @@ class WashAdmin {
             $rawRules = [];
         }
 
+        $validTypes = ['string', 'url', 'shortcode', 'block'];
         $sanitized = [];
         foreach ($rawRules as $rule) {
             $search = isset($rule['search']) ? wp_kses_post($rule['search']) : '';
             $replace = isset($rule['replace']) ? wp_kses_post($rule['replace']) : '';
+            $type = isset($rule['type']) && in_array($rule['type'], $validTypes, true) ? $rule['type'] : 'string';
 
             if ($search === '') {
                 continue;
@@ -1225,6 +1229,7 @@ class WashAdmin {
             $sanitized[] = [
                 'search'  => $search,
                 'replace' => $replace,
+                'type'    => $type,
             ];
         }
 
@@ -1234,6 +1239,283 @@ class WashAdmin {
             'message' => __('Rules saved', 'wash'),
             'rules'   => $sanitized,
         ]);
+    }
+
+    /**
+     * AJAX: scan all published content for URLs, domains, shortcodes.
+     * Cached for 10 minutes to avoid repeated DB queries.
+     */
+    public function ajaxScanContentLinks() {
+        check_ajax_referer('wash_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $cached = get_transient('wash_content_links');
+        if ($cached !== false) {
+            wp_send_json_success($cached);
+            return;
+        }
+
+        $postTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+
+        $posts = get_posts([
+            'post_type'      => $postTypes,
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+        ]);
+
+        $urls = [];
+        $domains = [];
+        $shortcodes = [];
+        $blocks = [];
+
+        foreach ($posts as $postId) {
+            $content = get_post_field('post_content', $postId);
+            if (empty($content)) {
+                continue;
+            }
+
+            // Extract URLs from all contexts: attributes, inline CSS, standalone text
+            $urlPatterns = [
+                '/(?:href|src|srcset|action|poster|data-[\w-]+)=["\']([^"\']+)["\']/i', // HTML attributes
+                '/url\(["\']?([^"\')\s]+)["\']?\)/i',                                   // CSS url()
+                '/(?:^|[\s>])((https?:\/\/[^\s<"\']+))/m',                               // Standalone URLs
+            ];
+            foreach ($urlPatterns as $pattern) {
+                if (preg_match_all($pattern, $content, $matches)) {
+                    foreach ($matches[1] as $url) {
+                        $url = trim($url);
+                        if (empty($url) || $url === '#' || strpos($url, 'data:') === 0 || strlen($url) < 5) {
+                            continue;
+                        }
+                        $urls[$url] = ($urls[$url] ?? 0) + 1;
+
+                        // Extract domain
+                        $parsed = wp_parse_url($url);
+                        if (!empty($parsed['host'])) {
+                            $scheme = ($parsed['scheme'] ?? 'https') . '://';
+                            $domain = $scheme . $parsed['host'];
+                            $domains[$domain] = ($domains[$domain] ?? 0) + 1;
+                        }
+                    }
+                }
+            }
+
+            // Also extract internal relative paths (/page/, /category/slug/)
+            if (preg_match_all('/href=["\'](\/[^"\']+)["\']/i', $content, $matches)) {
+                foreach ($matches[1] as $path) {
+                    $path = trim($path);
+                    if ($path !== '/' && strlen($path) > 1) {
+                        $urls[site_url($path)] = ($urls[site_url($path)] ?? 0) + 1;
+                    }
+                }
+            }
+
+            // Extract shortcodes
+            if (preg_match_all('/\[(\w+)(?:\s[^\]]*?)?\]/', $content, $matches)) {
+                foreach ($matches[0] as $idx => $full) {
+                    $tag = $matches[1][$idx];
+                    $shortcodes[$full] = [
+                        'tag'   => $tag,
+                        'full'  => $full,
+                        'count' => ($shortcodes[$full]['count'] ?? 0) + 1,
+                    ];
+                }
+            }
+
+            // Extract Gutenberg blocks (including embeds with provider info)
+            if (preg_match_all('/<!--\s*wp:([a-z0-9\-\/]+)(?:\s(\{[^}]*\})|\s*-->)/i', $content, $matches)) {
+                foreach ($matches[1] as $idx => $blockName) {
+                    $key = 'wp:' . $blockName;
+                    $blocks[$key] = ($blocks[$key] ?? 0) + 1;
+
+                    // For embeds, also add provider-specific variant
+                    if ($blockName === 'embed' && !empty($matches[2][$idx])) {
+                        $attrs = json_decode($matches[2][$idx], true);
+                        if (!empty($attrs['providerNameSlug'])) {
+                            $providerKey = 'wp:embed/' . $attrs['providerNameSlug'];
+                            $blocks[$providerKey] = ($blocks[$providerKey] ?? 0) + 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add all registered block types from WordPress
+        $registry = \WP_Block_Type_Registry::get_instance();
+        foreach ($registry->get_all_registered() as $name => $block) {
+            $key = 'wp:' . $name;
+            if (!isset($blocks[$key])) {
+                $blocks[$key] = 0; // registered but not used in content
+            }
+        }
+
+        // Add known embed providers as wp:embed/provider
+        $embedProviders = [
+            'youtube', 'vimeo', 'dailymotion', 'flickr', 'smugmug', 'scribd',
+            'twitter', 'soundcloud', 'spotify', 'imgur', 'issuu', 'mixcloud',
+            'ted', 'animoto', 'tumblr', 'kickstarter', 'reverbnation',
+            'videopress', 'reddit', 'speakerdeck', 'amazon', 'someecards',
+            'tiktok', 'pinterest', 'wolframcloud', 'pocketcasts', 'anghami',
+            'bluesky', 'canva', 'wordpress-tv',
+        ];
+        foreach ($embedProviders as $provider) {
+            $key = 'wp:embed/' . $provider;
+            if (!isset($blocks[$key])) {
+                $blocks[$key] = 0;
+            }
+        }
+
+        // Sort: used blocks first, then alphabetically
+        uksort($blocks, function ($a, $b) use ($blocks) {
+            if ($blocks[$a] > 0 && $blocks[$b] === 0) return -1;
+            if ($blocks[$a] === 0 && $blocks[$b] > 0) return 1;
+            return strcmp($a, $b);
+        });
+
+        // Sort by frequency
+        arsort($urls);
+        arsort($domains);
+
+        $result = [
+            'urls'       => array_slice(array_keys($urls), 0, 200),
+            'domains'    => array_slice(array_keys($domains), 0, 50),
+            'shortcodes' => array_values($shortcodes),
+            'blocks'     => array_map(function ($name, $count) {
+                return ['name' => $name, 'count' => $count];
+            }, array_keys($blocks), array_values($blocks)),
+            'postCount'  => count($posts),
+        ];
+
+        set_transient('wash_content_links', $result, 600); // 10 minutes
+
+        wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX: get available Shopify links (products, pages, blogs, collections).
+     */
+    public function ajaxGetShopifyLinks() {
+        check_ajax_referer('wash_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $cached = get_transient('wash_shopify_links');
+        if ($cached !== false) {
+            wp_send_json_success($cached);
+            return;
+        }
+
+        $links = [];
+
+        // Products
+        $products = $this->apiClient->get('/api/shopify-products');
+        if (!is_wp_error($products) && !empty($products['products'])) {
+            foreach ($products['products'] as $p) {
+                $handle = $p['handle'] ?? '';
+                if ($handle) {
+                    $links[] = [
+                        'url'  => '/products/' . $handle,
+                        'label' => $p['title'] ?? $handle,
+                        'type' => 'product',
+                    ];
+                }
+            }
+        }
+
+        // Collections
+        $collections = $this->apiClient->get('/api/shopify-collections');
+        if (!is_wp_error($collections) && !empty($collections['collections'])) {
+            foreach ($collections['collections'] as $c) {
+                $handle = $c['handle'] ?? '';
+                if ($handle) {
+                    $links[] = [
+                        'url'  => '/collections/' . $handle,
+                        'label' => $c['title'] ?? $handle,
+                        'type' => 'collection',
+                    ];
+                }
+            }
+        }
+
+        // Blogs + synced articles
+        $blogs = $this->apiClient->get('/api/shopify-blogs');
+        if (!is_wp_error($blogs) && !empty($blogs['blogs'])) {
+            foreach ($blogs['blogs'] as $b) {
+                $handle = $b['handle'] ?? '';
+                if ($handle) {
+                    $links[] = [
+                        'url'  => '/blogs/' . $handle,
+                        'label' => $b['title'] ?? $handle,
+                        'type' => 'blog',
+                    ];
+                }
+            }
+        }
+
+        // Synced articles (from WordPress sync logs)
+        $syncedPosts = get_posts([
+            'post_type'      => 'any',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'meta_query'     => [['key' => '_wash_article_id', 'compare' => 'EXISTS']],
+            'fields'         => 'ids',
+        ]);
+        foreach ($syncedPosts as $postId) {
+            $blogHandle = get_post_meta($postId, '_wash_blog_handle', true) ?: 'news';
+            $slug = get_post_field('post_name', $postId);
+            $title = get_the_title($postId);
+            if ($slug) {
+                $links[] = [
+                    'url'  => '/blogs/' . $blogHandle . '/' . $slug,
+                    'label' => $title,
+                    'type' => 'article',
+                ];
+            }
+        }
+
+        // Synced pages
+        $syncedPages = get_posts([
+            'post_type'      => 'page',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'meta_query'     => [['key' => '_wash_page_id', 'compare' => 'EXISTS']],
+            'fields'         => 'ids',
+        ]);
+        foreach ($syncedPages as $pageId) {
+            $slug = get_post_field('post_name', $pageId);
+            $title = get_the_title($pageId);
+            if ($slug) {
+                $links[] = [
+                    'url'  => '/pages/' . $slug,
+                    'label' => $title,
+                    'type' => 'page',
+                ];
+            }
+        }
+
+        // Standard Shopify pages
+        $defaultPages = [
+            ['url' => '/', 'label' => 'Homepage', 'type' => 'page'],
+            ['url' => '/cart', 'label' => 'Cart', 'type' => 'page'],
+            ['url' => '/collections/all', 'label' => 'All Products', 'type' => 'collection'],
+            ['url' => '/account', 'label' => 'Account', 'type' => 'page'],
+            ['url' => '/search', 'label' => 'Search', 'type' => 'page'],
+        ];
+        $links = array_merge($links, $defaultPages);
+
+        $result = [
+            'links' => $links,
+        ];
+
+        set_transient('wash_shopify_links', $result, 600); // 10 minutes
+
+        wp_send_json_success($result);
     }
 
     /**

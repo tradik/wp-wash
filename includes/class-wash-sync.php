@@ -325,6 +325,10 @@ class WashSync {
             $blocksCss = '';
         }
 
+        // Apply block/shortcode search & replace rules BEFORE the_content
+        // (the_content renders blocks/shortcodes into HTML, removing the markers)
+        $rawContent = $this->applySearchReplaceRules($rawContent, ['block', 'shortcode']);
+
         // Apply the_content filter to processed content
         $content = apply_filters('the_content', $rawContent);
 
@@ -343,8 +347,8 @@ class WashSync {
             $content = $this->rewriteInternalUrls($content);
         }
 
-        // Apply search & replace rules (Business plan feature)
-        $content = $this->applySearchReplaceRules($content);
+        // Apply string/url search & replace rules AFTER the_content (on rendered HTML)
+        $content = $this->applySearchReplaceRules($content, ['string', 'url']);
 
         // Build blocks metafields if enabled
         $blocksMetafields = [];
@@ -646,7 +650,7 @@ class WashSync {
      * @param string $content Post content HTML.
      * @return string Content with replacements applied.
      */
-    private function applySearchReplaceRules($content) {
+    private function applySearchReplaceRules($content, $onlyTypes = null) {
         $rules = get_option('wash_search_replace_rules', []);
         if (!is_array($rules) || empty($rules)) {
             return $content;
@@ -656,16 +660,40 @@ class WashSync {
         foreach ($rules as $rule) {
             $search = $rule['search'] ?? '';
             $replace = $rule['replace'] ?? '';
+            $type = $rule['type'] ?? 'string';
 
             if ($search === '') {
                 continue;
             }
 
+            // Filter by type if specified
+            if ($onlyTypes !== null && !in_array($type, $onlyTypes, true)) {
+                continue;
+            }
+
             $before = $content;
-            $content = str_replace($search, $replace, $content);
+
+            switch ($type) {
+                case 'shortcode':
+                    $content = $this->applyShortcodeRule($content, $search, $replace);
+                    break;
+
+                case 'url':
+                    $content = $this->applyUrlRule($content, $search, $replace);
+                    break;
+
+                case 'block':
+                    $content = $this->applyBlockRule($content, $search, $replace);
+                    break;
+
+                default: // string
+                    $content = str_replace($search, $replace, $content);
+                    break;
+            }
+
             if ($content !== $before) {
                 $count++;
-                error_log("[wash] applySearchReplaceRules() - Applied rule: " . mb_substr($search, 0, 50) . " -> " . mb_substr($replace, 0, 50));
+                error_log("[wash] applySearchReplaceRules() - Applied {$type} rule: " . mb_substr($search, 0, 50) . " -> " . mb_substr($replace, 0, 50));
             }
         }
 
@@ -674,6 +702,99 @@ class WashSync {
         }
 
         return $content;
+    }
+
+    /**
+     * Apply shortcode rule — matches [shortcode ...] or [shortcode ...]...[/shortcode].
+     * %content% variable captures inner content (HTML stripped).
+     */
+    private function applyShortcodeRule($content, $search, $replace) {
+        // Extract shortcode name from pattern like [newsletter] or [form id="1"]
+        if (!preg_match('/^\[(\w+)/', $search, $m)) {
+            return str_replace($search, $replace, $content);
+        }
+        $tag = $m[1];
+
+        // Auto-register shortcode if not exists (prevents WordPress from stripping it)
+        if (!shortcode_exists($tag)) {
+            add_shortcode($tag, function ($atts, $content) {
+                return $content ?? '';
+            });
+        }
+
+        // Match self-closing [tag ...] and paired [tag ...]...[/tag]
+        $pattern = '/\[' . preg_quote($tag, '/') . '(?:\s[^\]]*?)?\](?:([\s\S]*?)\[\/' . preg_quote($tag, '/') . '\])?/';
+
+        return preg_replace_callback($pattern, function ($matches) use ($replace) {
+            $innerContent = $matches[1] ?? '';
+            $strippedContent = wp_strip_all_tags(trim($innerContent));
+            return str_replace('%content%', $strippedContent, $replace);
+        }, $content);
+    }
+
+    /**
+     * Apply URL rule — replaces URL patterns in all contexts:
+     * href, src, srcset, data-* attributes, inline CSS url(), and standalone URLs in text.
+     */
+    private function applyUrlRule($content, $search, $replace) {
+        $escaped = preg_quote($search, '/');
+
+        // 1. Attributes: href, src, action, data-*, srcset, poster, content
+        $content = preg_replace(
+            '/((?:href|src|srcset|action|poster|content|data-[\w-]+)=["\'])' . $escaped . '/i',
+            '$1' . $replace,
+            $content
+        );
+
+        // 2. Inline CSS: url("...") or url('...')
+        $content = preg_replace(
+            '/(url\(["\']?)' . $escaped . '/i',
+            '$1' . $replace,
+            $content
+        );
+
+        // 3. Standalone URLs in text (not inside tags) — plain text links
+        $content = preg_replace(
+            '/(?<=[>\s])' . $escaped . '(?=[<\s]|$)/m',
+            $replace,
+            $content
+        );
+
+        return $content;
+    }
+
+    /**
+     * Apply block rule — matches WordPress Gutenberg block comments.
+     * Handles <!-- wp:blockname --> ... <!-- /wp:blockname -->
+     */
+    private function applyBlockRule($content, $search, $replace) {
+        $rawName = preg_replace('/^wp:/', '', trim($search));
+
+        // Handle embed/provider format (e.g., embed/youtube → matches wp:embed with providerNameSlug)
+        if (preg_match('/^embed\/(.+)$/', $rawName, $embedMatch)) {
+            $provider = $embedMatch[1];
+            $pattern = '/<!--\s*wp:embed\s+\{[^}]*"providerNameSlug"\s*:\s*"' . preg_quote($provider, '/') . '"[^}]*\}\s*-->([\s\S]*?)<!--\s*\/wp:embed\s*-->/';
+        } else {
+            // Standard block: wp:blockname or namespace/blockname
+            $blockName = $rawName;
+
+            // Auto-register block type if not exists
+            $fullBlockName = strpos($blockName, '/') !== false ? $blockName : 'core/' . $blockName;
+            if (function_exists('register_block_type') && !\WP_Block_Type_Registry::get_instance()->is_registered($fullBlockName)) {
+                register_block_type($fullBlockName, [
+                    'render_callback' => function ($attributes, $content) {
+                        return $content ?? '';
+                    },
+                ]);
+            }
+            $pattern = '/<!--\s*wp:' . preg_quote($blockName, '/') . '(?:\s[^>]*)?\s*-->([\s\S]*?)<!--\s*\/wp:' . preg_quote($blockName, '/') . '\s*-->/';
+        }
+
+        return preg_replace_callback($pattern, function ($matches) use ($replace) {
+            $innerContent = $matches[1] ?? '';
+            $strippedContent = wp_strip_all_tags(trim($innerContent));
+            return str_replace('%content%', $strippedContent, $replace);
+        }, $content);
     }
 
     /**

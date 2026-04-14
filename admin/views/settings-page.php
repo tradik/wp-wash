@@ -1604,18 +1604,19 @@ function wash_render_permission_locked_banner() {
                 <table class="widefat wash-sr-table" id="wash-sr-table">
                     <thead>
                         <tr>
-                            <th style="width: 4%;" title="<?php esc_attr_e('Drag to reorder', 'wash'); ?>">⇅</th>
+                            <th style="width: 3%;" title="<?php esc_attr_e('Drag to reorder', 'wash'); ?>">⇅</th>
                             <th style="width: 3%;">#</th>
-                            <th style="width: 38%;"><?php esc_html_e('Search (find this)', 'wash'); ?></th>
-                            <th style="width: 4%; text-align: center;">→</th>
-                            <th style="width: 38%;"><?php esc_html_e('Replace (with this)', 'wash'); ?></th>
-                            <th style="width: 8%; text-align: center;"><?php esc_html_e('Actions', 'wash'); ?></th>
+                            <th style="width: 7%;"><?php esc_html_e('Type', 'wash'); ?></th>
+                            <th style="width: 34%;"><?php esc_html_e('Search (find this)', 'wash'); ?></th>
+                            <th style="width: 3%; text-align: center;">→</th>
+                            <th style="width: 34%;"><?php esc_html_e('Replace (with this)', 'wash'); ?></th>
+                            <th style="width: 7%; text-align: center;"><?php esc_html_e('Actions', 'wash'); ?></th>
                         </tr>
                     </thead>
                     <tbody id="wash-sr-tbody">
                         <!-- Rules loaded via JavaScript -->
                         <tr id="wash-sr-loading">
-                            <td colspan="6" style="text-align: center; padding: 20px; color: #666;">
+                            <td colspan="7" style="text-align: center; padding: 20px; color: #666;">
                                 <?php esc_html_e('Loading rules...', 'wash'); ?>
                             </td>
                         </tr>
@@ -1623,10 +1624,7 @@ function wash_render_permission_locked_banner() {
                 </table>
 
                 <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
-                    <button type="button" id="wash-sr-add-rule" class="button button-secondary">
-                        <span class="dashicons dashicons-plus-alt2" style="vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Add Rule', 'wash'); ?>
-                    </button>
+                    <span id="wash-sr-add-rule"></span>
                     <button type="button" id="wash-sr-save-rules" class="button button-primary">
                         <span class="dashicons dashicons-saved" style="vertical-align: text-bottom;"></span>
                         <?php esc_html_e('Save Rules', 'wash'); ?>
@@ -1637,21 +1635,27 @@ function wash_render_permission_locked_banner() {
 
             <div style="display: flex; align-items: flex-start; gap: 20px; margin-top: 30px; flex-wrap: wrap;">
                 <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 15px; max-width: 600px; flex: 1;">
-                    <strong><?php esc_html_e('Examples:', 'wash'); ?></strong><br />
+                    <strong><?php esc_html_e('Rule Types:', 'wash'); ?></strong>
                     <div style="margin-top: 8px;">
-                        <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">[[shortcode id=1]]</code>
-                        → <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">&lt;div class="embed"&gt;...&lt;/div&gt;</code>
-                        <br /><span style="color: #666; font-size: 12px;"><?php esc_html_e('Replace shortcodes with HTML blocks', 'wash'); ?></span>
+                        <span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;">Aa Text</span>
+                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Exact string replacement', 'wash'); ?></span>
                     </div>
-                    <div style="margin-top: 8px;">
-                        <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">https://old-domain.com</code>
-                        → <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">https://new-domain.com</code>
-                        <br /><span style="color: #666; font-size: 12px;"><?php esc_html_e('Rewrite domain URLs', 'wash'); ?></span>
+                    <div style="margin-top: 6px;">
+                        <span style="background:#2563eb;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;">🔗 URL</span>
+                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Replace in href/src attributes only', 'wash'); ?></span>
                     </div>
-                    <div style="margin-top: 8px;">
-                        <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">target="_blank"</code>
-                        → <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;"></code>
-                        <br /><span style="color: #666; font-size: 12px;"><?php esc_html_e('Remove text by replacing with empty string', 'wash'); ?></span>
+                    <div style="margin-top: 6px;">
+                        <span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;">[ ] Shortcode</span>
+                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Match [tag] or [tag]...[/tag], auto-registers unregistered shortcodes', 'wash'); ?></span>
+                    </div>
+                    <div style="margin-top: 6px;">
+                        <span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;">▦ Block</span>
+                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Match Gutenberg blocks (wp:blockname)', 'wash'); ?></span>
+                    </div>
+                    <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #c5d9ed;">
+                        <strong><?php esc_html_e('Variable:', 'wash'); ?></strong>
+                        <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">%content%</code>
+                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Captures inner content (HTML stripped) from shortcodes/blocks', 'wash'); ?></span>
                     </div>
                 </div>
                 <div style="background: #fff8e6; border: 1px solid #ffc96b; border-radius: 4px; padding: 15px; max-width: 400px; flex: 1;">
@@ -1665,6 +1669,32 @@ function wash_render_permission_locked_banner() {
                         <li><?php esc_html_e('Replacements are applied to the final HTML content before sending to Shopify.', 'wash'); ?></li>
                         <li><?php esc_html_e('Test your rules carefully — incorrect replacements can break content.', 'wash'); ?></li>
                     </ul>
+                </div>
+            </div>
+
+            <!-- Reference lists: scanned WP content + Shopify links -->
+            <div style="display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 300px;">
+                    <details id="wash-sr-wp-refs" style="border: 1px solid #e2e8f0; border-radius: 4px; padding: 12px; background: #fafafa;">
+                        <summary style="cursor: pointer; font-weight: 600; font-size: 13px;">
+                            <?php esc_html_e('WordPress — detected content', 'wash'); ?>
+                            <span id="wash-sr-wp-count" style="color: #999; font-weight: normal;"></span>
+                        </summary>
+                        <div id="wash-sr-wp-list" style="margin-top: 10px; max-height: 300px; overflow-y: auto; font-size: 12px;">
+                            <span style="color: #999;"><?php esc_html_e('Loading...', 'wash'); ?></span>
+                        </div>
+                    </details>
+                </div>
+                <div style="flex: 1; min-width: 300px;">
+                    <details id="wash-sr-shopify-refs" style="border: 1px solid #e2e8f0; border-radius: 4px; padding: 12px; background: #fafafa;">
+                        <summary style="cursor: pointer; font-weight: 600; font-size: 13px;">
+                            <?php esc_html_e('Shopify — available links', 'wash'); ?>
+                            <span id="wash-sr-shopify-count" style="color: #999; font-weight: normal;"></span>
+                        </summary>
+                        <div id="wash-sr-shopify-list" style="margin-top: 10px; max-height: 300px; overflow-y: auto; font-size: 12px;">
+                            <span style="color: #999;"><?php esc_html_e('Loading...', 'wash'); ?></span>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>

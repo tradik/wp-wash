@@ -722,6 +722,48 @@ class WashBlocks {
         if (file_exists($blocksDir . 'sync-status/block.json')) {
             register_block_type($blocksDir . 'sync-status');
         }
+
+        // Auto-register blocks and shortcodes from Search & Replace rules
+        $this->registerSearchReplaceEntities();
+    }
+
+    /**
+     * Register blocks and shortcodes defined in Search & Replace rules.
+     * Ensures they exist in WordPress so Gutenberg shows them and content isn't stripped.
+     */
+    private function registerSearchReplaceEntities() {
+        $rules = get_option('wash_search_replace_rules', []);
+        if (!is_array($rules) || empty($rules)) {
+            return;
+        }
+
+        $passthrough = function ($atts, $content) {
+            return $content ?? '';
+        };
+
+        foreach ($rules as $rule) {
+            $type = $rule['type'] ?? 'string';
+            $search = trim($rule['search'] ?? '');
+            if (empty($search)) {
+                continue;
+            }
+
+            if ($type === 'block') {
+                $blockName = preg_replace('/^wp:/', '', $search);
+                $fullName = strpos($blockName, '/') !== false ? $blockName : 'wash-sr/' . $blockName;
+                if (!\WP_Block_Type_Registry::get_instance()->is_registered($fullName)) {
+                    register_block_type($fullName, [
+                        'render_callback' => $passthrough,
+                    ]);
+                }
+            }
+
+            if ($type === 'shortcode') {
+                if (preg_match('/^\[(\w+)/', $search, $m) && !shortcode_exists($m[1])) {
+                    add_shortcode($m[1], $passthrough);
+                }
+            }
+        }
     }
 
     /**
