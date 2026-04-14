@@ -1106,13 +1106,12 @@ class WashSync {
             $seo['metaTitle'] = get_the_title($postId);
         }
 
-        // Fallback: use excerpt or trimmed content
+        // Fallback: use excerpt only (no auto-generation from content)
         if (empty($seo['metaDescription'])) {
             $excerpt = get_the_excerpt($postId);
-            if (empty($excerpt)) {
-                $excerpt = wp_trim_words(get_post_field('post_content', $postId), 30, '...');
+            if (!empty($excerpt)) {
+                $seo['metaDescription'] = $excerpt;
             }
-            $seo['metaDescription'] = $excerpt;
         }
 
         return $seo;
