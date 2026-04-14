@@ -47,6 +47,8 @@ class ContentSyncContractTest extends TestCase
         Functions\when('apply_filters')->alias(fn($tag, $value) => $value);
         Functions\when('get_bloginfo')->justReturn('Test Blog');
         Functions\when('get_permalink')->justReturn('https://example.com/test-post/');
+        Functions\when('is_multisite')->justReturn(false);
+        Functions\when('get_current_blog_id')->justReturn(1);
 
         $this->sync = new \WashSync();
     }
