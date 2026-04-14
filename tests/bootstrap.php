@@ -64,3 +64,13 @@ if (!function_exists('plugin_basename')) {
         return basename(dirname($file)) . '/' . basename($file);
     }
 }
+if (!function_exists('is_multisite')) {
+    function is_multisite() {
+        return false;
+    }
+}
+if (!function_exists('get_current_blog_id')) {
+    function get_current_blog_id() {
+        return 1;
+    }
+}
