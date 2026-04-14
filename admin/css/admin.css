@@ -464,3 +464,24 @@ td.column-wash_sync span {
 .wash-sr-row:hover {
   background: #f9f9f9;
 }
+
+.wash-sr-drag {
+  cursor: grab;
+  user-select: none;
+  vertical-align: middle;
+}
+
+.wash-sr-drag:active {
+  cursor: grabbing;
+}
+
+.wash-sr-placeholder {
+  height: 50px;
+  background: #e8f0fe;
+  border: 2px dashed #4285f4;
+}
+
+.wash-sr-row.ui-sortable-helper {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}

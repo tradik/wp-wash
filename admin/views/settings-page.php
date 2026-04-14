@@ -1604,17 +1604,18 @@ function wash_render_permission_locked_banner() {
                 <table class="widefat wash-sr-table" id="wash-sr-table">
                     <thead>
                         <tr>
-                            <th style="width: 5%;">#</th>
-                            <th style="width: 40%;"><?php esc_html_e('Search (find this)', 'wash'); ?></th>
-                            <th style="width: 5%; text-align: center;">→</th>
-                            <th style="width: 40%;"><?php esc_html_e('Replace (with this)', 'wash'); ?></th>
-                            <th style="width: 10%; text-align: center;"><?php esc_html_e('Actions', 'wash'); ?></th>
+                            <th style="width: 4%;" title="<?php esc_attr_e('Drag to reorder', 'wash'); ?>">⇅</th>
+                            <th style="width: 3%;">#</th>
+                            <th style="width: 38%;"><?php esc_html_e('Search (find this)', 'wash'); ?></th>
+                            <th style="width: 4%; text-align: center;">→</th>
+                            <th style="width: 38%;"><?php esc_html_e('Replace (with this)', 'wash'); ?></th>
+                            <th style="width: 8%; text-align: center;"><?php esc_html_e('Actions', 'wash'); ?></th>
                         </tr>
                     </thead>
                     <tbody id="wash-sr-tbody">
                         <!-- Rules loaded via JavaScript -->
                         <tr id="wash-sr-loading">
-                            <td colspan="5" style="text-align: center; padding: 20px; color: #666;">
+                            <td colspan="6" style="text-align: center; padding: 20px; color: #666;">
                                 <?php esc_html_e('Loading rules...', 'wash'); ?>
                             </td>
                         </tr>

@@ -512,13 +512,18 @@ class WashAdmin {
                 'srSaveFailed'          => __('Failed to save rules: ', 'wash'),
                 'srNoRules'             => __('No rules defined yet. Click "Add Rule" to create one.', 'wash'),
                 'srRemoveConfirm'       => __('Remove this rule?', 'wash'),
+                'srDrag'                => __('Drag to reorder', 'wash'),
+                'srOverlapDuplicate'    => __('Duplicate rule', 'wash'),
+                'srOverlapContains'     => __('Overlapping rule', 'wash'),
             ],
         ]);
+
+        wp_enqueue_script('jquery-ui-sortable');
 
         wp_enqueue_script(
             'wash-search-replace',
             $pluginUrl . 'admin/js/search-replace.js',
-            ['jquery', 'wash-admin'],
+            ['jquery', 'jquery-ui-sortable', 'wash-admin'],
             WASH_VERSION . '.' . filemtime(WASH_PLUGIN_DIR . 'admin/js/search-replace.js'),
             true
         );
