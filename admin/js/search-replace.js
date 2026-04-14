@@ -22,6 +22,7 @@
             removeEmptyMessage();
             renumberRows();
             detectOverlaps();
+            if (window.washMarkDirty) washMarkDirty("searchreplace");
         });
 
         saveBtn.on("click", saveRules);
@@ -37,6 +38,7 @@
             update: function () {
                 renumberRows();
                 detectOverlaps();
+                if (window.washMarkDirty) washMarkDirty("searchreplace");
             },
         });
 
@@ -95,9 +97,10 @@
                 }
             });
 
-            // Detect overlaps when search text changes
-            row.find(".wash-sr-search").on("input", function () {
+            // Detect overlaps and mark dirty when text changes
+            row.find(".wash-sr-search, .wash-sr-replace").on("input", function () {
                 detectOverlaps();
+                if (window.washMarkDirty) washMarkDirty("searchreplace");
             });
 
             tbody.append(row);
@@ -224,6 +227,7 @@
                 },
                 success: function (response) {
                     if (response.success) {
+                        if (window.washClearDirty) washClearDirty("searchreplace");
                         statusEl.html('<span style="color: #00a32a;">✓ ' + i18n("srSaved", "Rules saved.") + "</span>");
                         setTimeout(function () {
                             statusEl.fadeOut(300, function () {

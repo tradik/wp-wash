@@ -43,6 +43,7 @@ class WashAdmin {
         add_action('wp_ajax_wash_sync_redirections', [$this, 'ajaxSyncRedirections']);
         add_action('wp_ajax_wash_fetch_wp_redirections', [$this, 'ajaxFetchWpRedirections']);
         add_action('wp_ajax_wash_save_redirections_settings', [$this, 'ajaxSaveRedirectionsSettings']);
+        add_action('wp_ajax_wash_reorder_mappings', [$this, 'ajaxReorderMappings']);
         // Search & Replace AJAX handlers
         add_action('wp_ajax_wash_get_search_replace_rules', [$this, 'ajaxGetSearchReplaceRules']);
         add_action('wp_ajax_wash_save_search_replace_rules', [$this, 'ajaxSaveSearchReplaceRules']);
@@ -924,6 +925,45 @@ class WashAdmin {
         }
 
         wp_send_json_success();
+    }
+
+    /**
+     * AJAX handler for reordering blog mappings (drag-and-drop priority).
+     */
+    public function ajaxReorderMappings() {
+        check_ajax_referer('wash_mappings', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $updates = json_decode(stripslashes($_POST['updates'] ?? '[]'), true);
+        if (!is_array($updates)) {
+            wp_send_json_error(__('Invalid data', 'wash'));
+        }
+
+        $errors = [];
+        foreach ($updates as $update) {
+            $id = sanitize_text_field($update['id'] ?? '');
+            $priority = intval($update['priority'] ?? 0);
+            if (empty($id)) {
+                continue;
+            }
+
+            $result = $this->apiClient->put('/api/blog-mappings/' . $id, [
+                'priority' => $priority,
+            ]);
+
+            if (is_wp_error($result)) {
+                $errors[] = $id . ': ' . $result->get_error_message();
+            }
+        }
+
+        if (!empty($errors)) {
+            wp_send_json_error(implode(', ', $errors));
+        }
+
+        wp_send_json_success(['updated' => count($updates)]);
     }
 
     /**

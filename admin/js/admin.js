@@ -721,5 +721,43 @@
             });
         });
 
+        // ────────────────────────────────────────────
+        // Unsaved changes indicator (dot on tab)
+        // ────────────────────────────────────────────
+
+        window.washMarkDirty = function (tabId) {
+            var tab = document.querySelector('.nav-tab[data-tab="' + tabId + '"]');
+            if (tab && !tab.querySelector(".wash-dirty-dot")) {
+                var dot = document.createElement("span");
+                dot.className = "wash-dirty-dot";
+                dot.title = i18n("unsavedChanges", "Unsaved changes");
+                tab.appendChild(dot);
+            }
+        };
+
+        window.washClearDirty = function (tabId) {
+            var tab = document.querySelector('.nav-tab[data-tab="' + tabId + '"]');
+            if (tab) {
+                var dot = tab.querySelector(".wash-dirty-dot");
+                if (dot) dot.remove();
+            }
+        };
+
+        // Auto-detect changes on form inputs within tab contents
+        $(document).on("input change", ".wash-tab-content input, .wash-tab-content select, .wash-tab-content textarea", function () {
+            var tabContent = $(this).closest(".wash-tab-content");
+            if (tabContent.length) {
+                var tabId = tabContent.attr("id")?.replace("tab-", "");
+                if (tabId) washMarkDirty(tabId);
+            }
+        });
+
+        // Clear dirty on form save (settings form submit)
+        $("#wash-settings-form").on("submit", function () {
+            document.querySelectorAll(".wash-dirty-dot").forEach(function (dot) {
+                dot.remove();
+            });
+        });
+
     });
 })(jQuery);

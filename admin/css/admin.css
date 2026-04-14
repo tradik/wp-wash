@@ -426,6 +426,23 @@ td.column-wash_sync span {
 }
 
 /* Search & Replace table */
+/* Unsaved changes dot on tabs */
+.wash-dirty-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #d63638;
+  border-radius: 50%;
+  margin-left: 6px;
+  vertical-align: super;
+  animation: wash-dot-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes wash-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 .wash-sr-table {
   border-collapse: collapse;
 }

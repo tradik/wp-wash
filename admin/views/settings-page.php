@@ -534,13 +534,13 @@ function wash_render_permission_locked_banner() {
                                     </div>
                                 </td>
                             </tr>
-                            <tr>
+                            <tr style="display:none;">
                                 <th scope="row">
                                     <label for="wash-priority"><?php esc_html_e('Priority', 'wash'); ?></label>
                                 </th>
                                 <td>
                                     <input type="number" id="wash-priority" class="small-text" value="0" min="0" max="100" />
-                                    <p class="description"><?php esc_html_e('Higher priority rules are matched first (0-100)', 'wash'); ?></p>
+                                    <p class="description"><?php esc_html_e('Managed by drag-and-drop order', 'wash'); ?></p>
                                 </td>
                             </tr>
                         </table>
@@ -2168,12 +2168,12 @@ function wash_render_permission_locked_banner() {
             return;
         }
 
-        var html = '<table class="widefat striped"><thead><tr>' +
+        var html = '<table class="widefat striped" id="wash-mappings-table"><thead><tr>' +
+            '<th style="width:30px;" title="<?php echo esc_js(__('Drag to reorder priority', 'wash')); ?>">⇅</th>' +
             '<th><?php echo esc_js(__('Rule', 'wash')); ?></th>' +
             '<th><?php echo esc_js(__('Target Blog', 'wash')); ?></th>' +
-            '<th><?php echo esc_js(__('Priority', 'wash')); ?></th>' +
             '<th><?php echo esc_js(__('Actions', 'wash')); ?></th>' +
-            '</tr></thead><tbody>';
+            '</tr></thead><tbody id="wash-mappings-tbody">';
 
         mappingsData.forEach(function(m) {
             var ruleLabel = m.ruleType === 'default' ? '<?php echo esc_js(__('Default', 'wash')); ?>' :
@@ -2181,13 +2181,13 @@ function wash_render_permission_locked_banner() {
             var badgeClass = m.ruleType === 'default' ? 'background:#28a745;' : (m.ruleType === 'language' ? 'background:#007bff;' : 'background:#fd7e14;');
             var urlExample = getUrlExample(m);
 
-            html += '<tr>' +
+            html += '<tr class="wash-mapping-row" data-id="' + m.id + '" data-priority="' + m.priority + '">' +
+                '<td class="wash-mapping-drag" style="cursor:grab;text-align:center;color:#999;font-size:16px;user-select:none;vertical-align:middle;">☰</td>' +
                 '<td>' +
                     '<span style="' + badgeClass + 'color:#fff;padding:2px 8px;border-radius:3px;font-size:12px;">' + ruleLabel + '</span>' +
                     '<div style="margin-top:6px;padding:4px 6px;background:#f8f9fa;border-radius:3px;border:1px solid #e9ecef;">' + urlExample + '</div>' +
                 '</td>' +
                 '<td>' + (getBlogHandle(m.shopifyBlogId) || m.shopifyBlogHandle || m.shopifyBlogId) + '</td>' +
-                '<td>' + m.priority + '</td>' +
                 '<td>' +
                 '<button type="button" class="button button-small wash-edit-mapping" data-id="' + m.id + '"><?php echo esc_js(__('Edit', 'wash')); ?></button> ' +
                 '<button type="button" class="button button-small wash-delete-mapping" data-id="' + m.id + '" style="color:#dc3545;"><?php echo esc_js(__('Delete', 'wash')); ?></button>' +
@@ -2208,6 +2208,45 @@ function wash_render_permission_locked_banner() {
                 deleteMapping(this.getAttribute('data-id'));
             });
         });
+
+        // Enable drag-and-drop reordering
+        if (jQuery && jQuery.fn.sortable) {
+            jQuery('#wash-mappings-tbody').sortable({
+                handle: '.wash-mapping-drag',
+                items: '.wash-mapping-row',
+                axis: 'y',
+                cursor: 'grabbing',
+                placeholder: 'wash-sr-placeholder',
+                tolerance: 'pointer',
+                update: function() {
+                    // Update priority based on new order and save
+                    var rows = document.querySelectorAll('.wash-mapping-row');
+                    var updates = [];
+                    rows.forEach(function(row, idx) {
+                        var id = row.getAttribute('data-id');
+                        var newPriority = (rows.length - idx) * 10;
+                        row.setAttribute('data-priority', newPriority);
+                        updates.push({ id: id, priority: newPriority });
+                    });
+                    // Save new priorities via AJAX
+                    jQuery.ajax({
+                        url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                        type: 'POST',
+                        data: {
+                            action: 'wash_reorder_mappings',
+                            nonce: '<?php echo wp_create_nonce('wash_mappings'); ?>',
+                            updates: JSON.stringify(updates),
+                        },
+                        success: function(res) {
+                            if (res.success) {
+                                if (window.washClearDirty) washClearDirty('blogmappings');
+                            }
+                        }
+                    });
+                    if (window.washMarkDirty) washMarkDirty('blogmappings');
+                },
+            });
+        }
 
     }
 
