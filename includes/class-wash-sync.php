@@ -1149,6 +1149,9 @@ class WashSync {
     private function getCustomFields($postId) {
         $allMeta = get_post_meta($postId);
         $customFields = [];
+        if (!is_array($allMeta)) {
+            return $customFields;
+        }
 
         foreach ($allMeta as $key => $values) {
             if (str_starts_with($key, '_')) {
