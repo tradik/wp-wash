@@ -66,6 +66,30 @@ class WashMetafields {
     }
 
     /**
+     * Read ACF field values from raw post_meta when ACF plugin is deactivated.
+     * ACF stores values as meta_key and references as _meta_key => field_xxxxx.
+     *
+     * @param int $postId WordPress post ID
+     * @return array Associative array of field_name => value
+     */
+    public static function getRawAcfFields($postId) {
+        $fields = [];
+        $allMeta = get_post_meta($postId);
+        foreach ($allMeta as $metaKey => $metaValues) {
+            if (isset($allMeta['_' . $metaKey]) && is_array($allMeta['_' . $metaKey])) {
+                $ref = $allMeta['_' . $metaKey][0] ?? '';
+                if (strpos($ref, 'field_') === 0) {
+                    $value = maybe_unserialize($metaValues[0] ?? '');
+                    if ($value !== '' && $value !== null) {
+                        $fields[$metaKey] = $value;
+                    }
+                }
+            }
+        }
+        return $fields;
+    }
+
+    /**
      * Register hooks for metafield sync.
      */
     public function init() {
@@ -557,28 +581,14 @@ class WashMetafields {
         }
 
         // Fallback: read raw post_meta when ACF plugin is not active
-        // ACF stores field values with the field name as meta_key
-        // and field references as _field_name (underscore prefix)
-        $allMeta = get_post_meta($postId);
-        foreach ($allMeta as $metaKey => $metaValues) {
-            // ACF stores a reference key like _fieldname => field_abc123
-            // If _fieldname exists, the fieldname is an ACF field
-            if (isset($allMeta['_' . $metaKey]) && is_array($allMeta['_' . $metaKey])) {
-                $ref = $allMeta['_' . $metaKey][0] ?? '';
-                if (strpos($ref, 'field_') === 0) {
-                    $value = $metaValues[0] ?? '';
-                    if ($value === '' || $value === null) {
-                        continue;
-                    }
-                    $unserialized = maybe_unserialize($value);
-                    $metafields[] = [
-                        'namespace' => self::$namespaces['acf'],
-                        'key'       => $this->sanitizeKey($metaKey),
-                        'value'     => is_array($unserialized) ? wp_json_encode($unserialized) : (string) $unserialized,
-                        'type'      => is_array($unserialized) ? 'json' : $this->inferType($unserialized),
-                    ];
-                }
-            }
+        $rawFields = self::getRawAcfFields($postId);
+        foreach ($rawFields as $fieldName => $value) {
+            $metafields[] = [
+                'namespace' => self::$namespaces['acf'],
+                'key'       => $this->sanitizeKey($fieldName),
+                'value'     => is_array($value) ? wp_json_encode($value) : (string) $value,
+                'type'      => is_array($value) ? 'json' : $this->inferType($value),
+            ];
         }
 
         return $metafields;

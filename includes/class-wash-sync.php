@@ -417,16 +417,7 @@ class WashSync {
             }
         } elseif (get_option('wash_meta_acf', '0') === '1') {
             // Fallback: read raw ACF post_meta when ACF plugin is deactivated
-            $allMeta = get_post_meta($postId);
-            $acfRaw = [];
-            foreach ($allMeta as $metaKey => $metaValues) {
-                if (isset($allMeta['_' . $metaKey][0]) && strpos($allMeta['_' . $metaKey][0], 'field_') === 0) {
-                    $value = maybe_unserialize($metaValues[0] ?? '');
-                    if ($value !== '' && $value !== null) {
-                        $acfRaw[$metaKey] = $value;
-                    }
-                }
-            }
+            $acfRaw = WashMetafields::getRawAcfFields($postId);
             if (!empty($acfRaw)) {
                 $data['acfFields'] = $acfRaw;
             }
