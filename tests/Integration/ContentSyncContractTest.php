@@ -52,6 +52,14 @@ class ContentSyncContractTest extends TestCase
         Functions\when('get_the_tags')->justReturn(false);
         Functions\when('get_the_category')->justReturn([]);
         Functions\when('get_post_meta')->justReturn([]);
+        Functions\when('get_the_title')->justReturn('Test Post Title');
+        Functions\when('get_the_excerpt')->justReturn('Test excerpt');
+        Functions\when('get_post_field')->justReturn('Test content for trimming');
+        Functions\when('__')->alias(fn($text) => $text);
+        Functions\when('esc_html__')->alias(fn($text) => $text);
+        Functions\when('pll_get_post_language')->justReturn(null);
+        Functions\when('pll_get_post_translations')->justReturn([]);
+        Functions\when('get_categories')->justReturn([]);
 
         $this->sync = new \WashSync();
     }

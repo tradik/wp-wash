@@ -207,6 +207,7 @@ class ApiClientContractTest extends TestCase
         Functions\when('get_option')->justReturn('');
         Functions\when('get_site_url')->justReturn('https://example.com');
         Functions\when('error_log')->justReturn(true);
+        Functions\when('__')->alias(fn($text) => $text);
 
         $client = new \WashApiClient();
         $result = $client->post('/api/content-sync', ['action' => 'create']);
