@@ -319,19 +319,29 @@ class WashMetafields {
                     }
                 }
 
-                // Custom fields (non-underscore, non-ACF, non-SEO)
+                // Skip internal WordPress meta
                 if (str_starts_with($metaKey, '_')) {
                     continue;
                 }
+
+                // Detect namespace and source from meta key
+                $detectedNamespace = $this->resolveNamespace($metaKey);
+                $detectedSource = 'custom';
+                if (str_starts_with($metaKey, 'rank_math_')) {
+                    $detectedSource = 'rankmath';
+                } elseif (str_starts_with($metaKey, '_yoast_wpseo_')) {
+                    $detectedSource = 'yoast';
+                }
+
                 $sanitized = $this->sanitizeKey($metaKey);
-                $id = self::$namespaces['custom'] . '.' . $sanitized;
+                $id = $detectedNamespace . '.' . $sanitized;
                 if (!isset($seen[$id])) {
                     $seen[$id] = true;
                     $value = $metaValues[0] ?? '';
                     $fields[] = [
-                        'namespace' => self::$namespaces['custom'],
+                        'namespace' => $detectedNamespace,
                         'key' => $sanitized,
-                        'source' => 'custom',
+                        'source' => $detectedSource,
                         'type' => $this->inferType($value),
                         'label' => $this->generateDefinitionName($sanitized),
                         'syncEnabled' => false,
