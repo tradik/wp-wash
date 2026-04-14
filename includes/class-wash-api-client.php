@@ -666,7 +666,6 @@ class WashApiClient {
             'smartRedirections' => 'BUSINESS',
             'acfSync' => 'BUSINESS',
             'prioritySupport' => 'BUSINESS',
-            'managedHosting' => 'MANAGED',
         ];
 
         if (!$this->hasFeature($featureName)) {
