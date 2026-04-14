@@ -370,7 +370,7 @@ class WashSync {
             'wpSiteId'    => $this->getCurrentSiteId(),
             'title'       => $post->post_title,
             'content'     => $content,
-            'excerpt'     => $post->post_excerpt ?: wp_trim_words($post->post_content, 55),
+            'excerpt'     => $post->post_excerpt ?: wp_trim_words(wp_strip_all_tags($content), 55),
             'slug'        => $post->post_name,
             'status'      => $post->post_status === 'publish' ? 'published' : 'draft',
             'author'      => $this->getMappedAuthorName($post->post_author),
