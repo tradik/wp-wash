@@ -1041,8 +1041,15 @@ class WashSync {
             return strtolower(trim($manualLang));
         }
 
+        if (!function_exists('is_plugin_active')) {
+            include_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
         // WPML
-        if (function_exists('wpml_get_language_information')) {
+        if (
+            is_plugin_active('sitepress-multilingual-cms/sitepress.php') &&
+            function_exists('wpml_get_language_information')
+        ) {
             $langInfo = wpml_get_language_information(null, $postId);
             error_log("[wash] getPostLanguage($postId) WPML returned: " . wp_json_encode($langInfo));
             if (!empty($langInfo['locale'])) {
@@ -1055,7 +1062,10 @@ class WashSync {
         }
 
         // Polylang
-        if (function_exists('pll_get_post_language')) {
+        if (
+            is_plugin_active('polylang/polylang.php') &&
+            function_exists('pll_get_post_language')
+        ) {
             $lang = pll_get_post_language($postId, 'slug');
             if ($lang) {
                 return strtolower($lang);

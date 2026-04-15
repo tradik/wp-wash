@@ -242,6 +242,9 @@ class WashHreflangs {
 
     /**
      * Detect which multilingual plugin is active.
+     * Uses is_plugin_active() as the primary check and function_exists()
+     * only as a secondary confirmation to avoid false positives from
+     * compatibility wrappers defined by other plugins.
      *
      * @return string|null Plugin identifier or null
      */
@@ -250,26 +253,42 @@ class WashHreflangs {
             return self::$activePlugin;
         }
 
+        if (!function_exists('is_plugin_active')) {
+            include_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
         // WPML (including Lokalise which uses WPML)
-        if (function_exists('wpml_get_language_information')) {
+        if (
+            is_plugin_active('sitepress-multilingual-cms/sitepress.php') &&
+            function_exists('wpml_get_language_information')
+        ) {
             self::$activePlugin = 'wpml';
             return self::$activePlugin;
         }
 
         // Polylang
-        if (function_exists('pll_get_post_language')) {
+        if (
+            is_plugin_active('polylang/polylang.php') &&
+            function_exists('pll_get_post_language')
+        ) {
             self::$activePlugin = 'polylang';
             return self::$activePlugin;
         }
 
         // TranslatePress
-        if (class_exists('TRP_Translate_Press') || function_exists('trp_get_languages')) {
+        if (
+            is_plugin_active('translatepress-multilingual/index.php') &&
+            (class_exists('TRP_Translate_Press') || function_exists('trp_get_languages'))
+        ) {
             self::$activePlugin = 'translatepress';
             return self::$activePlugin;
         }
 
         // Weglot
-        if (function_exists('weglot_get_current_language') || class_exists('WeglotWP\\Services\\Language_Service_Weglot')) {
+        if (
+            is_plugin_active('weglot/weglot.php') &&
+            (function_exists('weglot_get_current_language') || class_exists('WeglotWP\\Services\\Language_Service_Weglot'))
+        ) {
             self::$activePlugin = 'weglot';
             return self::$activePlugin;
         }
