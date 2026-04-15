@@ -1010,9 +1010,10 @@ class WashAdmin {
 
         $redirections = [];
         $shopifyStore = get_option('wash_shopify_store', '');
+        $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
 
         $posts = get_posts([
-            'post_type'      => ['post', 'page'],
+            'post_type'      => $allowedTypes,
             'post_status'    => 'publish',
             'posts_per_page' => -1,
             'meta_query'     => [
@@ -1535,7 +1536,7 @@ class WashAdmin {
                 continue;
             }
 
-            if (preg_match('/^(.+?)\s*(?:->|→|=>)\s*(.+)$/', $line, $matches)) {
+            if (preg_match('/^(.+?)\s*(?:->|→|=>)\s*(.+?)(?:\s+#.*)?$/', $line, $matches)) {
                 $from = trim($matches[1]);
                 $to = trim($matches[2]);
 
