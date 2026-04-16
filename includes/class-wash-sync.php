@@ -316,11 +316,22 @@ class WashSync {
 
         // Detect page builder (Bricks, Elementor, Divi, etc.)
         $pageBuilder = WashPageBuilders::detect($postId);
+        error_log("[wash] buildPostData() - Page builder detect result: " . ($pageBuilder ?: 'none') . " for post {$postId}");
+
+        // Debug: check what meta keys exist for this post
+        $bricksMeta = get_post_meta($postId, '_bricks_page_content_2', true);
+        error_log("[wash] buildPostData() - _bricks_page_content_2 type: " . gettype($bricksMeta) . " empty: " . (empty($bricksMeta) ? 'yes' : 'no') . " is_array: " . (is_array($bricksMeta) ? 'yes' : 'no'));
+        if (is_array($bricksMeta)) {
+            error_log("[wash] buildPostData() - _bricks_page_content_2 count: " . count($bricksMeta));
+        }
+        error_log("[wash] buildPostData() - post_content length: " . strlen($post->post_content));
 
         if ($pageBuilder) {
             error_log("[wash] buildPostData() - Page builder detected: {$pageBuilder} for post {$postId}");
             $rendered = WashPageBuilders::render($postId, $pageBuilder);
+            error_log("[wash] buildPostData() - Rendered HTML length: " . strlen($rendered['html']) . " CSS length: " . strlen($rendered['css']));
             $content = WashPageBuilders::wrapWithCss($rendered['html'], $rendered['css']);
+            error_log("[wash] buildPostData() - Final content length after wrap: " . strlen($content));
         } else {
             // Standard flow: Gutenberg blocks + the_content filter
             $blockData = apply_filters('wash_before_sync_content', $post->post_content, $postId);
