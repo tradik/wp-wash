@@ -326,6 +326,7 @@ class WashSync {
         }
         error_log("[wash] buildPostData() - post_content length: " . strlen($post->post_content));
 
+        $pageBuilderCss = '';
         if ($pageBuilder) {
             error_log("[wash] buildPostData() - Page builder detected: {$pageBuilder} for post {$postId}");
             $rendered = WashPageBuilders::render($postId, $pageBuilder);
@@ -338,8 +339,9 @@ class WashSync {
                 error_log("[wash] buildPostData() - Frontend CSS length: " . strlen($rendered['css']));
             }
 
-            $content = WashPageBuilders::wrapWithCss($rendered['html'], $rendered['css']);
-            error_log("[wash] buildPostData() - Final content length after wrap: " . strlen($content));
+            $content = $rendered['html'];
+            $pageBuilderCss = $rendered['css'];
+            error_log("[wash] buildPostData() - Content: " . strlen($content) . " CSS metafield: " . strlen($pageBuilderCss));
         } else {
             // Standard flow: Gutenberg blocks + the_content filter
             $blockData = apply_filters('wash_before_sync_content', $post->post_content, $postId);
@@ -469,6 +471,12 @@ class WashSync {
         if (!empty($blocksCss) && get_option('wash_sync_blocks_css', '0') === '1') {
             $data['blocksCss'] = $blocksCss;
             error_log("[wash] buildPostData() - Added block CSS (" . strlen($blocksCss) . " bytes)");
+        }
+
+        // Page builder CSS as separate field (stored as Shopify metafield)
+        if (!empty($pageBuilderCss)) {
+            $data['inlineCss'] = $pageBuilderCss;
+            $data['pageBuilder'] = $pageBuilder;
         }
 
         // Debug: include page builder detection info in payload (temporary)
