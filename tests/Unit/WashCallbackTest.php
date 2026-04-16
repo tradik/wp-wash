@@ -23,7 +23,7 @@ class WashCallbackTest extends TestCase
                 'wash_sync_metafields' => '1',
                 'wash_hreflangs_enabled' => '0',
                 'wash_redirections_enabled' => '0',
-                'wash_shopify_domain' => 'test.myshopify.com',
+                'wash_shopify_store' => 'test',
                 'wash_api_key' => 'test-key',
                 'wash_app_url' => 'https://app-wash.tradik.dev',
                 'wash_http_user' => '',

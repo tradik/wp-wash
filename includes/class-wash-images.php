@@ -16,7 +16,7 @@ class WashImages {
      * Register WordPress hooks for file sync.
      */
     public function init() {
-        if (get_option('wash_sync_images') !== '1') {
+        if (get_option('wash_files_enabled', '1') !== '1') {
             return;
         }
 

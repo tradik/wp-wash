@@ -992,6 +992,13 @@ function wash_render_permission_locked_banner() {
             <h2 class="title"><?php esc_html_e('Meta Fields Configuration', 'wash'); ?></h2>
             <p class="description"><?php esc_html_e('WordPress detects available meta fields from your posts. Toggle sync per field.', 'wash'); ?></p>
 
+            <?php if (get_option('wash_sync_metafields', '1') !== '1') : ?>
+                <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; color: #856404;">
+                    <?php esc_html_e('Metafield sync is disabled. Enable "Sync Metafields" in the Sync tab to use this configuration.', 'wash'); ?>
+                </div>
+            <?php endif; ?>
+
+            <div id="wash-metafields-content" style="<?php echo get_option('wash_sync_metafields', '1') !== '1' ? 'opacity: 0.5; pointer-events: none;' : ''; ?>">
             <?php
             $metafieldsHandler = new WashMetafields();
             $fieldConfig = $metafieldsHandler->getFieldConfig();
@@ -1126,6 +1133,7 @@ function wash_render_permission_locked_banner() {
                     <?php esc_html_e('Documentation', 'wash'); ?>
                 </a>
             </div>
+            </div><!-- /wash-metafields-content -->
         </div>
 
         <!-- Authors Tab -->
@@ -1488,24 +1496,13 @@ function wash_render_permission_locked_banner() {
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Sync Images', 'wash'); ?></th>
-                    <td>
-                        <label>
-                            <input type="hidden" name="wash_sync_images" value="0" />
-                            <input type="checkbox" name="wash_sync_images" value="1"
-                                <?php checked(get_option('wash_sync_images'), '1'); ?> />
-                            <?php esc_html_e('Upload media attachments to Shopify CDN', 'wash'); ?>
-                        </label>
-                    </td>
-                </tr>
-                <tr>
                     <th scope="row"><?php esc_html_e('Sync Metafields', 'wash'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_sync_metafields" value="0" />
                             <input type="checkbox" name="wash_sync_metafields" value="1"
                                 <?php checked(get_option('wash_sync_metafields'), '1'); ?> />
-                            <?php esc_html_e('Sync ACF fields and custom meta to Shopify metafields', 'wash'); ?>
+                            <?php esc_html_e('Sync core and plugin meta fields to Shopify metafields', 'wash'); ?>
                         </label>
                     </td>
                 </tr>

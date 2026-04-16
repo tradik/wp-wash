@@ -379,7 +379,8 @@ class WashCallback {
                 }
 
                 // Build Shopify URL
-                $shopifyDomain = get_option('wash_shopify_domain', '');
+                $shopifyStore = get_option('wash_shopify_store', '');
+                $shopifyDomain = $shopifyStore ? "{$shopifyStore}.myshopify.com" : '';
                 if ($shopifyDomain && $shopifyHandle) {
                     if ($shopifyBlogHandle) {
                         // Article URL: /blogs/{blogHandle}/{articleHandle}

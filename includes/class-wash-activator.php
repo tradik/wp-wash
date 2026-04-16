@@ -22,7 +22,6 @@ class WashActivator {
             'wash_app_url'    => '',
             'wash_api_key'    => '',
             'wash_sync_on_publish' => '1',
-            'wash_sync_images'     => '1',
             'wash_sync_metafields' => '1',
             'wash_post_types'      => 'post,page',
             'wash_blog_name'       => get_bloginfo('name'),
@@ -32,6 +31,15 @@ class WashActivator {
             if (get_option($key) === false) {
                 add_option($key, $value);
             }
+        }
+
+        // Migrate legacy wash_sync_images → wash_files_enabled (v1.17.7)
+        $legacySyncImages = get_option('wash_sync_images');
+        if ($legacySyncImages !== false) {
+            if (get_option('wash_files_enabled') === false) {
+                add_option('wash_files_enabled', $legacySyncImages);
+            }
+            delete_option('wash_sync_images');
         }
 
         self::createSyncTable();

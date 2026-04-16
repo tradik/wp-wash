@@ -87,7 +87,6 @@ class WashAdmin {
 
         // Backup settings to Shopify App after settings update
         add_action('update_option_wash_sync_on_publish', [$this, 'scheduleSettingsBackup']);
-        add_action('update_option_wash_sync_images', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_sync_metafields', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_post_types', [$this, 'scheduleSettingsBackup']);
         add_action('update_option_wash_block_robots', [$this, 'scheduleSettingsBackup']);
@@ -191,7 +190,6 @@ class WashAdmin {
 
         $checkboxSettings = [
             'wash_sync_on_publish',
-            'wash_sync_images',
             'wash_sync_metafields',
             'wash_block_robots',
             'wash_hreflangs_enabled',
@@ -717,7 +715,6 @@ class WashAdmin {
 
             // Files & Media
             'wash_files_enabled'     => '1',       // Enabled
-            'wash_sync_images'       => '1',       // Enabled (same as files)
             'wash_webp_convert'      => '0',       // Disabled
             'wash_allowed_file_types' => ['images'],
 
@@ -1485,7 +1482,7 @@ class WashAdmin {
             'post_type'      => 'page',
             'post_status'    => 'publish',
             'posts_per_page' => -1,
-            'meta_query'     => [['key' => '_wash_page_id', 'compare' => 'EXISTS']],
+            'meta_query'     => [['key' => '_wash_article_id', 'compare' => 'EXISTS']],
             'fields'         => 'ids',
         ]);
         foreach ($syncedPages as $pageId) {

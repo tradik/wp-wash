@@ -991,12 +991,7 @@ class WashMetafields {
      */
     private function getShopifyResourceId($postId) {
         $articleId = get_post_meta($postId, '_wash_article_id', true);
-        if ($articleId) {
-            return $articleId;
-        }
-
-        $pageId = get_post_meta($postId, '_wash_page_id', true);
-        return $pageId ?: null;
+        return $articleId ?: null;
     }
 
     /**

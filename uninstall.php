@@ -15,7 +15,7 @@ $optionKeys = [
     'wash_http_user',
     'wash_http_pass',
     'wash_sync_on_publish',
-    'wash_sync_images',
+    'wash_files_enabled',
     'wash_sync_metafields',
     'wash_post_types',
     'wash_block_robots',

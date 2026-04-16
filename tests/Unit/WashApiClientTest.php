@@ -96,8 +96,8 @@ class WashApiClientTest extends TestCase
     public function testBackupSettingsReturnsApiResponse(): void
     {
         $this->mockOptions([
-            'wash_sync_on_publish' => '1', 'wash_sync_images' => '1',
-            'wash_sync_metafields' => '1', 'wash_post_types' => 'post,page',
+            'wash_sync_on_publish' => '1', 'wash_sync_metafields' => '1',
+            'wash_post_types' => 'post,page',
             'wash_block_robots' => '1', 'wash_meta_field_config' => '[]',
             'wash_hreflangs_enabled' => '0', 'wash_authors_enabled' => '0',
             'wash_author_mappings' => [], 'wash_files_enabled' => '1',
@@ -126,12 +126,11 @@ class WashApiClientTest extends TestCase
         \WashMetafields::$fieldConfigCache = null;
 
         $result = (new \WashApiClient())->restoreSettings([
-            'syncOnPublish' => '1', 'syncImages' => '0',
+            'syncOnPublish' => '1',
             'metaFieldConfig' => [['namespace' => 'wash', 'key' => 'x']],
         ]);
         $this->assertTrue($result);
         $this->assertSame('1', $updateCalls['wash_sync_on_publish']);
-        $this->assertSame('0', $updateCalls['wash_sync_images']);
         $this->assertSame(json_encode([['namespace' => 'wash', 'key' => 'x']]), $updateCalls['wash_meta_field_config']);
     }
 
