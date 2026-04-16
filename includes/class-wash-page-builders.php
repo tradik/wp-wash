@@ -75,61 +75,60 @@ class WashPageBuilders {
 
         error_log("[wash] Bricks: rendering " . count($elements) . " elements for post {$postId}");
 
-        // Method 1: Use Bricks render API (returns string or echoes)
-        if (class_exists('\Bricks\Frontend') && method_exists('\Bricks\Frontend', 'render_data')) {
-            global $post;
-            $originalPost = $post;
-            $post = get_post($postId);
-            setup_postdata($post);
+        // Method 1 (preferred): Fetch from frontend — resolves dynamic data tags
+        // render_data() leaves {acf_name}, {post_content} etc. unresolved
+        $frontendData = self::fetchBricksFromFrontend($postId);
+        $html = $frontendData['html'];
+        $css = $frontendData['css'];
 
-            // Try as return value first
-            $returned = \Bricks\Frontend::render_data($elements, $postId);
-            if (is_string($returned) && !empty($returned)) {
-                $html = $returned;
-                error_log("[wash] Bricks: render_data returned string length: " . strlen($html));
-            } else {
-                // Try with output buffering (some versions echo instead of return)
-                ob_start();
-                \Bricks\Frontend::render_data($elements, $postId);
-                $html = ob_get_clean();
-                error_log("[wash] Bricks: render_data ob_get_clean length: " . strlen($html));
+        if (!empty($html)) {
+            error_log("[wash] Bricks: frontend fetch succeeded, HTML: " . strlen($html) . " CSS: " . strlen($css));
+        } else {
+            // Method 2: Fallback to render_data API (may have unresolved dynamic tags)
+            error_log("[wash] Bricks: frontend fetch empty, falling back to render_data");
+            if (class_exists('\Bricks\Frontend') && method_exists('\Bricks\Frontend', 'render_data')) {
+                global $post;
+                $originalPost = $post;
+                $post = get_post($postId);
+                setup_postdata($post);
+
+                $returned = \Bricks\Frontend::render_data($elements, $postId);
+                if (is_string($returned) && !empty($returned)) {
+                    $html = $returned;
+                } else {
+                    ob_start();
+                    \Bricks\Frontend::render_data($elements, $postId);
+                    $html = ob_get_clean();
+                }
+
+                // Try to resolve dynamic data tags if helper exists
+                if (!empty($html) && function_exists('bricks_render_dynamic_data')) {
+                    $html = bricks_render_dynamic_data($html, $postId);
+                }
+
+                $post = $originalPost;
+                if ($originalPost) {
+                    setup_postdata($originalPost);
+                } else {
+                    wp_reset_postdata();
+                }
+
+                error_log("[wash] Bricks: render_data HTML: " . strlen($html));
             }
 
-            // Restore original post
-            $post = $originalPost;
-            if ($originalPost) {
-                setup_postdata($originalPost);
-            } else {
-                wp_reset_postdata();
+            // Method 3: Last resort — the_content filter
+            if (empty($html)) {
+                error_log("[wash] Bricks: all methods failed, falling back to the_content");
+                $post = get_post($postId);
+                if ($post) {
+                    $html = apply_filters('the_content', $post->post_content);
+                }
             }
-        }
 
-        // Method 2: If render_data returned empty, fetch from frontend (gets HTML + CSS)
-        if (empty($html)) {
-            $frontendData = self::fetchBricksFromFrontend($postId);
-            $html = $frontendData['html'];
-            $css = $frontendData['css'];
-        }
-
-        // Method 3: Last resort — the_content filter
-        if (empty($html)) {
-            error_log("[wash] Bricks: all methods failed, falling back to the_content");
-            $post = get_post($postId);
-            if ($post) {
-                $html = apply_filters('the_content', $post->post_content);
+            // Get CSS separately if frontend fetch didn't provide it
+            if (empty($css)) {
+                $css = self::getBricksCss($postId);
             }
-        }
-
-        // CSS: always try to get it even if HTML came from render_data
-        if (empty($css)) {
-            // Try local file first
-            $css = self::getBricksCss($postId);
-        }
-        if (empty($css)) {
-            // Fetch CSS from frontend page as last resort
-            error_log("[wash] Bricks: CSS still empty, fetching from frontend for CSS only");
-            $frontendData = self::fetchBricksFromFrontend($postId);
-            $css = $frontendData['css'];
         }
 
         return ['html' => $html, 'css' => $css];
