@@ -165,9 +165,9 @@ class WashPageBuildersTest extends TestCase
         ]);
         Functions\when('get_option')->justReturn('');
         Functions\when('get_permalink')->justReturn('https://example.com/test-page/');
-        Functions\when('wp_remote_get')->justReturn(['body' => '<html><main><p>Fallback content</p></main></html>']);
+        Functions\when('wp_remote_get')->justReturn(['body' => '<html><style>.test{color:red}</style><main><p>Fallback content</p></main></html>']);
         Functions\when('wp_remote_retrieve_response_code')->justReturn(200);
-        Functions\when('wp_remote_retrieve_body')->justReturn('<html><main><p>Fallback content</p></main></html>');
+        Functions\when('wp_remote_retrieve_body')->justReturn('<html><style>.test{color:red}</style><main><p>Fallback content</p></main></html>');
         Functions\when('setup_postdata')->justReturn(true);
         Functions\when('wp_reset_postdata')->justReturn(true);
 

@@ -104,9 +104,11 @@ class WashPageBuilders {
             }
         }
 
-        // Method 2: If render_data returned empty, try fetching from frontend
+        // Method 2: If render_data returned empty, fetch from frontend (gets HTML + CSS)
         if (empty($html)) {
-            $html = self::fetchBricksFromFrontend($postId);
+            $frontendData = self::fetchBricksFromFrontend($postId);
+            $html = $frontendData['html'];
+            $css = $frontendData['css'];
         }
 
         // Method 3: Last resort — the_content filter
@@ -118,25 +120,26 @@ class WashPageBuilders {
             }
         }
 
-        // Extract CSS
-        $css = self::getBricksCss($postId);
+        // If CSS still empty, try local file/API extraction
+        if (empty($css)) {
+            $css = self::getBricksCss($postId);
+        }
 
         return ['html' => $html, 'css' => $css];
     }
 
     /**
-     * Fetch Bricks-rendered HTML from the frontend URL.
-     * Makes an internal HTTP request to the post's permalink and
-     * extracts the main content area.
+     * Fetch Bricks-rendered page from frontend URL.
+     * Extracts both content HTML and CSS from the full page.
      *
      * @param int $postId WordPress post ID
-     * @return string Extracted HTML content or empty string
+     * @return array{html: string, css: string}
      */
     private static function fetchBricksFromFrontend($postId) {
         $permalink = get_permalink($postId);
         if (!$permalink) {
             error_log("[wash] Bricks: no permalink for post {$postId}");
-            return '';
+            return ['html' => '', 'css' => ''];
         }
 
         error_log("[wash] Bricks: fetching frontend URL: {$permalink}");
@@ -158,23 +161,84 @@ class WashPageBuilders {
 
         if (is_wp_error($response)) {
             error_log("[wash] Bricks: frontend fetch failed: " . $response->get_error_message());
-            return '';
+            return ['html' => '', 'css' => ''];
         }
 
         $statusCode = wp_remote_retrieve_response_code($response);
         if ($statusCode !== 200) {
             error_log("[wash] Bricks: frontend returned HTTP {$statusCode}");
-            return '';
+            return ['html' => '', 'css' => ''];
         }
 
         $body = wp_remote_retrieve_body($response);
         error_log("[wash] Bricks: fetched page HTML length: " . strlen($body));
 
-        // Extract Bricks content area: <div id="brx-content">...</div>
+        // Extract content
         $html = self::extractBricksContent($body);
         error_log("[wash] Bricks: extracted content length: " . strlen($html));
 
-        return $html;
+        // Extract CSS from the page (inline <style> tags + linked Bricks CSS)
+        $css = self::extractBricksCssFromPage($body, $postId);
+        error_log("[wash] Bricks: extracted CSS length: " . strlen($css));
+
+        return ['html' => $html, 'css' => $css];
+    }
+
+    /**
+     * Extract Bricks CSS from full page HTML.
+     * Collects inline <style> tags and fetches linked Bricks CSS files.
+     *
+     * @param string $pageHtml Full page HTML
+     * @param int    $postId   Post ID for filtering relevant CSS
+     * @return string Combined CSS
+     */
+    private static function extractBricksCssFromPage($pageHtml, $postId) {
+        $css = '';
+
+        // 1. Extract inline <style> tags (Bricks generates these)
+        if (preg_match_all('/<style[^>]*>(.*?)<\/style>/s', $pageHtml, $matches)) {
+            foreach ($matches[1] as $styleContent) {
+                $trimmed = trim($styleContent);
+                if (!empty($trimmed)) {
+                    $css .= $trimmed . "\n";
+                }
+            }
+            error_log("[wash] Bricks: found " . count($matches[1]) . " inline style tags");
+        }
+
+        // 2. Find and fetch linked Bricks CSS files
+        if (preg_match_all('/<link[^>]*href=["\']([^"\']*bricks[^"\']*\.css[^"\']*)["\'][^>]*>/i', $pageHtml, $linkMatches)) {
+            foreach ($linkMatches[1] as $cssUrl) {
+                error_log("[wash] Bricks: fetching CSS file: {$cssUrl}");
+                $cssResponse = wp_remote_get($cssUrl, [
+                    'timeout'   => 15,
+                    'sslverify' => false,
+                ]);
+                if (!is_wp_error($cssResponse) && wp_remote_retrieve_response_code($cssResponse) === 200) {
+                    $cssContent = wp_remote_retrieve_body($cssResponse);
+                    $css .= $cssContent . "\n";
+                    error_log("[wash] Bricks: fetched CSS file (" . strlen($cssContent) . " bytes)");
+                }
+            }
+        }
+
+        // 3. Also grab post-specific CSS file link if present
+        $postCssPattern = '/post-' . $postId . '[\w.-]*\.css/';
+        if (preg_match_all('/<link[^>]*href=["\']([^"\']*' . preg_quote("post-{$postId}", '/') . '[^"\']*\.css[^"\']*)["\'][^>]*>/i', $pageHtml, $postCssMatches)) {
+            foreach ($postCssMatches[1] as $cssUrl) {
+                if (strpos($css, basename($cssUrl)) !== false) continue; // Already fetched
+                error_log("[wash] Bricks: fetching post CSS: {$cssUrl}");
+                $cssResponse = wp_remote_get($cssUrl, [
+                    'timeout'   => 15,
+                    'sslverify' => false,
+                ]);
+                if (!is_wp_error($cssResponse) && wp_remote_retrieve_response_code($cssResponse) === 200) {
+                    $css .= wp_remote_retrieve_body($cssResponse) . "\n";
+                }
+            }
+        }
+
+        return trim($css);
     }
 
     /**
