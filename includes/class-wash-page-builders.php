@@ -139,11 +139,26 @@ class WashPageBuilders {
             }
         }
 
-        // Always supplement with filesystem CSS (theme base, child theme, global settings)
-        $fsCss = self::getBricksCss($postId);
-        if (!empty($fsCss)) {
-            $css = $fsCss . "\n" . $css;
-            error_log("[wash] Bricks: added filesystem CSS (" . strlen($fsCss) . " bytes)");
+        // Only add per-page CSS (global/custom), NOT base theme CSS
+        // Base theme CSS (frontend-layer.min.css, child theme) should be loaded
+        // as a Shopify theme asset — too large for metafield (64k limit)
+        $globalCss = get_option('bricks_global_css', '');
+        $pageCss = get_post_meta($postId, '_bricks_page_css', true);
+        if (!empty($globalCss)) $css .= $globalCss . "\n";
+        if (!empty($pageCss)) $css .= $pageCss . "\n";
+
+        // Minify: remove comments, extra whitespace
+        $css = preg_replace('/\/\*.*?\*\//s', '', $css);
+        $css = preg_replace('/\s+/', ' ', $css);
+        $css = str_replace([' { ', ' } ', '; '], ['{', '}', ';'], $css);
+        $css = trim($css);
+
+        error_log("[wash] Bricks: final CSS for metafield: " . strlen($css) . " bytes (limit: 65536)");
+
+        // Truncate if still over Shopify metafield limit
+        if (strlen($css) > 65000) {
+            error_log("[wash] Bricks: CSS exceeds 65k, truncating to fit metafield");
+            $css = substr($css, 0, 65000);
         }
 
         return ['html' => $html, 'css' => $css];
