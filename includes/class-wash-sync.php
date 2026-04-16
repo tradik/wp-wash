@@ -463,6 +463,14 @@ class WashSync {
             error_log("[wash] buildPostData() - Added block CSS (" . strlen($blocksCss) . " bytes)");
         }
 
+        // Debug: include page builder detection info in payload (temporary)
+        if ($pageBuilder) {
+            $data['_debug_pageBuilder'] = $pageBuilder;
+            $data['_debug_contentLength'] = strlen($content);
+        }
+        $data['_debug_postContentLength'] = strlen($post->post_content);
+        $data['_debug_bricksMetaExists'] = !empty($bricksMeta);
+
         return $data;
     }
 
