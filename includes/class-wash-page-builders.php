@@ -186,11 +186,28 @@ class WashPageBuilders {
             'headers'   => ['X-Wash-Internal' => '1'],
         ];
 
-        // Add HTTP Basic Auth if configured (for staging/password-protected sites)
+        // Add HTTP Basic Auth — try WP option first, then detect from current request
         $httpUser = get_option('wash_http_user', '');
         $httpPass = get_option('wash_http_pass', '');
+
+        // Fallback: detect auth from current request (nginx/apache basic auth)
+        if (empty($httpUser) && !empty($_SERVER['PHP_AUTH_USER'])) {
+            $httpUser = $_SERVER['PHP_AUTH_USER'];
+            $httpPass = $_SERVER['PHP_AUTH_PW'] ?? '';
+        }
+        if (empty($httpUser) && !empty($_SERVER['HTTP_AUTHORIZATION'])) {
+            $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+            if (stripos($authHeader, 'Basic ') === 0) {
+                $decoded = base64_decode(substr($authHeader, 6));
+                if ($decoded && strpos($decoded, ':') !== false) {
+                    list($httpUser, $httpPass) = explode(':', $decoded, 2);
+                }
+            }
+        }
+
         if (!empty($httpUser)) {
             $requestArgs['headers']['Authorization'] = 'Basic ' . base64_encode($httpUser . ':' . $httpPass);
+            error_log("[wash] Bricks: using HTTP auth for frontend fetch (user: {$httpUser})");
         }
 
         $response = wp_remote_get($permalink, $requestArgs);
