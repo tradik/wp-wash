@@ -75,25 +75,133 @@ class WashPageBuilders {
 
         error_log("[wash] Bricks: rendering " . count($elements) . " elements for post {$postId}");
 
-        // Method 1: Use Bricks render API if available
+        // Method 1: Setup global post context and use Bricks render API
         if (class_exists('\Bricks\Frontend') && method_exists('\Bricks\Frontend', 'render_data')) {
+            // Bricks needs global $post set for rendering
+            global $post;
+            $originalPost = $post;
+            $post = get_post($postId);
+            setup_postdata($post);
+
             ob_start();
             \Bricks\Frontend::render_data($elements, $postId);
             $html = ob_get_clean();
-            error_log("[wash] Bricks: rendered HTML length: " . strlen($html));
-        } else {
-            // Fallback: try the_content filter (may partially work)
-            error_log("[wash] Bricks: Frontend class not available, falling back to the_content");
+
+            // Restore original post
+            $post = $originalPost;
+            if ($originalPost) {
+                setup_postdata($originalPost);
+            } else {
+                wp_reset_postdata();
+            }
+
+            error_log("[wash] Bricks: render_data HTML length: " . strlen($html));
+        }
+
+        // Method 2: If render_data returned empty, try fetching from frontend
+        if (empty($html)) {
+            $html = self::fetchBricksFromFrontend($postId);
+        }
+
+        // Method 3: Last resort — the_content filter
+        if (empty($html)) {
+            error_log("[wash] Bricks: all methods failed, falling back to the_content");
             $post = get_post($postId);
             if ($post) {
                 $html = apply_filters('the_content', $post->post_content);
             }
         }
 
-        // Extract CSS — try external file first, then inline generation
+        // Extract CSS
         $css = self::getBricksCss($postId);
 
         return ['html' => $html, 'css' => $css];
+    }
+
+    /**
+     * Fetch Bricks-rendered HTML from the frontend URL.
+     * Makes an internal HTTP request to the post's permalink and
+     * extracts the main content area.
+     *
+     * @param int $postId WordPress post ID
+     * @return string Extracted HTML content or empty string
+     */
+    private static function fetchBricksFromFrontend($postId) {
+        $permalink = get_permalink($postId);
+        if (!$permalink) {
+            error_log("[wash] Bricks: no permalink for post {$postId}");
+            return '';
+        }
+
+        error_log("[wash] Bricks: fetching frontend URL: {$permalink}");
+
+        $response = wp_remote_get($permalink, [
+            'timeout'   => 30,
+            'sslverify' => false,
+            'headers'   => ['X-Wash-Internal' => '1'],
+        ]);
+
+        if (is_wp_error($response)) {
+            error_log("[wash] Bricks: frontend fetch failed: " . $response->get_error_message());
+            return '';
+        }
+
+        $statusCode = wp_remote_retrieve_response_code($response);
+        if ($statusCode !== 200) {
+            error_log("[wash] Bricks: frontend returned HTTP {$statusCode}");
+            return '';
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        error_log("[wash] Bricks: fetched page HTML length: " . strlen($body));
+
+        // Extract Bricks content area: <div id="brx-content">...</div>
+        $html = self::extractBricksContent($body);
+        error_log("[wash] Bricks: extracted content length: " . strlen($html));
+
+        return $html;
+    }
+
+    /**
+     * Extract the Bricks content area from full page HTML.
+     * Looks for #brx-content or main content area.
+     *
+     * @param string $pageHtml Full page HTML
+     * @return string Extracted content HTML
+     */
+    private static function extractBricksContent($pageHtml) {
+        // Try #brx-content first (Bricks main content wrapper)
+        if (preg_match('/<div[^>]*id=["\']brx-content["\'][^>]*>(.*?)<\/div>\s*(?:<footer|<div[^>]*id=["\']brx-footer)/s', $pageHtml, $matches)) {
+            return trim($matches[1]);
+        }
+
+        // Try broader match — everything between header and footer
+        if (preg_match('/<div[^>]*id=["\']brx-content["\'][^>]*>(.*)<\/div>/s', $pageHtml, $matches)) {
+            // Remove nested closing divs that belong to the wrapper
+            $content = $matches[1];
+            // Find last occurrence of closing content markers
+            $footerPos = strpos($content, '<footer');
+            if ($footerPos === false) {
+                $footerPos = strpos($content, 'id="brx-footer"');
+            }
+            if ($footerPos !== false) {
+                $content = substr($content, 0, $footerPos);
+            }
+            return trim($content);
+        }
+
+        // Fallback: try <main> tag
+        if (preg_match('/<main[^>]*>(.*?)<\/main>/s', $pageHtml, $matches)) {
+            return trim($matches[1]);
+        }
+
+        // Fallback: try .entry-content
+        if (preg_match('/<div[^>]*class=["\'][^"\']*entry-content[^"\']*["\'][^>]*>(.*?)<\/div>/s', $pageHtml, $matches)) {
+            return trim($matches[1]);
+        }
+
+        error_log("[wash] Bricks: could not extract content from page HTML");
+        return '';
     }
 
     /**
