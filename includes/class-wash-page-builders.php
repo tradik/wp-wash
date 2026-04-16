@@ -291,53 +291,99 @@ class WashPageBuilders {
 
     /**
      * Get Bricks CSS for a post.
-     * Tries external CSS file first, then inline generation.
+     * Tries multiple methods: external file, Bricks API, theme files, global settings.
      *
      * @param int $postId WordPress post ID
      * @return string CSS content
      */
     private static function getBricksCss($postId) {
-        // Try external CSS file (Bricks Settings → Performance → CSS loading method: External files)
+        $css = '';
+
+        // 1. Try external CSS file (Bricks Settings → Performance → CSS loading method: External files)
         $uploadDir = wp_upload_dir();
         $cssFile = $uploadDir['basedir'] . '/bricks/css/post-' . $postId . '.min.css';
-
         if (file_exists($cssFile)) {
-            $css = file_get_contents($cssFile);
-            error_log("[wash] Bricks: loaded external CSS (" . strlen($css) . " bytes) from {$cssFile}");
-            return $css;
+            $css .= file_get_contents($cssFile) . "\n";
+            error_log("[wash] Bricks: loaded post CSS file (" . strlen($css) . " bytes)");
         }
-
-        // Try non-minified version
         $cssFileAlt = $uploadDir['basedir'] . '/bricks/css/post-' . $postId . '.css';
-        if (file_exists($cssFileAlt)) {
-            $css = file_get_contents($cssFileAlt);
-            error_log("[wash] Bricks: loaded external CSS (" . strlen($css) . " bytes) from {$cssFileAlt}");
-            return $css;
+        if (empty($css) && file_exists($cssFileAlt)) {
+            $css .= file_get_contents($cssFileAlt) . "\n";
+            error_log("[wash] Bricks: loaded post CSS file alt (" . strlen($css) . " bytes)");
         }
 
-        // Try Bricks Assets API for inline CSS generation
-        if (class_exists('\Bricks\Assets') && method_exists('\Bricks\Assets', 'generate_inline_css')) {
-            ob_start();
-            \Bricks\Assets::generate_inline_css($postId);
-            $css = ob_get_clean();
-            if (!empty($css)) {
-                error_log("[wash] Bricks: generated inline CSS (" . strlen($css) . " bytes)");
-                return $css;
+        // 2. Try Bricks Assets API for inline CSS generation
+        if (class_exists('\Bricks\Assets')) {
+            // Try generate_inline_css (generates CSS for a specific post)
+            if (method_exists('\Bricks\Assets', 'generate_inline_css')) {
+                global $post;
+                $originalPost = $post;
+                $post = get_post($postId);
+                if ($post) setup_postdata($post);
+
+                ob_start();
+                \Bricks\Assets::generate_inline_css($postId);
+                $inlineCss = ob_get_clean();
+
+                $post = $originalPost;
+                if ($originalPost) setup_postdata($originalPost);
+                else wp_reset_postdata();
+
+                if (!empty($inlineCss)) {
+                    $css .= $inlineCss . "\n";
+                    error_log("[wash] Bricks: Assets::generate_inline_css (" . strlen($inlineCss) . " bytes)");
+                }
+            }
+
+            // Try generate_css_from_elements (builds CSS from element data)
+            if (empty($css) && method_exists('\Bricks\Assets', 'generate_css_from_elements')) {
+                $elements = get_post_meta($postId, '_bricks_page_content_2', true);
+                if (!empty($elements) && is_array($elements)) {
+                    ob_start();
+                    \Bricks\Assets::generate_css_from_elements($elements, $postId);
+                    $elementCss = ob_get_clean();
+                    if (!empty($elementCss)) {
+                        $css .= $elementCss . "\n";
+                        error_log("[wash] Bricks: Assets::generate_css_from_elements (" . strlen($elementCss) . " bytes)");
+                    }
+                }
             }
         }
 
-        // Try global + page CSS from Bricks settings
-        $globalCss = get_option('bricks_global_css', '');
-        $pageCss = get_post_meta($postId, '_bricks_page_css', true);
-        $combinedCss = trim($globalCss . "\n" . $pageCss);
-
-        if (!empty($combinedCss)) {
-            error_log("[wash] Bricks: using global+page CSS (" . strlen($combinedCss) . " bytes)");
-            return $combinedCss;
+        // 3. Load Bricks theme CSS files directly from filesystem
+        $bricksThemeDir = get_template_directory();
+        $bricksThemeFiles = [
+            $bricksThemeDir . '/assets/css/frontend-layer.min.css',
+            $bricksThemeDir . '/assets/css/frontend-layer.css',
+        ];
+        foreach ($bricksThemeFiles as $themeFile) {
+            if (file_exists($themeFile)) {
+                $themeCss = file_get_contents($themeFile);
+                $css .= $themeCss . "\n";
+                error_log("[wash] Bricks: loaded theme CSS (" . strlen($themeCss) . " bytes) from {$themeFile}");
+                break;
+            }
         }
 
-        error_log("[wash] Bricks: no CSS found for post {$postId}");
-        return '';
+        // 4. Load child theme CSS
+        $childDir = get_stylesheet_directory();
+        if ($childDir !== $bricksThemeDir) {
+            $childStyleFile = $childDir . '/style.css';
+            if (file_exists($childStyleFile)) {
+                $childCss = file_get_contents($childStyleFile);
+                $css .= $childCss . "\n";
+                error_log("[wash] Bricks: loaded child theme CSS (" . strlen($childCss) . " bytes)");
+            }
+        }
+
+        // 5. Global + page custom CSS from Bricks settings
+        $globalCss = get_option('bricks_global_css', '');
+        $pageCss = get_post_meta($postId, '_bricks_page_css', true);
+        if (!empty($globalCss)) $css .= $globalCss . "\n";
+        if (!empty($pageCss)) $css .= $pageCss . "\n";
+
+        error_log("[wash] Bricks: total CSS for post {$postId}: " . strlen($css) . " bytes");
+        return trim($css);
     }
 
     /**
