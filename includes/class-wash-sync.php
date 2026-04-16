@@ -330,6 +330,14 @@ class WashSync {
             error_log("[wash] buildPostData() - Page builder detected: {$pageBuilder} for post {$postId}");
             $rendered = WashPageBuilders::render($postId, $pageBuilder);
             error_log("[wash] buildPostData() - Rendered HTML length: " . strlen($rendered['html']) . " CSS length: " . strlen($rendered['css']));
+
+            // If CSS is empty, fetch from frontend page directly
+            if (empty($rendered['css']) && !empty($rendered['html'])) {
+                error_log("[wash] buildPostData() - CSS empty, fetching from frontend");
+                $rendered['css'] = $this->fetchPageBuilderCss($postId);
+                error_log("[wash] buildPostData() - Frontend CSS length: " . strlen($rendered['css']));
+            }
+
             $content = WashPageBuilders::wrapWithCss($rendered['html'], $rendered['css']);
             error_log("[wash] buildPostData() - Final content length after wrap: " . strlen($content));
         } else {
@@ -1373,6 +1381,57 @@ class WashSync {
      */
     private function resolveEndpoint($postType) {
         return $postType === 'page' ? '/api/page-sync' : '/api/content-sync';
+    }
+
+    /**
+     * Fetch CSS from a page's frontend HTML.
+     * Used when page builder renders HTML but CSS is separate.
+     *
+     * @param int $postId Post ID
+     * @return string CSS content
+     */
+    private function fetchPageBuilderCss($postId) {
+        $permalink = get_permalink($postId);
+        if (!$permalink) return '';
+
+        $args = ['timeout' => 30, 'sslverify' => false];
+        $httpUser = get_option('wash_http_user', '');
+        $httpPass = get_option('wash_http_pass', '');
+        if (!empty($httpUser)) {
+            $args['headers'] = ['Authorization' => 'Basic ' . base64_encode($httpUser . ':' . $httpPass)];
+        }
+
+        $response = wp_remote_get($permalink, $args);
+        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
+            error_log("[wash] fetchPageBuilderCss: fetch failed for {$permalink}");
+            return '';
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        $css = '';
+
+        // Extract inline <style> tags with bricks in ID
+        if (preg_match_all('/<style[^>]*>(.*?)<\/style>/s', $body, $matches)) {
+            foreach ($matches[1] as $styleContent) {
+                $trimmed = trim($styleContent);
+                if (strlen($trimmed) > 100) {
+                    $css .= $trimmed . "\n";
+                }
+            }
+        }
+
+        // Fetch linked Bricks CSS files
+        if (preg_match_all('/<link[^>]*href=[\'"]([^\'"]*(?:bricks|themes\/bricks)[^\'"]*\.css[^\'"]*)[\'"][^>]*>/i', $body, $linkMatches)) {
+            foreach ($linkMatches[1] as $cssUrl) {
+                $cssResponse = wp_remote_get($cssUrl, ['timeout' => 15, 'sslverify' => false]);
+                if (!is_wp_error($cssResponse) && wp_remote_retrieve_response_code($cssResponse) === 200) {
+                    $css .= wp_remote_retrieve_body($cssResponse) . "\n";
+                }
+            }
+        }
+
+        error_log("[wash] fetchPageBuilderCss: total CSS " . strlen($css) . " bytes");
+        return $css;
     }
 
     /**
