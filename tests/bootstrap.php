@@ -54,6 +54,11 @@ if (!class_exists('WP_REST_Response')) {
 
 // Stub WordPress functions that are used at file include time
 // Brain\Monkey handles most, but some need to exist before class files are loaded
+if (!function_exists('is_plugin_active')) {
+    function is_plugin_active($plugin) {
+        return false;
+    }
+}
 if (!function_exists('plugin_dir_path')) {
     function plugin_dir_path($file) {
         return dirname($file) . '/';
