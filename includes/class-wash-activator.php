@@ -42,6 +42,11 @@ class WashActivator {
             delete_option('wash_sync_images');
         }
 
+        // Clear OPcache to ensure new code is loaded
+        if (function_exists('opcache_reset')) {
+            opcache_reset();
+        }
+
         self::createSyncTable();
         flush_rewrite_rules();
 
@@ -75,6 +80,12 @@ class WashActivator {
         $plugins = $options['plugins'] ?? [];
 
         if (in_array($ourPlugin, $plugins, true)) {
+            // Clear OPcache to ensure new code is loaded immediately
+            if (function_exists('opcache_reset')) {
+                opcache_reset();
+                error_log('[wash] OPcache reset after plugin update');
+            }
+
             // Schedule ping after update
             if (!wp_next_scheduled('wash_ping_shopify')) {
                 wp_schedule_single_event(time() + 5, 'wash_ping_shopify');
