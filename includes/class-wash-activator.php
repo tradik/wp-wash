@@ -43,9 +43,7 @@ class WashActivator {
         }
 
         // Clear OPcache to ensure new code is loaded
-        if (function_exists('opcache_reset')) {
-            opcache_reset();
-        }
+        self::clearOpcache();
 
         self::createSyncTable();
         flush_rewrite_rules();
@@ -81,10 +79,8 @@ class WashActivator {
 
         if (in_array($ourPlugin, $plugins, true)) {
             // Clear OPcache to ensure new code is loaded immediately
-            if (function_exists('opcache_reset')) {
-                opcache_reset();
-                error_log('[wash] OPcache reset after plugin update');
-            }
+            self::clearOpcache();
+            error_log('[wash] OPcache cleared after plugin update to ' . WASH_VERSION);
 
             // Schedule ping after update
             if (!wp_next_scheduled('wash_ping_shopify')) {
@@ -130,5 +126,30 @@ class WashActivator {
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($sql);
+    }
+
+    /**
+     * Clear OPcache for all plugin files.
+     * Tries opcache_reset first, then invalidates individual files.
+     */
+    private static function clearOpcache() {
+        if (!function_exists('opcache_get_status')) {
+            return;
+        }
+
+        // Try full reset first
+        if (function_exists('opcache_reset')) {
+            @opcache_reset();
+        }
+
+        // Also invalidate individual plugin files (some hosts restrict opcache_reset)
+        if (function_exists('opcache_invalidate')) {
+            $pluginDir = defined('WASH_PLUGIN_DIR') ? WASH_PLUGIN_DIR : dirname(__DIR__) . '/';
+            $files = glob($pluginDir . '*.php') ?: [];
+            $includeFiles = glob($pluginDir . 'includes/*.php') ?: [];
+            foreach (array_merge($files, $includeFiles) as $file) {
+                @opcache_invalidate($file, true);
+            }
+        }
     }
 }
