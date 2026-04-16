@@ -487,6 +487,7 @@ class WashSync {
         $data['_debug_postContentLength'] = strlen($post->post_content);
         $data['_debug_bricksMetaExists'] = !empty($bricksMeta);
         $data['_debug_pluginVersion'] = WASH_VERSION;
+        $data['_debug_cssLength'] = strlen($pageBuilderCss ?? '');
 
         return $data;
     }
