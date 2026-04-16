@@ -479,6 +479,40 @@ function wash_render_permission_locked_banner() {
                         <table class="form-table" role="presentation">
                             <tr>
                                 <th scope="row">
+                                    <label for="wash-destination"><?php esc_html_e('Shopify Destination', 'wash'); ?></label>
+                                </th>
+                                <td>
+                                    <select id="wash-destination" class="regular-text">
+                                        <option value="article"><?php esc_html_e('Blog Article (/blogs/...)', 'wash'); ?></option>
+                                        <option value="page"><?php esc_html_e('Page (/pages/...)', 'wash'); ?></option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label><?php esc_html_e('WP Post Types', 'wash'); ?></label>
+                                </th>
+                                <td>
+                                    <fieldset id="wash-wp-post-types-fieldset">
+                                        <?php
+                                        $allPostTypes = get_post_types(['public' => true], 'objects');
+                                        foreach ($allPostTypes as $pt) :
+                                            if ($pt->name === 'attachment') continue;
+                                        ?>
+                                            <label style="display: inline-block; margin-right: 14px; margin-bottom: 6px;">
+                                                <input type="checkbox" class="wash-pt-checkbox" value="<?php echo esc_attr($pt->name); ?>"
+                                                    <?php echo in_array($pt->name, ['post'], true) ? 'checked' : ''; ?> />
+                                                <?php echo esc_html($pt->label); ?>
+                                                <code style="font-size: 11px; color: #666;">(<?php echo esc_html($pt->name); ?>)</code>
+                                            </label>
+                                        <?php endforeach; ?>
+                                    </fieldset>
+                                    <input type="hidden" id="wash-wp-post-types" value="post" />
+                                    <p class="description"><?php esc_html_e('Select which WordPress post types this rule applies to.', 'wash'); ?></p>
+                                </td>
+                            </tr>
+                            <tr id="wash-category-row">
+                                <th scope="row">
                                     <label for="wash-rule-value-cat"><?php esc_html_e('Category', 'wash'); ?></label>
                                 </th>
                                 <td>
@@ -513,9 +547,9 @@ function wash_render_permission_locked_banner() {
                                 </td>
                             </tr>
                             <?php endif; ?>
-                            <tr>
+                            <tr id="wash-blog-row">
                                 <th scope="row">
-                                    <label for="wash-shopify-blog"><?php esc_html_e('Target Shopify Blog & Translation', 'wash'); ?></label>
+                                    <label for="wash-shopify-blog"><?php esc_html_e('Target Shopify Blog', 'wash'); ?></label>
                                 </th>
                                 <td>
                                     <select id="wash-shopify-blog" class="regular-text" style="margin-bottom: 10px;">
@@ -525,13 +559,18 @@ function wash_render_permission_locked_banner() {
                                     <div id="wash-new-blog-row" style="display: none; margin-bottom: 10px;">
                                         <input type="text" id="wash-new-blog-name" class="regular-text" placeholder="<?php esc_attr_e('New blog name (e.g., blog-en)', 'wash'); ?>" />
                                     </div>
-                                    <div id="wash-market-locale-row">
-                                        <select id="wash-market-locale" class="regular-text">
-                                            <option value=""><?php esc_html_e('Default (primary market)', 'wash'); ?></option>
-                                            <!-- Options loaded via JavaScript from Shopify Markets API -->
-                                        </select>
-                                        <p class="description"><?php esc_html_e('Select market and language for URL routing (e.g., /en-ch for Switzerland English)', 'wash'); ?></p>
-                                    </div>
+                                </td>
+                            </tr>
+                            <tr id="wash-market-locale-row">
+                                <th scope="row">
+                                    <label for="wash-market-locale"><?php esc_html_e('Market & Locale', 'wash'); ?></label>
+                                </th>
+                                <td>
+                                    <select id="wash-market-locale" class="regular-text">
+                                        <option value=""><?php esc_html_e('Default (primary market)', 'wash'); ?></option>
+                                        <!-- Options loaded via JavaScript from Shopify Markets API -->
+                                    </select>
+                                    <p class="description"><?php esc_html_e('Select market and language for URL routing (e.g., /en-ch for Switzerland English)', 'wash'); ?></p>
                                 </td>
                             </tr>
                             <tr style="display:none;">
@@ -1519,14 +1558,27 @@ function wash_render_permission_locked_banner() {
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row">
-                        <label for="wash_post_types"><?php esc_html_e('Post Types', 'wash'); ?></label>
-                    </th>
+                    <th scope="row"><?php esc_html_e('Post Types', 'wash'); ?></th>
                     <td>
-                        <input type="text" id="wash_post_types" name="wash_post_types"
-                               value="<?php echo esc_attr(get_option('wash_post_types', 'post,page')); ?>"
-                               class="regular-text" />
-                        <p class="description"><?php esc_html_e('Comma-separated list of post types to sync (e.g. post,page,custom_type)', 'wash'); ?></p>
+                        <?php
+                        $syncPostTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+                        $publicPostTypes = get_post_types(['public' => true], 'objects');
+                        ?>
+                        <fieldset>
+                            <?php foreach ($publicPostTypes as $pt) :
+                                if ($pt->name === 'attachment') continue;
+                            ?>
+                                <label style="display: inline-block; margin-right: 14px; margin-bottom: 6px;">
+                                    <input type="checkbox" class="wash-sync-pt-checkbox" value="<?php echo esc_attr($pt->name); ?>"
+                                        <?php checked(in_array($pt->name, $syncPostTypes, true)); ?> />
+                                    <?php echo esc_html($pt->label); ?>
+                                    <code style="font-size: 11px; color: #666;">(<?php echo esc_html($pt->name); ?>)</code>
+                                </label>
+                            <?php endforeach; ?>
+                        </fieldset>
+                        <input type="hidden" id="wash_post_types" name="wash_post_types"
+                               value="<?php echo esc_attr(get_option('wash_post_types', 'post,page')); ?>" />
+                        <p class="description"><?php esc_html_e('Select which post types to synchronize to Shopify.', 'wash'); ?></p>
                     </td>
                 </tr>
             </table>
@@ -1822,6 +1874,19 @@ function wash_render_permission_locked_banner() {
 
 <script>
 (function() {
+    // Sync Post Types checkboxes → hidden input
+    var syncPtCheckboxes = document.querySelectorAll('.wash-sync-pt-checkbox');
+    var syncPtHidden = document.getElementById('wash_post_types');
+    if (syncPtCheckboxes.length && syncPtHidden) {
+        syncPtCheckboxes.forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                var checked = [];
+                syncPtCheckboxes.forEach(function(c) { if (c.checked) checked.push(c.value); });
+                syncPtHidden.value = checked.join(',');
+            });
+        });
+    }
+
     var currentTabInput = document.getElementById('wash-current-tab');
 
     // Initialize locked tab content panels
@@ -1993,6 +2058,51 @@ function wash_render_permission_locked_banner() {
     var mappingsData = [];
     var shopifyBlogs = [];
     var shopifyMarkets = [];
+    var destinationSelect = document.getElementById('wash-destination');
+    var wpPostTypesInput = document.getElementById('wash-wp-post-types');
+    var ptCheckboxes = document.querySelectorAll('.wash-pt-checkbox');
+    var categoryRow = document.getElementById('wash-category-row');
+    var blogRow = document.getElementById('wash-blog-row');
+    var marketLocaleRow = document.getElementById('wash-market-locale-row');
+
+    // Sync checkboxes → hidden input
+    function syncPostTypeCheckboxes() {
+        var checked = [];
+        ptCheckboxes.forEach(function(cb) {
+            if (cb.checked) checked.push(cb.value);
+        });
+        if (wpPostTypesInput) wpPostTypesInput.value = checked.join(',');
+    }
+
+    // Set checkboxes from comma-separated string
+    function setPostTypeCheckboxes(value) {
+        var types = (value || 'post').split(',').map(function(t) { return t.trim().toLowerCase(); });
+        ptCheckboxes.forEach(function(cb) {
+            cb.checked = types.indexOf(cb.value.toLowerCase()) > -1;
+        });
+        syncPostTypeCheckboxes();
+    }
+
+    ptCheckboxes.forEach(function(cb) {
+        cb.addEventListener('change', syncPostTypeCheckboxes);
+    });
+
+    // Show/hide fields based on destination
+    function updateDestinationFields() {
+        var dest = destinationSelect ? destinationSelect.value : 'article';
+        var isPage = dest === 'page';
+        if (categoryRow) categoryRow.style.display = isPage ? 'none' : '';
+        if (blogRow) blogRow.style.display = isPage ? 'none' : '';
+        // Market/locale always visible (pages need it for translations too)
+        if (isPage && ruleValueCat) ruleValueCat.value = '';
+    }
+    if (destinationSelect) {
+        destinationSelect.addEventListener('change', function() {
+            var isPage = this.value === 'page';
+            setPostTypeCheckboxes(isPage ? 'page' : 'post');
+            updateDestinationFields();
+        });
+    }
 
     // Load mappings on page load (only if connected)
     if (mappingsList && <?php echo $isConnected ? 'true' : 'false'; ?>) {
@@ -2136,11 +2246,17 @@ function wash_render_permission_locked_banner() {
      */
     function getUrlExample(m) {
         var wpUrl;
+        var isPage = m.destination === 'page';
         var handle = getBlogHandle(m.shopifyBlogId) || m.shopifyBlogHandle || 'news';
         var market = getMarketById(m.shopifyMarketId);
 
         // WP source URL
-        if (m.ruleType === 'default') {
+        if (isPage) {
+            // Pages use flat URL: /page-slug/
+            wpUrl = m.ruleType === 'language' && m.ruleValue
+                ? wpBase + m.ruleValue + '/{page-slug}/'
+                : wpBase + '{page-slug}/';
+        } else if (m.ruleType === 'default') {
             wpUrl = wpPermalink;
         } else if (m.ruleType === 'language') {
             wpUrl = wpBase + m.ruleValue + '/' + wpPermalink.replace(wpBase, '');
@@ -2162,9 +2278,10 @@ function wash_render_permission_locked_banner() {
                 for (var i = 0; i < wp.rootUrls.length; i++) {
                     if (wp.rootUrls[i].locale === m.shopifyLocale) {
                         var rootUrl = wp.rootUrls[i].url.replace(/\/$/, '');
+                        var destPath = m.destination === 'page' ? '/pages/{slug}' : '/blogs/' + handle + '/{slug}';
                         return '<code style="color:#8b5a00;font-size:11px;">' + (wpUrl || wpPermalink) + '</code>' +
                             ' <span style="color:#2271b1;">→</span> ' +
-                            '<code style="color:#155724;font-size:11px;">' + rootUrl + '/blogs/' + handle + '/{slug}</code>';
+                            '<code style="color:#155724;font-size:11px;">' + rootUrl + destPath + '</code>';
                     }
                 }
             }
@@ -2181,11 +2298,40 @@ function wash_render_permission_locked_banner() {
             pathPrefix = '/' + m.shopifyLocale;
         }
 
-        var shopifyUrl = shopifyBase + pathPrefix + '/blogs/' + handle + '/{slug}';
+        var shopifyPath = m.destination === 'page' ? '/pages/{slug}' : '/blogs/' + handle + '/{slug}';
+        var shopifyUrl = shopifyBase + pathPrefix + shopifyPath;
 
         return '<code style="color:#8b5a00;font-size:11px;">' + (wpUrl || wpPermalink) + '</code>' +
             ' <span style="color:#2271b1;">→</span> ' +
             '<code style="color:#155724;font-size:11px;">' + shopifyUrl + '</code>';
+    }
+
+    /**
+     * Detect overlapping rules: non-default rules sharing post types
+     * where a higher-priority rule would shadow a lower one.
+     */
+    function detectOverlaps(mappings) {
+        var warnings = [];
+        for (var i = 0; i < mappings.length; i++) {
+            var a = mappings[i];
+            if (a.ruleType === 'default') continue;
+            var aTypes = (a.wpPostTypes || 'post').split(',').map(function(t) { return t.trim(); });
+            for (var j = i + 1; j < mappings.length; j++) {
+                var b = mappings[j];
+                if (b.ruleType === 'default') continue;
+                var bTypes = (b.wpPostTypes || 'post').split(',').map(function(t) { return t.trim(); });
+                var shared = aTypes.filter(function(t) { return bTypes.indexOf(t) > -1; });
+                if (shared.length > 0 && a.ruleType === b.ruleType && a.ruleValue === b.ruleValue) {
+                    var loser = a.priority >= b.priority ? b : a;
+                    var winner = a.priority >= b.priority ? a : b;
+                    warnings.push(
+                        '"' + (winner.ruleType + ': ' + (winner.ruleValue || '')) + '" (P:' + winner.priority + ') <?php echo esc_js(__('shadows', 'wash')); ?> "' +
+                        (loser.ruleType + ': ' + (loser.ruleValue || '')) + '" (P:' + loser.priority + ') <?php echo esc_js(__('for types', 'wash')); ?>: ' + shared.join(', ')
+                    );
+                }
+            }
+        }
+        return warnings;
     }
 
     function renderMappings() {
@@ -2198,7 +2344,7 @@ function wash_render_permission_locked_banner() {
         var html = '<table class="widefat striped" id="wash-mappings-table"><thead><tr>' +
             '<th style="width:30px;" title="<?php echo esc_js(__('Drag to reorder priority', 'wash')); ?>">⇅</th>' +
             '<th><?php echo esc_js(__('Rule', 'wash')); ?></th>' +
-            '<th><?php echo esc_js(__('Target Blog', 'wash')); ?></th>' +
+            '<th><?php echo esc_js(__('Target', 'wash')); ?></th>' +
             '<th><?php echo esc_js(__('Actions', 'wash')); ?></th>' +
             '</tr></thead><tbody id="wash-mappings-tbody">';
 
@@ -2206,15 +2352,22 @@ function wash_render_permission_locked_banner() {
             var ruleLabel = m.ruleType === 'default' ? '<?php echo esc_js(__('Default', 'wash')); ?>' :
                 (m.ruleType === 'language' ? '<?php echo esc_js(__('Language', 'wash')); ?>: ' : '<?php echo esc_js(__('Category', 'wash')); ?>: ') + (m.ruleValue || '');
             var badgeClass = m.ruleType === 'default' ? 'background:#28a745;' : (m.ruleType === 'language' ? 'background:#007bff;' : 'background:#fd7e14;');
+            var destBadge = m.destination === 'page'
+                ? '<span style="background:#ede9fe;color:#6d28d9;padding:2px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:4px;">PAGE</span>'
+                : '<span style="background:#e0e7ff;color:#3730a3;padding:2px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:4px;">ARTICLE</span>';
+            var typesTag = '<span style="background:#f3f4f6;color:#6b7280;padding:1px 5px;border-radius:3px;font-size:11px;margin-left:4px;">' + (m.wpPostTypes || 'post') + '</span>';
             var urlExample = getUrlExample(m);
+            var targetLabel = m.destination === 'page' ? '/pages/' : (getBlogHandle(m.shopifyBlogId) || m.shopifyBlogHandle || m.shopifyBlogId);
 
             html += '<tr class="wash-mapping-row" data-id="' + m.id + '" data-priority="' + m.priority + '">' +
                 '<td class="wash-mapping-drag" style="cursor:grab;text-align:center;color:#999;font-size:16px;user-select:none;vertical-align:middle;">☰</td>' +
                 '<td>' +
+                    destBadge +
                     '<span style="' + badgeClass + 'color:#fff;padding:2px 8px;border-radius:3px;font-size:12px;">' + ruleLabel + '</span>' +
+                    typesTag +
                     '<div style="margin-top:6px;padding:4px 6px;background:#f8f9fa;border-radius:3px;border:1px solid #e9ecef;">' + urlExample + '</div>' +
                 '</td>' +
-                '<td>' + (getBlogHandle(m.shopifyBlogId) || m.shopifyBlogHandle || m.shopifyBlogId) + '</td>' +
+                '<td>' + targetLabel + '</td>' +
                 '<td>' +
                 '<button type="button" class="button button-small wash-edit-mapping" data-id="' + m.id + '"><?php echo esc_js(__('Edit', 'wash')); ?></button> ' +
                 '<button type="button" class="button button-small wash-delete-mapping" data-id="' + m.id + '" style="color:#dc3545;"><?php echo esc_js(__('Delete', 'wash')); ?></button>' +
@@ -2222,6 +2375,20 @@ function wash_render_permission_locked_banner() {
         });
 
         html += '</tbody></table>';
+
+        // Detect overlapping rules
+        var overlaps = detectOverlaps(mappingsData);
+        if (overlaps.length > 0) {
+            html += '<div style="margin-top:10px;padding:10px 14px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;color:#856404;font-size:13px;">';
+            html += '<strong><?php echo esc_js(__('Overlap detected:', 'wash')); ?></strong> ';
+            html += '<?php echo esc_js(__('Rules with overlapping post types — higher priority (top) wins.', 'wash')); ?>';
+            html += '<ul style="margin:6px 0 0 18px;padding:0;">';
+            overlaps.forEach(function(o) {
+                html += '<li>' + o + '</li>';
+            });
+            html += '</ul></div>';
+        }
+
         mappingsList.innerHTML = html;
 
         // Attach event listeners
@@ -2322,6 +2489,9 @@ function wash_render_permission_locked_banner() {
         addMappingBtn.addEventListener('click', function() {
             document.getElementById('wash-mapping-id').value = '';
             document.getElementById('wash-mapping-form-title').textContent = '<?php echo esc_js(__('Add Mapping Rule', 'wash')); ?>';
+            if (destinationSelect) destinationSelect.value = 'article';
+            setPostTypeCheckboxes('post');
+            updateDestinationFields();
             setRuleSelectors('default', '');
             shopifyBlogSelect.value = '';
             document.getElementById('wash-priority').value = '0';
@@ -2352,13 +2522,16 @@ function wash_render_permission_locked_banner() {
                 shopifyLocale = parts[1];
             }
 
+            var dest = destinationSelect ? destinationSelect.value : 'article';
             var data = {
                 action: mappingId ? 'wash_update_mapping' : 'wash_create_mapping',
                 nonce: '<?php echo wp_create_nonce('wash_mappings'); ?>',
                 mappingId: mappingId,
+                destination: dest,
+                wpPostTypes: wpPostTypesInput ? wpPostTypesInput.value : 'post',
                 ruleType: getRuleData().ruleType,
                 ruleValue: getRuleData().ruleValue,
-                shopifyBlogId: shopifyBlogSelect.value,
+                shopifyBlogId: dest === 'article' ? shopifyBlogSelect.value : '',
                 newBlogName: document.getElementById('wash-new-blog-name').value,
                 priority: document.getElementById('wash-priority').value,
                 marketId: marketId,
@@ -2403,8 +2576,11 @@ function wash_render_permission_locked_banner() {
 
         document.getElementById('wash-mapping-id').value = mapping.id;
         document.getElementById('wash-mapping-form-title').textContent = '<?php echo esc_js(__('Edit Mapping Rule', 'wash')); ?>';
+        if (destinationSelect) destinationSelect.value = mapping.destination || 'article';
+        setPostTypeCheckboxes(mapping.wpPostTypes || 'post');
+        updateDestinationFields();
         setRuleSelectors(mapping.ruleType, mapping.ruleValue);
-        shopifyBlogSelect.value = mapping.shopifyBlogId;
+        shopifyBlogSelect.value = mapping.shopifyBlogId || '';
         document.getElementById('wash-priority').value = mapping.priority;
         newBlogRow.style.display = 'none';
         // Set market/locale — use exact marketId|locale if available, fallback to locale match

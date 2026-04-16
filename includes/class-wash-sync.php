@@ -368,6 +368,7 @@ class WashSync {
             'action'      => $action,
             'wpPostId'    => $postId,
             'wpSiteId'    => $this->getCurrentSiteId(),
+            'postType'    => $post->post_type,
             'title'       => $post->post_title,
             'content'     => $content,
             'excerpt'     => $post->post_excerpt,

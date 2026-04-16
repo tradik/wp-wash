@@ -848,6 +848,8 @@ class WashAdmin {
         }
 
         $data = [
+            'destination'    => sanitize_text_field($_POST['destination'] ?? 'article'),
+            'wpPostTypes'    => sanitize_text_field($_POST['wpPostTypes'] ?? 'post'),
             'ruleType'       => sanitize_text_field($_POST['ruleType'] ?? 'default'),
             'ruleValue'      => sanitize_text_field($_POST['ruleValue'] ?? ''),
             'shopifyBlogId'  => sanitize_text_field($_POST['shopifyBlogId'] ?? ''),
@@ -885,6 +887,8 @@ class WashAdmin {
         }
 
         $data = [
+            'destination'    => sanitize_text_field($_POST['destination'] ?? 'article'),
+            'wpPostTypes'    => sanitize_text_field($_POST['wpPostTypes'] ?? 'post'),
             'ruleType'       => sanitize_text_field($_POST['ruleType'] ?? 'default'),
             'ruleValue'      => sanitize_text_field($_POST['ruleValue'] ?? ''),
             'shopifyBlogId'  => sanitize_text_field($_POST['shopifyBlogId'] ?? ''),
