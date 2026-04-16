@@ -75,17 +75,25 @@ class WashPageBuilders {
 
         error_log("[wash] Bricks: rendering " . count($elements) . " elements for post {$postId}");
 
-        // Method 1: Setup global post context and use Bricks render API
+        // Method 1: Use Bricks render API (returns string or echoes)
         if (class_exists('\Bricks\Frontend') && method_exists('\Bricks\Frontend', 'render_data')) {
-            // Bricks needs global $post set for rendering
             global $post;
             $originalPost = $post;
             $post = get_post($postId);
             setup_postdata($post);
 
-            ob_start();
-            \Bricks\Frontend::render_data($elements, $postId);
-            $html = ob_get_clean();
+            // Try as return value first
+            $returned = \Bricks\Frontend::render_data($elements, $postId);
+            if (is_string($returned) && !empty($returned)) {
+                $html = $returned;
+                error_log("[wash] Bricks: render_data returned string length: " . strlen($html));
+            } else {
+                // Try with output buffering (some versions echo instead of return)
+                ob_start();
+                \Bricks\Frontend::render_data($elements, $postId);
+                $html = ob_get_clean();
+                error_log("[wash] Bricks: render_data ob_get_clean length: " . strlen($html));
+            }
 
             // Restore original post
             $post = $originalPost;
@@ -94,8 +102,6 @@ class WashPageBuilders {
             } else {
                 wp_reset_postdata();
             }
-
-            error_log("[wash] Bricks: render_data HTML length: " . strlen($html));
         }
 
         // Method 2: If render_data returned empty, try fetching from frontend
@@ -135,11 +141,20 @@ class WashPageBuilders {
 
         error_log("[wash] Bricks: fetching frontend URL: {$permalink}");
 
-        $response = wp_remote_get($permalink, [
+        $requestArgs = [
             'timeout'   => 30,
             'sslverify' => false,
             'headers'   => ['X-Wash-Internal' => '1'],
-        ]);
+        ];
+
+        // Add HTTP Basic Auth if configured (for staging/password-protected sites)
+        $httpUser = get_option('wash_http_user', '');
+        $httpPass = get_option('wash_http_pass', '');
+        if (!empty($httpUser)) {
+            $requestArgs['headers']['Authorization'] = 'Basic ' . base64_encode($httpUser . ':' . $httpPass);
+        }
+
+        $response = wp_remote_get($permalink, $requestArgs);
 
         if (is_wp_error($response)) {
             error_log("[wash] Bricks: frontend fetch failed: " . $response->get_error_message());
