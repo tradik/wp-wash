@@ -10,6 +10,7 @@ use Brain\Monkey;
 use Brain\Monkey\Functions;
 
 require_once dirname(__DIR__, 2) . '/includes/class-wash-api-client.php';
+require_once dirname(__DIR__, 2) . '/includes/class-wash-page-builders.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wash-sync.php';
 
 class ContentSyncContractTest extends TestCase

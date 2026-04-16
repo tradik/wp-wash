@@ -311,26 +311,34 @@ class WashSync {
      * Build the post data payload for the Shopify App API.
      */
     private function buildPostData($postId, $post, $action) {
-        // Process Gutenberg blocks before the_content filter
-        $blockData = apply_filters('wash_before_sync_content', $post->post_content, $postId);
+        $blocksMeta = [];
+        $blocksCss = '';
 
-        // Handle both old (string) and new (array) filter return format
-        if (is_array($blockData)) {
-            $rawContent = $blockData['content'];
-            $blocksMeta = $blockData['blocksMeta'] ?? [];
-            $blocksCss = $blockData['blocksCss'] ?? '';
+        // Detect page builder (Bricks, Elementor, Divi, etc.)
+        $pageBuilder = WashPageBuilders::detect($postId);
+
+        if ($pageBuilder) {
+            error_log("[wash] buildPostData() - Page builder detected: {$pageBuilder} for post {$postId}");
+            $rendered = WashPageBuilders::render($postId, $pageBuilder);
+            $content = WashPageBuilders::wrapWithCss($rendered['html'], $rendered['css']);
         } else {
-            $rawContent = $blockData;
-            $blocksMeta = [];
-            $blocksCss = '';
+            // Standard flow: Gutenberg blocks + the_content filter
+            $blockData = apply_filters('wash_before_sync_content', $post->post_content, $postId);
+
+            if (is_array($blockData)) {
+                $rawContent = $blockData['content'];
+                $blocksMeta = $blockData['blocksMeta'] ?? [];
+                $blocksCss = $blockData['blocksCss'] ?? '';
+            } else {
+                $rawContent = $blockData;
+            }
+
+            // Apply block/shortcode search & replace rules BEFORE the_content
+            $rawContent = $this->applySearchReplaceRules($rawContent, ['block', 'shortcode']);
+
+            // Apply the_content filter to processed content
+            $content = apply_filters('the_content', $rawContent);
         }
-
-        // Apply block/shortcode search & replace rules BEFORE the_content
-        // (the_content renders blocks/shortcodes into HTML, removing the markers)
-        $rawContent = $this->applySearchReplaceRules($rawContent, ['block', 'shortcode']);
-
-        // Apply the_content filter to processed content
-        $content = apply_filters('the_content', $rawContent);
 
         // Strip leading <h1> that matches post title — some themes/plugins inject
         // the title into the_content output, causing it to appear twice on Shopify
