@@ -120,9 +120,16 @@ class WashPageBuilders {
             }
         }
 
-        // If CSS still empty, try local file/API extraction
+        // CSS: always try to get it even if HTML came from render_data
         if (empty($css)) {
+            // Try local file first
             $css = self::getBricksCss($postId);
+        }
+        if (empty($css)) {
+            // Fetch CSS from frontend page as last resort
+            error_log("[wash] Bricks: CSS still empty, fetching from frontend for CSS only");
+            $frontendData = self::fetchBricksFromFrontend($postId);
+            $css = $frontendData['css'];
         }
 
         return ['html' => $html, 'css' => $css];
