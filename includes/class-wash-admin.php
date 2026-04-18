@@ -953,7 +953,7 @@ class WashAdmin {
                 continue;
             }
 
-            $result = $this->apiClient->put('/api/blog-mappings/' . $id, [
+            $result = $this->apiClient->post('/api/blog-mappings/' . $id, [
                 'priority' => $priority,
             ]);
 
