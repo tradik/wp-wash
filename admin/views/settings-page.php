@@ -29,6 +29,8 @@ $permissions = [];
 // Check if plan refresh was requested
 $forceRefreshPlan = isset($_GET['refresh_plan']) && $_GET['refresh_plan'] === '1';
 
+$connectionError = '';
+
 if ($isConnected) {
     $apiClient = new WashApiClient();
 
@@ -39,7 +41,9 @@ if ($isConnected) {
     }
 
     $planInfo = $apiClient->getPlanInfo($forceRefreshPlan);
-    if (!is_wp_error($planInfo) && !empty($planInfo['features'])) {
+    if (is_wp_error($planInfo)) {
+        $connectionError = $planInfo->get_error_message();
+    } elseif (!empty($planInfo['features'])) {
         $features = $planInfo['features'];
         $upgradeUrl = $planInfo['upgradeUrl'] ?? '';
         $planName = $planInfo['plan'] ?? 'FREE';
@@ -283,9 +287,26 @@ function wash_render_permission_locked_banner() {
 }
 ?>
 <div class="wrap wash-settings">
-    <?php if ($forceRefreshPlan) : ?>
+    <?php if ($forceRefreshPlan && empty($connectionError)) : ?>
     <div class="notice notice-success is-dismissible" style="margin: 15px 0;">
         <p><?php esc_html_e('Plan information refreshed successfully.', 'wash'); ?></p>
+    </div>
+    <?php endif; ?>
+    <?php if ($isConnected && !empty($connectionError)) : ?>
+    <div class="notice notice-error" style="margin: 15px 0;">
+        <p>
+            <strong>Wash:</strong>
+            <?php
+            printf(
+                /* translators: %s = error message */
+                esc_html__('Cannot connect to Shopify App: %s', 'wash'),
+                '<code>' . esc_html($connectionError) . '</code>'
+            );
+            ?>
+        </p>
+        <p style="margin-top: 4px; font-size: 12px; color: #646970;">
+            <?php esc_html_e('Check that your API key is valid, the Shopify App is running, and your server\'s IP is not blocked by a firewall. If you use HTTP Basic Auth, verify the credentials in the Connection tab.', 'wash'); ?>
+        </p>
     </div>
     <?php endif; ?>
     <h1>
@@ -2058,6 +2079,18 @@ function wash_render_permission_locked_banner() {
     var mappingsData = [];
     var shopifyBlogs = [];
     var shopifyMarkets = [];
+
+    /** Show a brief toast notification near the mappings list */
+    function washMappingsToast(message, type) {
+        type = type || 'success';
+        var el = document.createElement('div');
+        el.textContent = message;
+        el.style.cssText = 'position:fixed;top:40px;right:20px;z-index:99999;padding:10px 18px;border-radius:4px;font-size:13px;font-weight:500;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:opacity .3s;'
+            + (type === 'success' ? 'background:#00a32a;color:#fff;' : 'background:#d63638;color:#fff;');
+        document.body.appendChild(el);
+        setTimeout(function() { el.style.opacity = '0'; }, 2000);
+        setTimeout(function() { el.remove(); }, 2400);
+    }
     var destinationSelect = document.getElementById('wash-destination');
     var wpPostTypesInput = document.getElementById('wash-wp-post-types');
     var ptCheckboxes = document.querySelectorAll('.wash-pt-checkbox');
@@ -2433,11 +2466,15 @@ function wash_render_permission_locked_banner() {
                         },
                         success: function(res) {
                             if (res.success) {
-                                if (window.washClearDirty) washClearDirty('blogmappings');
+                                washMappingsToast('<?php echo esc_js(__('Order saved', 'wash')); ?>');
+                            } else {
+                                washMappingsToast('<?php echo esc_js(__('Failed to save order', 'wash')); ?>', 'error');
                             }
+                        },
+                        error: function() {
+                            washMappingsToast('<?php echo esc_js(__('Failed to save order', 'wash')); ?>', 'error');
                         }
                     });
-                    if (window.washMarkDirty) washMarkDirty('blogmappings');
                 },
             });
         }

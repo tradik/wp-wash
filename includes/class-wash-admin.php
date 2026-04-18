@@ -1888,6 +1888,20 @@ JS;
      * Render admin notices for sync results.
      */
     public function renderSyncNotices() {
+        // Show persistent notice when plugin is not connected to Shopify
+        if (!$this->apiClient->isConfigured()) {
+            $settingsUrl = admin_url('options-general.php?page=wash');
+            echo '<div class="notice notice-warning"><p>';
+            echo '<strong>Wash:</strong> ';
+            printf(
+                /* translators: %1$s = opening link tag, %2$s = closing link tag */
+                esc_html__('Plugin is not connected to Shopify. Posts will not sync until you %1$sconfigure the connection%2$s.', 'wash'),
+                '<a href="' . esc_url($settingsUrl) . '">',
+                '</a>'
+            );
+            echo '</p></div>';
+        }
+
         // Handle bulk action notices
         if (isset($_GET['wash_bulk_action'])) {
             $this->renderBulkActionNotice();
