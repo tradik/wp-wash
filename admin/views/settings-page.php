@@ -2382,9 +2382,21 @@ function wash_render_permission_locked_banner() {
             '</tr></thead><tbody id="wash-mappings-tbody">';
 
         mappingsData.forEach(function(m) {
-            var ruleLabel = m.ruleType === 'default' ? '<?php echo esc_js(__('Default', 'wash')); ?>' :
-                (m.ruleType === 'language' ? '<?php echo esc_js(__('Language', 'wash')); ?>: ' : '<?php echo esc_js(__('Category', 'wash')); ?>: ') + (m.ruleValue || '');
-            var badgeClass = m.ruleType === 'default' ? 'background:#28a745;' : (m.ruleType === 'language' ? 'background:#007bff;' : 'background:#fd7e14;');
+            var ruleLabel, badgeClass;
+            if (m.ruleType === 'default') {
+                ruleLabel = '<?php echo esc_js(__('Default', 'wash')); ?>';
+                badgeClass = 'background:#28a745;';
+            } else if (m.ruleType === 'language') {
+                ruleLabel = '<?php echo esc_js(__('Language', 'wash')); ?>: ' + (m.ruleValue || '');
+                badgeClass = 'background:#007bff;';
+            } else if (m.ruleType === 'language_category') {
+                var parts = (m.ruleValue || '').split(':');
+                ruleLabel = '<?php echo esc_js(__('Language', 'wash')); ?>: ' + (parts[0] || '') + ' + <?php echo esc_js(__('Category', 'wash')); ?>: ' + (parts[1] || '');
+                badgeClass = 'background:#6f42c1;';
+            } else {
+                ruleLabel = '<?php echo esc_js(__('Category', 'wash')); ?>: ' + (m.ruleValue || '');
+                badgeClass = 'background:#fd7e14;';
+            }
             var destBadge = m.destination === 'page'
                 ? '<span style="background:#ede9fe;color:#6d28d9;padding:2px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:4px;">PAGE</span>'
                 : '<span style="background:#e0e7ff;color:#3730a3;padding:2px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:4px;">ARTICLE</span>';
@@ -2498,19 +2510,46 @@ function wash_render_permission_locked_banner() {
         return { ruleType: 'default', ruleValue: '' };
     }
 
+    // Region aliases (ISO ↔ common) — must match queue-worker REGION_ALIASES
+    var REGION_ALIASES = { gb: 'uk', uk: 'gb' };
+
+    /** Ensure a value exists as an option in a select, adding it if missing. */
+    function ensureSelectOption(select, value) {
+        if (!select || !value) return;
+        for (var i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === value) return;
+        }
+        var opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = value + ' (Shopify market)';
+        select.appendChild(opt);
+    }
+
     /** Set selectors from saved mapping data */
     function setRuleSelectors(ruleType, ruleValue) {
         if (ruleValueLang) ruleValueLang.value = '';
         if (ruleValueCat) ruleValueCat.value = '';
         if (!ruleType || ruleType === 'default') return;
+
+        var langVal = '';
+        var catVal = '';
         if (ruleType === 'language') {
-            if (ruleValueLang) ruleValueLang.value = ruleValue || '';
+            langVal = ruleValue || '';
         } else if (ruleType === 'category') {
-            if (ruleValueCat) ruleValueCat.value = ruleValue || '';
+            catVal = ruleValue || '';
         } else if (ruleType === 'language_category' && ruleValue) {
             var parts = ruleValue.split(':');
-            if (ruleValueLang) ruleValueLang.value = parts[0] || '';
-            if (ruleValueCat) ruleValueCat.value = parts[1] || '';
+            langVal = parts[0] || '';
+            catVal = parts[1] || '';
+        }
+
+        if (langVal && ruleValueLang) {
+            ensureSelectOption(ruleValueLang, langVal);
+            ruleValueLang.value = langVal;
+        }
+        if (catVal && ruleValueCat) {
+            ensureSelectOption(ruleValueCat, catVal);
+            ruleValueCat.value = catVal;
         }
     }
 
