@@ -2595,6 +2595,7 @@ function wash_render_permission_locked_banner() {
                     if (response.data.blogCreated) {
                         loadShopifyBlogs();
                     }
+                    if (window.washClearDirty) washClearDirty('blogs');
                 } else {
                     alert(response.data || 'Failed to save mapping');
                 }
@@ -2660,6 +2661,7 @@ function wash_render_permission_locked_banner() {
         .then(function(response) {
             if (response.success) {
                 loadMappings();
+                if (window.washClearDirty) washClearDirty('blogs');
             } else {
                 alert(response.data || 'Failed to delete mapping');
             }
