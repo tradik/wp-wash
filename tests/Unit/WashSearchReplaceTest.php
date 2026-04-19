@@ -185,6 +185,68 @@ class WashSearchReplaceTest extends TestCase
         $this->assertSame($expected, $ref->invoke($sync, $content));
     }
 
+    public function testUrlRuleReplacesHrefAndAnchorText(): void
+    {
+        $this->rules = [
+            ['search' => 'hilo1316.e.wpstage.net', 'replace' => 'hilo.com', 'type' => 'url'],
+        ];
+
+        $sync = new \WashSync();
+        $ref = new \ReflectionMethod(\WashSync::class, 'applySearchReplaceRules');
+        $ref->setAccessible(true);
+
+        $content = '<a href="https://hilo1316.e.wpstage.net/uk/art/dash-diet/">https://hilo1316.e.wpstage.net/uk/art/dash-diet/</a>';
+        $expected = '<a href="https://hilo.com/uk/art/dash-diet/">https://hilo.com/uk/art/dash-diet/</a>';
+        $this->assertSame($expected, $ref->invoke($sync, $content));
+    }
+
+    public function testUrlRuleReplacesTextInReferencesSection(): void
+    {
+        $this->rules = [
+            ['search' => 'hilo1316.e.wpstage.net', 'replace' => 'hilo.com', 'type' => 'url'],
+        ];
+
+        $sync = new \WashSync();
+        $ref = new \ReflectionMethod(\WashSync::class, 'applySearchReplaceRules');
+        $ref->setAccessible(true);
+
+        $content = '<p>Hilo. <a href="https://hilo1316.e.wpstage.net/blood-pressure-monitor/">https://hilo1316.e.wpstage.net/blood-pressure-monitor/</a></p>';
+        $expected = '<p>Hilo. <a href="https://hilo.com/blood-pressure-monitor/">https://hilo.com/blood-pressure-monitor/</a></p>';
+        $this->assertSame($expected, $ref->invoke($sync, $content));
+    }
+
+    public function testUrlRuleReplacesInSrcAndCssUrl(): void
+    {
+        $this->rules = [
+            ['search' => 'old-cdn.example.com', 'replace' => 'new-cdn.example.com', 'type' => 'url'],
+        ];
+
+        $sync = new \WashSync();
+        $ref = new \ReflectionMethod(\WashSync::class, 'applySearchReplaceRules');
+        $ref->setAccessible(true);
+
+        $content = '<img src="https://old-cdn.example.com/img.jpg" /><div style="background: url(\'https://old-cdn.example.com/bg.png\')"></div>';
+        $expected = '<img src="https://new-cdn.example.com/img.jpg" /><div style="background: url(\'https://new-cdn.example.com/bg.png\')"></div>';
+        $this->assertSame($expected, $ref->invoke($sync, $content));
+    }
+
+    public function testUrlRuleDoesNotDoubleReplaceInHref(): void
+    {
+        $this->rules = [
+            ['search' => 'staging.example.com', 'replace' => 'example.com', 'type' => 'url'],
+        ];
+
+        $sync = new \WashSync();
+        $ref = new \ReflectionMethod(\WashSync::class, 'applySearchReplaceRules');
+        $ref->setAccessible(true);
+
+        // href gets replaced in step 1, text gets replaced in step 3
+        // Neither should produce double replacement
+        $content = '<a href="https://staging.example.com/page">Visit staging.example.com</a>';
+        $expected = '<a href="https://example.com/page">Visit example.com</a>';
+        $this->assertSame($expected, $ref->invoke($sync, $content));
+    }
+
     public function testHandlesMalformedRuleMissingKeys(): void
     {
         $this->rules = [

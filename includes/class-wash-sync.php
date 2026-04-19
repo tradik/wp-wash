@@ -398,9 +398,9 @@ class WashSync {
             'wpPostId'    => $postId,
             'wpSiteId'    => $this->getCurrentSiteId(),
             'postType'    => $post->post_type,
-            'title'       => $post->post_title,
+            'title'       => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
             'content'     => $content,
-            'excerpt'     => $post->post_excerpt,
+            'excerpt'     => html_entity_decode($post->post_excerpt, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
             'slug'        => $post->post_name,
             'status'      => $post->post_status === 'publish' ? 'published' : 'draft',
             'author'      => $this->getMappedAuthorName($post->post_author),
@@ -799,12 +799,8 @@ class WashSync {
             $content
         );
 
-        // 3. Standalone URLs in text (not inside tags) — plain text links
-        $content = preg_replace(
-            '/(?<=[>\s])' . $escaped . '(?=[<\s]|$)/m',
-            $replace,
-            $content
-        );
+        // 3. Remaining occurrences in text content (anchor text, plain text, etc.)
+        $content = str_replace($search, $replace, $content);
 
         return $content;
     }
@@ -1159,7 +1155,7 @@ class WashSync {
 
         // Fallback: use post title
         if (empty($seo['metaTitle'])) {
-            $seo['metaTitle'] = get_the_title($postId);
+            $seo['metaTitle'] = html_entity_decode(get_the_title($postId), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         }
 
         // Fallback: use excerpt only (no auto-generation from content)
@@ -1262,8 +1258,9 @@ class WashSync {
 
         // Yoast style (%%var%%) — must be replaced BEFORE RankMath (%var%)
         // to prevent %title% matching inside %%title%%
+        $decodedTitle = html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $yoastVars = [
-            '%%title%%'      => $post->post_title,
+            '%%title%%'      => $decodedTitle,
             '%%sep%%'        => $sep,
             '%%sitename%%'   => $siteName,
             '%%sitedesc%%'   => get_bloginfo('description'),
@@ -1276,7 +1273,7 @@ class WashSync {
 
         // RankMath style (%var%)
         $rankVars = [
-            '%title%'        => $post->post_title,
+            '%title%'        => $decodedTitle,
             '%sep%'          => $sep,
             '%sitename%'     => $siteName,
             '%sitetitle%'    => $siteName,

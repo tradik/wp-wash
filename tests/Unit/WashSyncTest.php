@@ -311,4 +311,29 @@ class WashSyncTest extends TestCase
         $result = $this->invokePrivate('stripDuplicateTitle', [$content, 'My Post Title']);
         $this->assertSame('<h1>My Post Title</h1><p>Body.</p>', $result);
     }
+
+    // ---------------------------------------------------------------
+    // resolveSeoVariables — HTML entity decoding
+    // ---------------------------------------------------------------
+
+    public function testResolveSeoVariablesDecodesHtmlEntitiesInTitle(): void
+    {
+        $this->mockSeoContext('Myths &amp; Facts', '-', 'Blog');
+        $result = $this->invokePrivate('resolveSeoVariables', ['%title% %sep% %sitename%', 1]);
+        $this->assertSame('Myths & Facts - Blog', $result);
+    }
+
+    public function testResolveSeoVariablesDecodesTrademarkEntity(): void
+    {
+        $this->mockSeoContext('Hilo&#x2122;', '-', 'Blog');
+        $result = $this->invokePrivate('resolveSeoVariables', ['%title% %sep% %sitename%', 1]);
+        $this->assertSame('Hilo™ - Blog', $result);
+    }
+
+    public function testResolveSeoVariablesDecodesYoastWithEntities(): void
+    {
+        $this->mockSeoContext('History &amp; Future', '|', 'Site');
+        $result = $this->invokePrivate('resolveSeoVariables', ['%%title%% %%sep%% %%sitename%%', 1]);
+        $this->assertSame('History & Future | Site', $result);
+    }
 }
