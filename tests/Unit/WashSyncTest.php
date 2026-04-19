@@ -336,4 +336,81 @@ class WashSyncTest extends TestCase
         $result = $this->invokePrivate('resolveSeoVariables', ['%%title%% %%sep%% %%sitename%%', 1]);
         $this->assertSame('History & Future | Site', $result);
     }
+
+    // ---------------------------------------------------------------
+    // preserveCustomHtmlTags
+    // ---------------------------------------------------------------
+
+    public function testPreserveCustomHtmlTagsConvertsKlaviyoForm(): void
+    {
+        Functions\when('get_option')->alias(function ($key, $default = '') {
+            return match ($key) {
+                'wash_allowed_html_tags' => 'klaviyo-*',
+                default => $default,
+            };
+        });
+        $sync = new \WashSync();
+
+        $content = '<p>Subscribe here:</p><klaviyo-form id="abc123"></klaviyo-form>';
+        $expected = '<p>Subscribe here:</p><div data-wash-tag="klaviyo-form" id="abc123"></div>';
+        $this->assertSame($expected, $this->invokePrivate('preserveCustomHtmlTags', [$content]));
+    }
+
+    public function testPreserveCustomHtmlTagsSelfClosing(): void
+    {
+        Functions\when('get_option')->alias(function ($key, $default = '') {
+            return match ($key) {
+                'wash_allowed_html_tags' => 'chat-*',
+                default => $default,
+            };
+        });
+        $sync = new \WashSync();
+
+        $content = '<chat-widget data-token="xyz" />';
+        $expected = '<div data-wash-tag="chat-widget" data-token="xyz" />';
+        $this->assertSame($expected, $this->invokePrivate('preserveCustomHtmlTags', [$content]));
+    }
+
+    public function testPreserveCustomHtmlTagsMultiplePatterns(): void
+    {
+        Functions\when('get_option')->alias(function ($key, $default = '') {
+            return match ($key) {
+                'wash_allowed_html_tags' => 'klaviyo-*,mddb-*',
+                default => $default,
+            };
+        });
+        $sync = new \WashSync();
+
+        $content = '<klaviyo-embed data-id="1"></klaviyo-embed><mddb-block>content</mddb-block>';
+        $expected = '<div data-wash-tag="klaviyo-embed" data-id="1"></div><div data-wash-tag="mddb-block">content</div>';
+        $this->assertSame($expected, $this->invokePrivate('preserveCustomHtmlTags', [$content]));
+    }
+
+    public function testPreserveCustomHtmlTagsNoPatterns(): void
+    {
+        Functions\when('get_option')->alias(function ($key, $default = '') {
+            return match ($key) {
+                'wash_allowed_html_tags' => '',
+                default => $default,
+            };
+        });
+        $sync = new \WashSync();
+
+        $content = '<klaviyo-form id="x"></klaviyo-form>';
+        $this->assertSame($content, $this->invokePrivate('preserveCustomHtmlTags', [$content]));
+    }
+
+    public function testPreserveCustomHtmlTagsIgnoresNonMatchingTags(): void
+    {
+        Functions\when('get_option')->alias(function ($key, $default = '') {
+            return match ($key) {
+                'wash_allowed_html_tags' => 'klaviyo-*',
+                default => $default,
+            };
+        });
+        $sync = new \WashSync();
+
+        $content = '<div class="normal">text</div><p>paragraph</p>';
+        $this->assertSame($content, $this->invokePrivate('preserveCustomHtmlTags', [$content]));
+    }
 }

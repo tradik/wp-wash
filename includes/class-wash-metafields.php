@@ -144,7 +144,7 @@ class WashMetafields {
      * Build a lookup set of enabled field identifiers (namespace.key).
      * @return array Associative array for O(1) lookups
      */
-    private function getEnabledFieldSet() {
+    public function getEnabledFieldSet() {
         $config = $this->getFieldConfig();
         $enabled = [];
         foreach ($config as $field) {

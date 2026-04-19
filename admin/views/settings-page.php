@@ -494,21 +494,20 @@ function wash_render_permission_locked_banner() {
                         $hreflangsHandler = new WashHreflangs();
                         $translationPlugin = $hreflangsHandler->detectActivePlugin();
                         $availableLanguages = $translationPlugin ? $hreflangsHandler->getAvailableLanguages() : [];
-                        // Fetch categories in default language to ensure consistent slugs across admin languages
+                        // Fetch categories across all languages (WPML per-language context returns 0)
                         $currentLang = null;
                         if ($translationPlugin === 'wpml' && function_exists('wpml_get_current_language')) {
                             $currentLang = wpml_get_current_language();
-                            do_action('wpml_switch_language', apply_filters('wpml_default_language', null));
-                        } elseif ($translationPlugin === 'polylang' && function_exists('pll_default_language')) {
+                            do_action('wpml_switch_language', 'all');
+                        } elseif ($translationPlugin === 'polylang' && function_exists('pll_current_language')) {
                             $currentLang = pll_current_language();
-                            PLL()->curlang = PLL()->model->get_language(pll_default_language());
+                            PLL()->curlang = null;
                         }
                         $categories = get_categories(['hide_empty' => false, 'orderby' => 'name']);
-                        // Restore original language
                         if ($currentLang !== null) {
                             if ($translationPlugin === 'wpml') {
                                 do_action('wpml_switch_language', $currentLang);
-                            } elseif ($translationPlugin === 'polylang' && function_exists('pll_current_language')) {
+                            } elseif ($translationPlugin === 'polylang') {
                                 PLL()->curlang = PLL()->model->get_language($currentLang);
                             }
                         }

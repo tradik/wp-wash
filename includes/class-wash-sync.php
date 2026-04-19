@@ -361,6 +361,9 @@ class WashSync {
             $content = apply_filters('the_content', $rawContent);
         }
 
+        // Preserve custom HTML tags that Shopify would strip (klaviyo-form, chat-widget, etc.)
+        $content = $this->preserveCustomHtmlTags($content);
+
         // Strip leading <h1> that matches post title — some themes/plugins inject
         // the title into the_content output, causing it to appear twice on Shopify
         // (once from article.title, once from article.content/body).
@@ -563,6 +566,46 @@ class WashSync {
      * @param string $title    Post title to match against
      * @return string Content with the duplicate title removed (if found)
      */
+    /**
+     * Preserve custom HTML tags by wrapping them in Shopify-safe divs.
+     * Shopify strips unknown HTML elements (e.g. <klaviyo-form>, <chat-widget>).
+     * This converts them to <div data-wash-tag="tagname" ...> so they survive
+     * Shopify's HTML sanitizer and can be restored by the Shopify theme.
+     */
+    private function preserveCustomHtmlTags($content) {
+        $patterns = get_option('wash_allowed_html_tags', '');
+        if (empty($patterns)) {
+            return $content;
+        }
+
+        $patternList = array_filter(array_map('trim', explode(',', $patterns)));
+        if (empty($patternList)) {
+            return $content;
+        }
+
+        foreach ($patternList as $pattern) {
+            // Convert wildcard pattern to regex (e.g., "klaviyo-*" → "klaviyo-[a-z0-9-]+")
+            $escaped = preg_quote($pattern, '/');
+            $regex = str_replace('\\*', '[a-z0-9-]+', $escaped);
+
+            // Replace opening tags: <tagname ...> → <div data-wash-tag="tagname" ...>
+            $content = preg_replace(
+                '/<(' . $regex . ')(\s[^>]*)?\/?>/i',
+                '<div data-wash-tag="$1"$2>',
+                $content
+            );
+
+            // Replace closing tags: </tagname> → </div>
+            $content = preg_replace(
+                '/<\/(' . $regex . ')>/i',
+                '</div>',
+                $content
+            );
+        }
+
+        return $content;
+    }
+
     private function stripDuplicateTitle($content, $title) {
         $trimmed = ltrim($content);
         if (stripos($trimmed, '<h1') !== 0) {
@@ -699,6 +742,11 @@ class WashSync {
     private function applySearchReplaceRules($content, $onlyTypes = null) {
         $rules = get_option('wash_search_replace_rules', []);
         if (!is_array($rules) || empty($rules)) {
+            return $content;
+        }
+
+        // Search & Replace requires BUSINESS+ plan
+        if (!$this->apiClient->hasFeature('searchReplace')) {
             return $content;
         }
 
@@ -1326,8 +1374,17 @@ class WashSync {
             return $customFields;
         }
 
+        // Only sync fields enabled in Meta Fields configuration
+        $metafields = new WashMetafields();
+        $enabledFields = $metafields->getEnabledFieldSet();
+
         foreach ($allMeta as $key => $values) {
             if (str_starts_with($key, '_')) {
+                continue;
+            }
+            // Check if field is enabled (wash_custom.{key} or wash_acf.{key})
+            $sanitizedKey = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '_', $key));
+            if (!empty($enabledFields) && !isset($enabledFields["wash_custom.{$sanitizedKey}"]) && !isset($enabledFields["wash_acf.{$sanitizedKey}"])) {
                 continue;
             }
             $customFields[$key] = count($values) === 1 ? $values[0] : $values;

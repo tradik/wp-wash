@@ -31,6 +31,9 @@ class WashSearchReplaceTest extends TestCase
         });
         Functions\when('get_site_url')->justReturn('https://example.com');
         Functions\when('error_log')->justReturn(true);
+        // hasFeature() calls getPlanInfo() which needs get_transient
+        Functions\when('get_transient')->justReturn(['features' => ['searchReplace' => true]]);
+        Functions\when('set_transient')->justReturn(true);
 
         $this->rules = [];
         $this->sync = new \WashSync();
@@ -245,6 +248,39 @@ class WashSearchReplaceTest extends TestCase
         $content = '<a href="https://staging.example.com/page">Visit staging.example.com</a>';
         $expected = '<a href="https://example.com/page">Visit example.com</a>';
         $this->assertSame($expected, $ref->invoke($sync, $content));
+    }
+
+    public function testSearchReplaceSkippedWhenPlanLacksFeature(): void
+    {
+        $this->rules = [
+            ['search' => 'old', 'replace' => 'new'],
+        ];
+
+        // Override get_transient to return plan without searchReplace
+        Functions\when('get_transient')->justReturn(['features' => ['searchReplace' => false]]);
+
+        $sync = new \WashSync();
+        $ref = new \ReflectionMethod(\WashSync::class, 'applySearchReplaceRules');
+        $ref->setAccessible(true);
+
+        // Rules should NOT be applied — content returned unchanged
+        $this->assertSame('old text', $ref->invoke($sync, 'old text'));
+    }
+
+    public function testSearchReplaceAppliedWhenPlanHasFeature(): void
+    {
+        $this->rules = [
+            ['search' => 'old', 'replace' => 'new'],
+        ];
+
+        // Plan has searchReplace feature
+        Functions\when('get_transient')->justReturn(['features' => ['searchReplace' => true]]);
+
+        $sync = new \WashSync();
+        $ref = new \ReflectionMethod(\WashSync::class, 'applySearchReplaceRules');
+        $ref->setAccessible(true);
+
+        $this->assertSame('new text', $ref->invoke($sync, 'old text'));
     }
 
     public function testHandlesMalformedRuleMissingKeys(): void
