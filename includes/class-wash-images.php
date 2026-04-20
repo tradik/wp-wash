@@ -112,17 +112,6 @@ class WashImages {
         }
 
         $filename = basename($filePath);
-        $processedData = null;
-
-        // Check if WebP conversion is enabled
-        if (get_option('wash_webp_convert') === '1' && $this->isConvertibleToWebp($mimeType)) {
-            $processed = $this->processImageToWebp($imageUrl, $filename);
-            if ($processed) {
-                $processedData = $processed['processedData'];
-                $mimeType = $processed['mimeType'];
-                $filename = $processed['filename'];
-            }
-        }
 
         $payload = [
             'action'         => 'upload',
@@ -133,11 +122,6 @@ class WashImages {
             'imageUrl'       => $imageUrl,
             'alt'            => $altText ?: basename($filePath),
         ];
-
-        // Include processed data if available
-        if ($processedData) {
-            $payload['processedData'] = $processedData;
-        }
 
         $result = $this->apiClient->post('/api/image-sync', $payload);
 
@@ -160,52 +144,6 @@ class WashImages {
         return !empty($cdnUrl);
     }
 
-    /**
-     * Process image through image-processor for WebP conversion.
-     *
-     * @param string $imageUrl Original image URL.
-     * @param string $filename Original filename.
-     * @return array|null Processed data or null on failure.
-     */
-    private function processImageToWebp($imageUrl, $filename) {
-        $processorUrl = 'http://image-processor:4040/api/process-image';
-
-        $response = wp_remote_post($processorUrl, [
-            'timeout' => 60,
-            'headers' => [
-                'Content-Type' => 'application/json',
-            ],
-            'body' => wp_json_encode([
-                'imageUrl'      => $imageUrl,
-                'convertToWebp' => true,
-                'quality'       => 85,
-                'filename'      => $filename,
-            ]),
-        ]);
-
-        if (is_wp_error($response)) {
-            return null;
-        }
-
-        $body = wp_remote_retrieve_body($response);
-        $data = json_decode($body, true);
-
-        if (!$data || !isset($data['success']) || !$data['success']) {
-            return null;
-        }
-
-        return $data['data'] ?? null;
-    }
-
-    /**
-     * Check if MIME type is convertible to WebP.
-     *
-     * @param string $mimeType MIME type.
-     * @return bool Whether convertible.
-     */
-    private function isConvertibleToWebp($mimeType) {
-        return in_array($mimeType, ['image/jpeg', 'image/png', 'image/gif', 'image/tiff'], true);
-    }
 
     /**
      * Delete an image from Shopify via the Shopify App API.
