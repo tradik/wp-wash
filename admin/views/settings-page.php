@@ -1,4 +1,8 @@
 <?php
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 $isConnected = !empty(get_option('wash_api_key'));
 $shopifyStore = get_option('wash_shopify_store', '');
 $shopifyAppSlug = (new WashApiClient())->getShopifyAppSlug();
