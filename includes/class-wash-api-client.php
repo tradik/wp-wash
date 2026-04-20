@@ -30,6 +30,7 @@ class WashApiClient {
     /**
      * Resolve the Shopify App URL based on environment.
      * Dev sites (*.tradik.dev) use dev API, others use production.
+     * Hilo domains route to secondary app instance.
      *
      * @return string App URL
      */
@@ -46,6 +47,12 @@ class WashApiClient {
             return 'https://app-wash.tradik.dev';
         }
 
+        // Hilo domains use secondary app instance
+        $host = parse_url($siteUrl, PHP_URL_HOST);
+        if ($host === 'hilo.com' || substr($host, -9) === '.hilo.com') {
+            return 'https://app-wash1.tradik.com';
+        }
+
         // Default to production
         return 'https://app-wash.tradik.com';
     }
@@ -59,6 +66,9 @@ class WashApiClient {
     public function getShopifyAppSlug() {
         if (strpos($this->appUrl, 'tradik.dev') !== false) {
             return 'wash-blog-manager-dev';
+        }
+        if (strpos($this->appUrl, 'app-wash1') !== false) {
+            return 'wash1';
         }
         return 'wash';
     }
