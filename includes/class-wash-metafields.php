@@ -494,7 +494,7 @@ class WashMetafields {
 
         // First ensure definitions exist
         $definitionsResult = $this->ensureMetafieldDefinitions($metafields);
-        error_log("[wash] Metafield definitions result: " . wp_json_encode($definitionsResult));
+        washLog("[wash] Metafield definitions result: " . wp_json_encode($definitionsResult));
 
         // Then sync metafields
         $result = $this->apiClient->post('/api/metafields', [
@@ -505,11 +505,11 @@ class WashMetafields {
         ]);
 
         if (is_wp_error($result)) {
-            error_log("[wash] Metafields sync error: " . $result->get_error_message());
+            washLog("[wash] Metafields sync error: " . $result->get_error_message());
             return $result;
         }
 
-        error_log("[wash] Metafields synced successfully. Count: " . count($metafields));
+        washLog("[wash] Metafields synced successfully. Count: " . count($metafields));
         return ['success' => true, 'count' => count($metafields), 'metafields' => $result['metafields'] ?? []];
     }
 

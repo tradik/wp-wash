@@ -20,6 +20,15 @@ if (!defined('WASH_PLUGIN_BASENAME')) {
     define('WASH_PLUGIN_BASENAME', 'wash/wash.php');
 }
 
+// Debug logging helper (mirrors wash.php definition)
+if (!function_exists('washLog')) {
+    function washLog($message) {
+        if (defined('WASH_DEBUG') && WASH_DEBUG) {
+            error_log($message);
+        }
+    }
+}
+
 // Stub WordPress REST API classes used by WashCallback tests
 if (!class_exists('WP_REST_Request')) {
     class WP_REST_Request

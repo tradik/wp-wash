@@ -69,11 +69,11 @@ class WashPageBuilders {
 
         $elements = get_post_meta($postId, '_bricks_page_content_2', true);
         if (empty($elements) || !is_array($elements)) {
-            error_log("[wash] Bricks: no content found for post {$postId}");
+            washLog("[wash] Bricks: no content found for post {$postId}");
             return ['html' => '', 'css' => ''];
         }
 
-        error_log("[wash] Bricks: rendering " . count($elements) . " elements for post {$postId}");
+        washLog("[wash] Bricks: rendering " . count($elements) . " elements for post {$postId}");
 
         // Method 1 (preferred): Fetch from frontend — resolves dynamic data AND captures inline CSS
         $frontendData = self::fetchBricksFromFrontend($postId);
@@ -81,10 +81,10 @@ class WashPageBuilders {
         $css = $frontendData['css'];
 
         if (!empty($html)) {
-            error_log("[wash] Bricks: frontend fetch succeeded, HTML: " . strlen($html) . " CSS: " . strlen($css));
+            washLog("[wash] Bricks: frontend fetch succeeded, HTML: " . strlen($html) . " CSS: " . strlen($css));
         } else {
             // Method 2: render_data + capture CSS from Bricks internals
-            error_log("[wash] Bricks: frontend fetch empty, falling back to render_data");
+            washLog("[wash] Bricks: frontend fetch empty, falling back to render_data");
             if (class_exists('\Bricks\Frontend') && method_exists('\Bricks\Frontend', 'render_data')) {
                 global $post;
                 $originalPost = $post;
@@ -110,7 +110,7 @@ class WashPageBuilders {
                     $bricksCssOutput = ob_get_clean();
                     if (!empty($bricksCssOutput)) {
                         $css .= $bricksCssOutput . "\n";
-                        error_log("[wash] Bricks: captured Assets CSS (" . strlen($bricksCssOutput) . " bytes)");
+                        washLog("[wash] Bricks: captured Assets CSS (" . strlen($bricksCssOutput) . " bytes)");
                     }
                 }
 
@@ -126,12 +126,12 @@ class WashPageBuilders {
                     wp_reset_postdata();
                 }
 
-                error_log("[wash] Bricks: render_data HTML: " . strlen($html));
+                washLog("[wash] Bricks: render_data HTML: " . strlen($html));
             }
 
             // Method 3: Last resort
             if (empty($html)) {
-                error_log("[wash] Bricks: all methods failed, falling back to the_content");
+                washLog("[wash] Bricks: all methods failed, falling back to the_content");
                 $post = get_post($postId);
                 if ($post) {
                     $html = apply_filters('the_content', $post->post_content);
@@ -153,11 +153,11 @@ class WashPageBuilders {
         $css = str_replace([' { ', ' } ', '; '], ['{', '}', ';'], $css);
         $css = trim($css);
 
-        error_log("[wash] Bricks: final CSS for metafield: " . strlen($css) . " bytes (limit: 65536)");
+        washLog("[wash] Bricks: final CSS for metafield: " . strlen($css) . " bytes (limit: 65536)");
 
         // Truncate if still over Shopify metafield limit
         if (strlen($css) > 65000) {
-            error_log("[wash] Bricks: CSS exceeds 65k, truncating to fit metafield");
+            washLog("[wash] Bricks: CSS exceeds 65k, truncating to fit metafield");
             $css = substr($css, 0, 65000);
         }
 
@@ -174,11 +174,11 @@ class WashPageBuilders {
     private static function fetchBricksFromFrontend($postId) {
         $permalink = get_permalink($postId);
         if (!$permalink) {
-            error_log("[wash] Bricks: no permalink for post {$postId}");
+            washLog("[wash] Bricks: no permalink for post {$postId}");
             return ['html' => '', 'css' => ''];
         }
 
-        error_log("[wash] Bricks: fetching frontend URL: {$permalink}");
+        washLog("[wash] Bricks: fetching frontend URL: {$permalink}");
 
         $requestArgs = [
             'timeout'   => 30,
@@ -207,32 +207,32 @@ class WashPageBuilders {
 
         if (!empty($httpUser)) {
             $requestArgs['headers']['Authorization'] = 'Basic ' . base64_encode($httpUser . ':' . $httpPass);
-            error_log("[wash] Bricks: using HTTP auth for frontend fetch (user: {$httpUser})");
+            washLog("[wash] Bricks: using HTTP auth for frontend fetch (user: {$httpUser})");
         }
 
         $response = wp_remote_get($permalink, $requestArgs);
 
         if (is_wp_error($response)) {
-            error_log("[wash] Bricks: frontend fetch failed: " . $response->get_error_message());
+            washLog("[wash] Bricks: frontend fetch failed: " . $response->get_error_message());
             return ['html' => '', 'css' => ''];
         }
 
         $statusCode = wp_remote_retrieve_response_code($response);
         if ($statusCode !== 200) {
-            error_log("[wash] Bricks: frontend returned HTTP {$statusCode}");
+            washLog("[wash] Bricks: frontend returned HTTP {$statusCode}");
             return ['html' => '', 'css' => ''];
         }
 
         $body = wp_remote_retrieve_body($response);
-        error_log("[wash] Bricks: fetched page HTML length: " . strlen($body));
+        washLog("[wash] Bricks: fetched page HTML length: " . strlen($body));
 
         // Extract content
         $html = self::extractBricksContent($body);
-        error_log("[wash] Bricks: extracted content length: " . strlen($html));
+        washLog("[wash] Bricks: extracted content length: " . strlen($html));
 
         // Extract CSS from the page (inline <style> tags + linked Bricks CSS)
         $css = self::extractBricksCssFromPage($body, $postId);
-        error_log("[wash] Bricks: extracted CSS length: " . strlen($css));
+        washLog("[wash] Bricks: extracted CSS length: " . strlen($css));
 
         return ['html' => $html, 'css' => $css];
     }
@@ -256,13 +256,13 @@ class WashPageBuilders {
                     $css .= $trimmed . "\n";
                 }
             }
-            error_log("[wash] Bricks: found " . count($matches[1]) . " inline style tags");
+            washLog("[wash] Bricks: found " . count($matches[1]) . " inline style tags");
         }
 
         // 2. Find and fetch linked Bricks CSS files
         if (preg_match_all('/<link[^>]*href=["\']([^"\']*bricks[^"\']*\.css[^"\']*)["\'][^>]*>/i', $pageHtml, $linkMatches)) {
             foreach ($linkMatches[1] as $cssUrl) {
-                error_log("[wash] Bricks: fetching CSS file: {$cssUrl}");
+                washLog("[wash] Bricks: fetching CSS file: {$cssUrl}");
                 $cssResponse = wp_remote_get($cssUrl, [
                     'timeout'   => 15,
                     'sslverify' => false,
@@ -270,7 +270,7 @@ class WashPageBuilders {
                 if (!is_wp_error($cssResponse) && wp_remote_retrieve_response_code($cssResponse) === 200) {
                     $cssContent = wp_remote_retrieve_body($cssResponse);
                     $css .= $cssContent . "\n";
-                    error_log("[wash] Bricks: fetched CSS file (" . strlen($cssContent) . " bytes)");
+                    washLog("[wash] Bricks: fetched CSS file (" . strlen($cssContent) . " bytes)");
                 }
             }
         }
@@ -280,7 +280,7 @@ class WashPageBuilders {
         if (preg_match_all('/<link[^>]*href=["\']([^"\']*' . preg_quote("post-{$postId}", '/') . '[^"\']*\.css[^"\']*)["\'][^>]*>/i', $pageHtml, $postCssMatches)) {
             foreach ($postCssMatches[1] as $cssUrl) {
                 if (strpos($css, basename($cssUrl)) !== false) continue; // Already fetched
-                error_log("[wash] Bricks: fetching post CSS: {$cssUrl}");
+                washLog("[wash] Bricks: fetching post CSS: {$cssUrl}");
                 $cssResponse = wp_remote_get($cssUrl, [
                     'timeout'   => 15,
                     'sslverify' => false,
@@ -332,7 +332,7 @@ class WashPageBuilders {
             return trim($matches[1]);
         }
 
-        error_log("[wash] Bricks: could not extract content from page HTML");
+        washLog("[wash] Bricks: could not extract content from page HTML");
         return '';
     }
 
@@ -351,12 +351,12 @@ class WashPageBuilders {
         $cssFile = $uploadDir['basedir'] . '/bricks/css/post-' . $postId . '.min.css';
         if (file_exists($cssFile)) {
             $css .= file_get_contents($cssFile) . "\n";
-            error_log("[wash] Bricks: loaded post CSS file (" . strlen($css) . " bytes)");
+            washLog("[wash] Bricks: loaded post CSS file (" . strlen($css) . " bytes)");
         }
         $cssFileAlt = $uploadDir['basedir'] . '/bricks/css/post-' . $postId . '.css';
         if (empty($css) && file_exists($cssFileAlt)) {
             $css .= file_get_contents($cssFileAlt) . "\n";
-            error_log("[wash] Bricks: loaded post CSS file alt (" . strlen($css) . " bytes)");
+            washLog("[wash] Bricks: loaded post CSS file alt (" . strlen($css) . " bytes)");
         }
 
         // 2. Try Bricks Assets API for inline CSS generation
@@ -378,7 +378,7 @@ class WashPageBuilders {
 
                 if (!empty($inlineCss)) {
                     $css .= $inlineCss . "\n";
-                    error_log("[wash] Bricks: Assets::generate_inline_css (" . strlen($inlineCss) . " bytes)");
+                    washLog("[wash] Bricks: Assets::generate_inline_css (" . strlen($inlineCss) . " bytes)");
                 }
             }
 
@@ -391,7 +391,7 @@ class WashPageBuilders {
                     $elementCss = ob_get_clean();
                     if (!empty($elementCss)) {
                         $css .= $elementCss . "\n";
-                        error_log("[wash] Bricks: Assets::generate_css_from_elements (" . strlen($elementCss) . " bytes)");
+                        washLog("[wash] Bricks: Assets::generate_css_from_elements (" . strlen($elementCss) . " bytes)");
                     }
                 }
             }
@@ -407,7 +407,7 @@ class WashPageBuilders {
             if (file_exists($themeFile)) {
                 $themeCss = file_get_contents($themeFile);
                 $css .= $themeCss . "\n";
-                error_log("[wash] Bricks: loaded theme CSS (" . strlen($themeCss) . " bytes) from {$themeFile}");
+                washLog("[wash] Bricks: loaded theme CSS (" . strlen($themeCss) . " bytes) from {$themeFile}");
                 break;
             }
         }
@@ -419,7 +419,7 @@ class WashPageBuilders {
             if (file_exists($childStyleFile)) {
                 $childCss = file_get_contents($childStyleFile);
                 $css .= $childCss . "\n";
-                error_log("[wash] Bricks: loaded child theme CSS (" . strlen($childCss) . " bytes)");
+                washLog("[wash] Bricks: loaded child theme CSS (" . strlen($childCss) . " bytes)");
             }
         }
 
@@ -429,7 +429,7 @@ class WashPageBuilders {
         if (!empty($globalCss)) $css .= $globalCss . "\n";
         if (!empty($pageCss)) $css .= $pageCss . "\n";
 
-        error_log("[wash] Bricks: total CSS for post {$postId}: " . strlen($css) . " bytes");
+        washLog("[wash] Bricks: total CSS for post {$postId}: " . strlen($css) . " bytes");
         return trim($css);
     }
 
@@ -441,7 +441,7 @@ class WashPageBuilders {
      * @return array{html: string, css: string}
      */
     private static function renderElementor($postId) {
-        error_log("[wash] Elementor: builder detected for post {$postId} but rendering not yet implemented");
+        washLog("[wash] Elementor: builder detected for post {$postId} but rendering not yet implemented");
 
         // Future: \Elementor\Plugin::$instance->frontend->get_builder_content($postId, true)
         $post = get_post($postId);
@@ -458,7 +458,7 @@ class WashPageBuilders {
      * @return array{html: string, css: string}
      */
     private static function renderDivi($postId) {
-        error_log("[wash] Divi: builder detected for post {$postId} but rendering not yet implemented");
+        washLog("[wash] Divi: builder detected for post {$postId} but rendering not yet implemented");
 
         // Future: et_builder_get_layout_html($postId)
         $post = get_post($postId);

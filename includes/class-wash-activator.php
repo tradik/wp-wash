@@ -80,7 +80,7 @@ class WashActivator {
         if (in_array($ourPlugin, $plugins, true)) {
             // Clear OPcache to ensure new code is loaded immediately
             self::clearOpcache();
-            error_log('[wash] OPcache cleared after plugin update to ' . WASH_VERSION);
+            washLog('[wash] OPcache cleared after plugin update to ' . WASH_VERSION);
 
             // Schedule ping after update
             if (!wp_next_scheduled('wash_ping_shopify')) {

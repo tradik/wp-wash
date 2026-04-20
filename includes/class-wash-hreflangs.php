@@ -84,11 +84,11 @@ class WashHreflangs {
         ]);
 
         if (is_wp_error($result)) {
-            error_log("[wash] Hreflangs sync error: " . $result->get_error_message());
+            washLog("[wash] Hreflangs sync error: " . $result->get_error_message());
             return $result;
         }
 
-        error_log("[wash] Hreflangs synced successfully. Count: " . count($hreflangs));
+        washLog("[wash] Hreflangs synced successfully. Count: " . count($hreflangs));
         return ['success' => true, 'count' => count($hreflangs)];
     }
 
@@ -768,11 +768,11 @@ class WashHreflangs {
         ]);
 
         if (is_wp_error($result)) {
-            error_log("[wash] Hreflangs clear error: " . $result->get_error_message());
+            washLog("[wash] Hreflangs clear error: " . $result->get_error_message());
             return $result;
         }
 
-        error_log("[wash] Hreflangs cleared for article");
+        washLog("[wash] Hreflangs cleared for article");
         return ['success' => true, 'cleared' => true];
     }
 

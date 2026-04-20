@@ -359,7 +359,7 @@ class WashCallback {
             ], 404);
         }
 
-        error_log("[wash] Callback received for post {$wpPostId}, jobId: {$jobId}, success: " . ($success ? 'true' : 'false'));
+        washLog("[wash] Callback received for post {$wpPostId}, jobId: {$jobId}, success: " . ($success ? 'true' : 'false'));
 
         if ($success) {
             $shopifyId = $shopifyArticleId ?: $shopifyPageId;
@@ -408,13 +408,13 @@ class WashCallback {
                 $metaResult = $metafieldsHandler->syncAllMetafields($wpPostId, $shopifyId);
 
                 if (is_wp_error($metaResult)) {
-                    error_log("[wash] Callback: Metafields sync error for post {$wpPostId}: " . $metaResult->get_error_message());
+                    washLog("[wash] Callback: Metafields sync error for post {$wpPostId}: " . $metaResult->get_error_message());
                 } else {
                     $metaCount = $metaResult['count'] ?? 0;
-                    error_log("[wash] Callback: Synced {$metaCount} metafields for post {$wpPostId}");
+                    washLog("[wash] Callback: Synced {$metaCount} metafields for post {$wpPostId}");
                 }
             } elseif ($isNonSourceTranslation) {
-                error_log("[wash] Callback: Skipping metafield sync for non-source translation post {$wpPostId}");
+                washLog("[wash] Callback: Skipping metafield sync for non-source translation post {$wpPostId}");
             }
 
             // Sync hreflangs to Shopify
@@ -423,10 +423,10 @@ class WashCallback {
                 $hrefResult = $hreflangsHandler->syncHreflangs($wpPostId, $shopifyId);
 
                 if (is_wp_error($hrefResult)) {
-                    error_log("[wash] Callback: Hreflangs sync error for post {$wpPostId}: " . $hrefResult->get_error_message());
+                    washLog("[wash] Callback: Hreflangs sync error for post {$wpPostId}: " . $hrefResult->get_error_message());
                 } else {
                     $hrefCount = $hrefResult['count'] ?? 0;
-                    error_log("[wash] Callback: Synced {$hrefCount} hreflangs for post {$wpPostId}");
+                    washLog("[wash] Callback: Synced {$hrefCount} hreflangs for post {$wpPostId}");
                 }
             }
 
@@ -436,7 +436,7 @@ class WashCallback {
             delete_post_meta($wpPostId, '_wash_queued_at');
             delete_post_meta($wpPostId, '_wash_sync_error');
 
-            error_log("[wash] Callback: Post {$wpPostId} synced successfully, shopifyId: {$shopifyId}");
+            washLog("[wash] Callback: Post {$wpPostId} synced successfully, shopifyId: {$shopifyId}");
 
             // Fire action for extensibility
             do_action('wash_callback_success', $wpPostId, $body);
@@ -447,7 +447,7 @@ class WashCallback {
             delete_post_meta($wpPostId, '_wash_sync_status');
             delete_post_meta($wpPostId, '_wash_job_id');
 
-            error_log("[wash] Callback: Post {$wpPostId} sync failed: {$error}");
+            washLog("[wash] Callback: Post {$wpPostId} sync failed: {$error}");
 
             // Fire action for extensibility
             do_action('wash_callback_error', $wpPostId, $error, $body);
@@ -472,20 +472,20 @@ class WashCallback {
     private function createAutomaticRedirect($postId, $shopifyPath) {
         $post = get_post($postId);
         if (!$post) {
-            error_log("[wash] createAutomaticRedirect: Post {$postId} not found");
+            washLog("[wash] createAutomaticRedirect: Post {$postId} not found");
             return;
         }
 
         // Get WordPress post permalink and extract path
         $wpPermalink = get_permalink($postId);
         if (!$wpPermalink) {
-            error_log("[wash] createAutomaticRedirect: No permalink for post {$postId}");
+            washLog("[wash] createAutomaticRedirect: No permalink for post {$postId}");
             return;
         }
 
         $wpPath = wp_parse_url($wpPermalink, PHP_URL_PATH);
         if (!$wpPath || $wpPath === '/') {
-            error_log("[wash] createAutomaticRedirect: Invalid WP path for post {$postId}");
+            washLog("[wash] createAutomaticRedirect: Invalid WP path for post {$postId}");
             return;
         }
 
@@ -493,14 +493,14 @@ class WashCallback {
         $normalizedWpPath = rtrim($wpPath, '/');
         $normalizedShopifyPath = rtrim($shopifyPath, '/');
         if ($normalizedWpPath === $normalizedShopifyPath) {
-            error_log("[wash] createAutomaticRedirect: Paths are identical, skipping redirect for post {$postId}");
+            washLog("[wash] createAutomaticRedirect: Paths are identical, skipping redirect for post {$postId}");
             return;
         }
 
         // Check if redirect already exists for this post
         $existingRedirect = get_post_meta($postId, '_wash_redirect_created', true);
         if ($existingRedirect === $normalizedWpPath) {
-            error_log("[wash] createAutomaticRedirect: Redirect already created for post {$postId}");
+            washLog("[wash] createAutomaticRedirect: Redirect already created for post {$postId}");
             return;
         }
 
@@ -516,7 +516,7 @@ class WashCallback {
         ]);
 
         if (is_wp_error($result)) {
-            error_log("[wash] createAutomaticRedirect: Failed to create redirect for post {$postId}: " . $result->get_error_message());
+            washLog("[wash] createAutomaticRedirect: Failed to create redirect for post {$postId}: " . $result->get_error_message());
             return;
         }
 
@@ -526,7 +526,7 @@ class WashCallback {
 
         $created = $result['created'] ?? 0;
         $skipped = $result['skipped'] ?? 0;
-        error_log("[wash] createAutomaticRedirect: Post {$postId} redirect {$normalizedWpPath} -> {$normalizedShopifyPath} (created: {$created}, skipped: {$skipped})");
+        washLog("[wash] createAutomaticRedirect: Post {$postId} redirect {$normalizedWpPath} -> {$normalizedShopifyPath} (created: {$created}, skipped: {$skipped})");
     }
 
     /**
@@ -546,13 +546,13 @@ class WashCallback {
             ], 400);
         }
 
-        error_log('[wash] Settings push received from Shopify App');
+        washLog('[wash] Settings push received from Shopify App');
 
         try {
             $apiClient = new WashApiClient();
             $apiClient->restoreSettings($body);
 
-            error_log('[wash] Settings push: Successfully applied settings from Shopify');
+            washLog('[wash] Settings push: Successfully applied settings from Shopify');
 
             // Fire action for extensibility
             do_action('wash_settings_pushed', $body);
@@ -562,7 +562,7 @@ class WashCallback {
                 'message' => 'Settings applied successfully',
             ], 200);
         } catch (Exception $e) {
-            error_log('[wash] Settings push failed: ' . $e->getMessage());
+            washLog('[wash] Settings push failed: ' . $e->getMessage());
 
             return new WP_REST_Response([
                 'success' => false,

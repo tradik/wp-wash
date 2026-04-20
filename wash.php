@@ -30,6 +30,18 @@ function washPluginUrl() {
     return plugins_url('', __FILE__) . '/';
 }
 
+/**
+ * Log a debug message only when WASH_DEBUG is enabled.
+ * Enable via wp-config.php: define('WASH_DEBUG', true);
+ *
+ * @param string $message Log message
+ */
+function washLog($message) {
+    if (defined('WASH_DEBUG') && WASH_DEBUG) {
+        error_log($message);
+    }
+}
+
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-activator.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-api-client.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-admin.php';

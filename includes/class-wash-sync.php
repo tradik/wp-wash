@@ -32,20 +32,20 @@ class WashSync {
      * @param bool     $update  Whether this is an update
      */
     public function onSavePost($postId, $post, $update) {
-        error_log("[wash] onSavePost called for post {$postId}, type: {$post->post_type}, status: {$post->post_status}");
+        washLog("[wash] onSavePost called for post {$postId}, type: {$post->post_type}, status: {$post->post_status}");
 
         if ($this->shouldSkipSync($postId, $post)) {
-            error_log("[wash] Skipping sync - shouldSkipSync returned true");
+            washLog("[wash] Skipping sync - shouldSkipSync returned true");
             return;
         }
 
         if (get_option('wash_sync_on_publish', '1') !== '1') {
-            error_log("[wash] Skipping sync - wash_sync_on_publish is not '1', value: " . get_option('wash_sync_on_publish', '1'));
+            washLog("[wash] Skipping sync - wash_sync_on_publish is not '1', value: " . get_option('wash_sync_on_publish', '1'));
             return;
         }
 
         if ($post->post_status !== 'publish') {
-            error_log("[wash] Skipping sync - post_status is not 'publish', status: {$post->post_status}");
+            washLog("[wash] Skipping sync - post_status is not 'publish', status: {$post->post_status}");
             return;
         }
 
@@ -60,15 +60,15 @@ class WashSync {
      * @param \WP_Post $post   Post object
      */
     public function syncManually($postId, $post) {
-        error_log("[wash] syncManually called for post {$postId}, type: {$post->post_type}, status: {$post->post_status}");
+        washLog("[wash] syncManually called for post {$postId}, type: {$post->post_type}, status: {$post->post_status}");
 
         if ($this->shouldSkipSync($postId, $post)) {
-            error_log("[wash] Skipping manual sync - shouldSkipSync returned true");
+            washLog("[wash] Skipping manual sync - shouldSkipSync returned true");
             return;
         }
 
         if ($post->post_status !== 'publish') {
-            error_log("[wash] Skipping manual sync - post_status is not 'publish', status: {$post->post_status}");
+            washLog("[wash] Skipping manual sync - post_status is not 'publish', status: {$post->post_status}");
             return;
         }
 
@@ -82,16 +82,16 @@ class WashSync {
      * @param \WP_Post $post   Post object
      */
     private function doSync($postId, $post) {
-        error_log("[wash] Starting sync for post {$postId}");
+        washLog("[wash] Starting sync for post {$postId}");
         $this->isSyncing = true;
         // Determine action based on existing Shopify sync, not WordPress $update flag
         // WordPress passes $update=true even for new posts (auto-draft → publish)
         $existingArticleId = get_post_meta($postId, '_wash_article_id', true);
         $action = empty($existingArticleId) ? 'create' : 'update';
-        error_log("[wash] Action determined: {$action} (existingArticleId: " . ($existingArticleId ?: 'none') . ")");
+        washLog("[wash] Action determined: {$action} (existingArticleId: " . ($existingArticleId ?: 'none') . ")");
         $this->syncPost($postId, $post, $action);
         $this->isSyncing = false;
-        error_log("[wash] Sync completed for post {$postId}");
+        washLog("[wash] Sync completed for post {$postId}");
     }
 
     /**
@@ -136,7 +136,7 @@ class WashSync {
         }
 
         if ($oldStatus === 'publish' && $newStatus !== 'publish') {
-            error_log("[wash] onStatusTransition: {$oldStatus} → {$newStatus} for post {$post->ID}");
+            washLog("[wash] onStatusTransition: {$oldStatus} → {$newStatus} for post {$post->ID}");
             $endpoint = $this->resolveEndpoint($post->post_type);
 
             $payload = [
@@ -157,7 +157,7 @@ class WashSync {
 
             // Clear local sync meta so republishing creates a fresh article
             $this->clearSyncMeta($post->ID);
-            error_log("[wash] onStatusTransition: Cleared sync meta for post {$post->ID}");
+            washLog("[wash] onStatusTransition: Cleared sync meta for post {$post->ID}");
         }
     }
 
@@ -178,7 +178,7 @@ class WashSync {
      * Sync a WordPress post to Shopify.
      */
     private function syncPost($postId, $post, $action) {
-        error_log("[wash] syncPost() - Starting sync for post {$postId}");
+        washLog("[wash] syncPost() - Starting sync for post {$postId}");
 
         // Sync images in content first (if Files & Media enabled)
         if (get_option('wash_files_enabled', '1') === '1') {
@@ -191,19 +191,19 @@ class WashSync {
             $this->syncFeaturedImage($thumbnailId);
         }
 
-        error_log("[wash] syncPost() - Building post data for post {$postId}");
+        washLog("[wash] syncPost() - Building post data for post {$postId}");
         $postData = $this->buildPostData($postId, $post, $action);
         $endpoint = $this->resolveEndpoint($post->post_type);
-        error_log("[wash] syncPost() - Endpoint: {$endpoint}, Action: {$action}");
-        error_log("[wash] syncPost() - Post title: {$postData['title']}, slug: {$postData['slug']}");
-        error_log("[wash] syncPost() - Tags being sent: " . json_encode($postData['tags']));
+        washLog("[wash] syncPost() - Endpoint: {$endpoint}, Action: {$action}");
+        washLog("[wash] syncPost() - Post title: {$postData['title']}, slug: {$postData['slug']}");
+        washLog("[wash] syncPost() - Tags being sent: " . json_encode($postData['tags']));
 
         $result = $this->apiClient->post($endpoint, $postData);
 
         if (is_wp_error($result)) {
-            error_log("[wash] syncPost() - API returned error: " . $result->get_error_message());
+            washLog("[wash] syncPost() - API returned error: " . $result->get_error_message());
         } else {
-            error_log("[wash] syncPost() - API returned success, shopifyArticleId: " . ($result['shopifyArticleId'] ?? 'null'));
+            washLog("[wash] syncPost() - API returned success, shopifyArticleId: " . ($result['shopifyArticleId'] ?? 'null'));
         }
 
         $this->logSync($postId, $action, $result);
@@ -212,13 +212,13 @@ class WashSync {
             // Store error message for display
             $errorMessage = $result->get_error_message();
             update_post_meta($postId, '_wash_sync_error', $errorMessage);
-            error_log("[wash] syncPost() - Stored error: " . $errorMessage);
+            washLog("[wash] syncPost() - Stored error: " . $errorMessage);
             return;
         }
 
         // Handle async queue response - job queued but not completed yet
         if (!empty($result['queued']) && !empty($result['jobId'])) {
-            error_log("[wash] syncPost() - Job queued with ID: " . $result['jobId']);
+            washLog("[wash] syncPost() - Job queued with ID: " . $result['jobId']);
             update_post_meta($postId, '_wash_sync_status', 'queued');
             update_post_meta($postId, '_wash_job_id', $result['jobId']);
             update_post_meta($postId, '_wash_queued_at', current_time('mysql'));
@@ -229,7 +229,7 @@ class WashSync {
         // Handle successful sync with Shopify ID
         $shopifyId = $result['shopifyArticleId'] ?? $result['shopifyPageId'] ?? null;
         if ($shopifyId) {
-            error_log("[wash] syncPost() - Updating post meta with Shopify ID: {$shopifyId}");
+            washLog("[wash] syncPost() - Updating post meta with Shopify ID: {$shopifyId}");
             update_post_meta($postId, '_wash_article_id', $shopifyId);
             update_post_meta($postId, '_wash_blog_id', $result['shopifyBlogId'] ?? '');
             update_post_meta($postId, '_wash_blog_handle', $result['shopifyBlogHandle'] ?? '');
@@ -273,10 +273,10 @@ class WashSync {
         $result = $metafieldsHandler->syncAllMetafields($postId, $shopifyId);
 
         if (is_wp_error($result)) {
-            error_log("[wash] syncMetafields() - Error: " . $result->get_error_message());
+            washLog("[wash] syncMetafields() - Error: " . $result->get_error_message());
         } else {
             $count = $result['count'] ?? 0;
-            error_log("[wash] syncMetafields() - Synced {$count} metafields for post {$postId}");
+            washLog("[wash] syncMetafields() - Synced {$count} metafields for post {$postId}");
         }
     }
 
@@ -296,13 +296,13 @@ class WashSync {
         $result = $hreflangsHandler->syncHreflangs($postId, $shopifyId);
 
         if (is_wp_error($result)) {
-            error_log("[wash] syncHreflangs() - Error: " . $result->get_error_message());
+            washLog("[wash] syncHreflangs() - Error: " . $result->get_error_message());
         } else {
             $count = $result['count'] ?? 0;
             if (isset($result['cleared']) && $result['cleared']) {
-                error_log("[wash] syncHreflangs() - Cleared hreflangs (no translations) for post {$postId}");
+                washLog("[wash] syncHreflangs() - Cleared hreflangs (no translations) for post {$postId}");
             } else {
-                error_log("[wash] syncHreflangs() - Synced {$count} hreflang entries for post {$postId}");
+                washLog("[wash] syncHreflangs() - Synced {$count} hreflang entries for post {$postId}");
             }
         }
     }
@@ -316,32 +316,32 @@ class WashSync {
 
         // Detect page builder (Bricks, Elementor, Divi, etc.)
         $pageBuilder = WashPageBuilders::detect($postId);
-        error_log("[wash] buildPostData() - Page builder detect result: " . ($pageBuilder ?: 'none') . " for post {$postId}");
+        washLog("[wash] buildPostData() - Page builder detect result: " . ($pageBuilder ?: 'none') . " for post {$postId}");
 
         // Debug: check what meta keys exist for this post
         $bricksMeta = get_post_meta($postId, '_bricks_page_content_2', true);
-        error_log("[wash] buildPostData() - _bricks_page_content_2 type: " . gettype($bricksMeta) . " empty: " . (empty($bricksMeta) ? 'yes' : 'no') . " is_array: " . (is_array($bricksMeta) ? 'yes' : 'no'));
+        washLog("[wash] buildPostData() - _bricks_page_content_2 type: " . gettype($bricksMeta) . " empty: " . (empty($bricksMeta) ? 'yes' : 'no') . " is_array: " . (is_array($bricksMeta) ? 'yes' : 'no'));
         if (is_array($bricksMeta)) {
-            error_log("[wash] buildPostData() - _bricks_page_content_2 count: " . count($bricksMeta));
+            washLog("[wash] buildPostData() - _bricks_page_content_2 count: " . count($bricksMeta));
         }
-        error_log("[wash] buildPostData() - post_content length: " . strlen($post->post_content));
+        washLog("[wash] buildPostData() - post_content length: " . strlen($post->post_content));
 
         $pageBuilderCss = '';
         if ($pageBuilder) {
-            error_log("[wash] buildPostData() - Page builder detected: {$pageBuilder} for post {$postId}");
+            washLog("[wash] buildPostData() - Page builder detected: {$pageBuilder} for post {$postId}");
             $rendered = WashPageBuilders::render($postId, $pageBuilder);
-            error_log("[wash] buildPostData() - Rendered HTML length: " . strlen($rendered['html']) . " CSS length: " . strlen($rendered['css']));
+            washLog("[wash] buildPostData() - Rendered HTML length: " . strlen($rendered['html']) . " CSS length: " . strlen($rendered['css']));
 
             // If CSS is empty, fetch from frontend page directly
             if (empty($rendered['css']) && !empty($rendered['html'])) {
-                error_log("[wash] buildPostData() - CSS empty, fetching from frontend");
+                washLog("[wash] buildPostData() - CSS empty, fetching from frontend");
                 $rendered['css'] = $this->fetchPageBuilderCss($postId);
-                error_log("[wash] buildPostData() - Frontend CSS length: " . strlen($rendered['css']));
+                washLog("[wash] buildPostData() - Frontend CSS length: " . strlen($rendered['css']));
             }
 
             $content = $rendered['html'];
             $pageBuilderCss = $rendered['css'];
-            error_log("[wash] buildPostData() - Content: " . strlen($content) . " CSS metafield: " . strlen($pageBuilderCss));
+            washLog("[wash] buildPostData() - Content: " . strlen($content) . " CSS metafield: " . strlen($pageBuilderCss));
         } else {
             // Standard flow: Gutenberg blocks + the_content filter
             $blockData = apply_filters('wash_before_sync_content', $post->post_content, $postId);
@@ -390,10 +390,10 @@ class WashSync {
 
         // Debug: log if content contains WordPress or Shopify CDN URLs
         if (strpos($content, 'cdn.shopify.com') !== false) {
-            error_log("[wash] buildPostData() - Content CONTAINS cdn.shopify.com URLs (good!)");
+            washLog("[wash] buildPostData() - Content CONTAINS cdn.shopify.com URLs (good!)");
         }
         if (strpos($content, 'wp-content/uploads') !== false) {
-            error_log("[wash] buildPostData() - WARNING: Content still contains wp-content/uploads URLs!");
+            washLog("[wash] buildPostData() - WARNING: Content still contains wp-content/uploads URLs!");
         }
 
         $data = [
@@ -435,12 +435,12 @@ class WashSync {
 
             if ($isValidCdnUrl) {
                 $data['featuredImage'] = $cdnUrl;
-                error_log("[wash] buildPostData() - Featured image using CDN URL: {$cdnUrl}");
+                washLog("[wash] buildPostData() - Featured image using CDN URL: {$cdnUrl}");
             } else {
                 $data['featuredImage'] = $wpUrl;
-                error_log("[wash] buildPostData() - Featured image using WordPress URL: {$wpUrl}");
+                washLog("[wash] buildPostData() - Featured image using WordPress URL: {$wpUrl}");
                 if ($cdnUrl) {
-                    error_log("[wash] buildPostData() - WARNING: Invalid CDN URL stored: {$cdnUrl}");
+                    washLog("[wash] buildPostData() - WARNING: Invalid CDN URL stored: {$cdnUrl}");
                 }
             }
         }
@@ -467,13 +467,13 @@ class WashSync {
         // Add blocks metadata if available
         if (!empty($blocksMetafields)) {
             $data['blocksMetafields'] = $blocksMetafields;
-            error_log("[wash] buildPostData() - Added " . count($blocksMetafields) . " block metafields");
+            washLog("[wash] buildPostData() - Added " . count($blocksMetafields) . " block metafields");
         }
 
         // Add blocks CSS if enabled and available
         if (!empty($blocksCss) && get_option('wash_sync_blocks_css', '0') === '1') {
             $data['blocksCss'] = $blocksCss;
-            error_log("[wash] buildPostData() - Added block CSS (" . strlen($blocksCss) . " bytes)");
+            washLog("[wash] buildPostData() - Added block CSS (" . strlen($blocksCss) . " bytes)");
         }
 
         // Page builder CSS as separate field (stored as Shopify metafield)
@@ -506,7 +506,7 @@ class WashSync {
      */
     private function rewriteFileUrls($content) {
         $siteUrl = get_site_url();
-        error_log("[wash] rewriteFileUrls() - Site URL: {$siteUrl}");
+        washLog("[wash] rewriteFileUrls() - Site URL: {$siteUrl}");
 
         // Step 1: Remove srcset and sizes attributes (Shopify handles responsive images)
         $content = preg_replace('/\s+srcset=["\'][^"\']*["\']/', '', $content);
@@ -517,9 +517,9 @@ class WashSync {
         $pattern = '/(' . preg_quote($siteUrl, '/') . '\/wp-content\/uploads\/[^"\'<>\s\)]+)/i';
         preg_match_all($pattern, $content, $allMatches);
         if (!empty($allMatches[1])) {
-            error_log("[wash] rewriteFileUrls() - Found " . count($allMatches[1]) . " URLs to process:");
+            washLog("[wash] rewriteFileUrls() - Found " . count($allMatches[1]) . " URLs to process:");
             foreach (array_unique($allMatches[1]) as $url) {
-                error_log("[wash] rewriteFileUrls() - URL: {$url}");
+                washLog("[wash] rewriteFileUrls() - URL: {$url}");
             }
         }
 
@@ -533,13 +533,13 @@ class WashSync {
                 if ($attachmentId) {
                     $cdnUrl = WashImages::getShopifyCdnUrl($attachmentId);
                     if ($cdnUrl && strpos($cdnUrl, 'cdn.shopify.com') !== false) {
-                        error_log("[wash] rewriteFileUrls() - REWRITING: {$wpUrl} -> {$cdnUrl}");
+                        washLog("[wash] rewriteFileUrls() - REWRITING: {$wpUrl} -> {$cdnUrl}");
                         return $cdnUrl;
                     } else {
-                        error_log("[wash] rewriteFileUrls() - Attachment {$attachmentId} has no valid CDN URL (got: " . ($cdnUrl ?: 'null') . ")");
+                        washLog("[wash] rewriteFileUrls() - Attachment {$attachmentId} has no valid CDN URL (got: " . ($cdnUrl ?: 'null') . ")");
                     }
                 } else {
-                    error_log("[wash] rewriteFileUrls() - Could not find attachment for: {$wpUrl}");
+                    washLog("[wash] rewriteFileUrls() - Could not find attachment for: {$wpUrl}");
                 }
                 return $wpUrl;
             },
@@ -548,9 +548,9 @@ class WashSync {
 
         // Check if any replacements were made
         if ($rewrittenContent !== $content) {
-            error_log("[wash] rewriteFileUrls() - Content was modified");
+            washLog("[wash] rewriteFileUrls() - Content was modified");
         } else {
-            error_log("[wash] rewriteFileUrls() - Content was NOT modified");
+            washLog("[wash] rewriteFileUrls() - Content was NOT modified");
         }
 
         return $rewrittenContent;
@@ -616,7 +616,7 @@ class WashSync {
         $stripped = preg_replace($pattern, '', $content, 1);
 
         if ($stripped !== $content) {
-            error_log("[wash] stripDuplicateTitle() - Removed duplicate title from content");
+            washLog("[wash] stripDuplicateTitle() - Removed duplicate title from content");
         }
 
         return $stripped;
@@ -645,7 +645,7 @@ class WashSync {
             return $content;
         }
 
-        error_log("[wash] rewriteInternalUrls() - Site URL: {$siteUrl}, Host: {$siteHost}");
+        washLog("[wash] rewriteInternalUrls() - Site URL: {$siteUrl}, Host: {$siteHost}");
 
         // Find all internal links in href attributes
         $pattern = '/href=["\'](' . preg_quote($siteUrl, '/') . '\/[^"\'<>\s]*)["\']|href=["\'](\/[^"\'<>\s]*)["\']|href=["\']https?:\/\/' . preg_quote($siteHost, '/') . '(\/[^"\'<>\s]*)["\']|href=["\']http?:\/\/' . preg_quote($siteHost, '/') . '(\/[^"\'<>\s]*)["\']/i';
@@ -695,7 +695,7 @@ class WashSync {
                 }
 
                 if (!$postId) {
-                    error_log("[wash] rewriteInternalUrls() - No post found for URL: {$matchedUrl}");
+                    washLog("[wash] rewriteInternalUrls() - No post found for URL: {$matchedUrl}");
                     return $fullMatch;
                 }
 
@@ -706,7 +706,7 @@ class WashSync {
 
                 // Check if this post type is allowed for syncing
                 if (!$this->isAllowedPostType($post->post_type)) {
-                    error_log("[wash] rewriteInternalUrls() - Post type '{$post->post_type}' not allowed for syncing");
+                    washLog("[wash] rewriteInternalUrls() - Post type '{$post->post_type}' not allowed for syncing");
                     return $fullMatch;
                 }
 
@@ -722,7 +722,7 @@ class WashSync {
                     $shopifyPath = '/blogs/' . $blogHandle . '/' . $post->post_name;
                 }
 
-                error_log("[wash] rewriteInternalUrls() - Rewriting: {$matchedUrl} -> {$shopifyPath}");
+                washLog("[wash] rewriteInternalUrls() - Rewriting: {$matchedUrl} -> {$shopifyPath}");
                 return 'href="' . $shopifyPath . '"';
             },
             $content
@@ -787,12 +787,12 @@ class WashSync {
 
             if ($content !== $before) {
                 $count++;
-                error_log("[wash] applySearchReplaceRules() - Applied {$type} rule: " . mb_substr($search, 0, 50) . " -> " . mb_substr($replace, 0, 50));
+                washLog("[wash] applySearchReplaceRules() - Applied {$type} rule: " . mb_substr($search, 0, 50) . " -> " . mb_substr($replace, 0, 50));
             }
         }
 
         if ($count > 0) {
-            error_log("[wash] applySearchReplaceRules() - Applied {$count} rule(s)");
+            washLog("[wash] applySearchReplaceRules() - Applied {$count} rule(s)");
         }
 
         return $content;
@@ -901,7 +901,7 @@ class WashSync {
         // First try direct lookup
         $attachmentId = attachment_url_to_postid($cleanUrl);
         if ($attachmentId) {
-            error_log("[wash] getAttachmentIdFromUrl() - Found attachment {$attachmentId} for URL: {$cleanUrl}");
+            washLog("[wash] getAttachmentIdFromUrl() - Found attachment {$attachmentId} for URL: {$cleanUrl}");
             return $attachmentId;
         }
 
@@ -913,12 +913,12 @@ class WashSync {
         if ($baseUrl !== $cleanUrl) {
             $attachmentId = attachment_url_to_postid($baseUrl);
             if ($attachmentId) {
-                error_log("[wash] getAttachmentIdFromUrl() - Found attachment {$attachmentId} for resized URL: {$cleanUrl}");
+                washLog("[wash] getAttachmentIdFromUrl() - Found attachment {$attachmentId} for resized URL: {$cleanUrl}");
                 return $attachmentId;
             }
         }
 
-        error_log("[wash] getAttachmentIdFromUrl() - No attachment found for: {$cleanUrl}");
+        washLog("[wash] getAttachmentIdFromUrl() - No attachment found for: {$cleanUrl}");
         return false;
     }
 
@@ -938,19 +938,19 @@ class WashSync {
         preg_match_all($pattern, $content, $matches);
 
         if (empty($matches[1])) {
-            error_log("[wash] syncContentFiles() - No wp-content/uploads URLs found in content");
+            washLog("[wash] syncContentFiles() - No wp-content/uploads URLs found in content");
             return;
         }
 
         $uniqueUrls = array_unique($matches[1]);
-        error_log("[wash] syncContentFiles() - Found " . count($uniqueUrls) . " unique file URLs to sync");
+        washLog("[wash] syncContentFiles() - Found " . count($uniqueUrls) . " unique file URLs to sync");
 
         foreach ($uniqueUrls as $fileUrl) {
-            error_log("[wash] syncContentFiles() - Processing: {$fileUrl}");
+            washLog("[wash] syncContentFiles() - Processing: {$fileUrl}");
             $attachmentId = $this->getAttachmentIdFromUrl($fileUrl);
 
             if (!$attachmentId) {
-                error_log("[wash] syncContentFiles() - Could not find attachment for URL: {$fileUrl}");
+                washLog("[wash] syncContentFiles() - Could not find attachment for URL: {$fileUrl}");
                 continue;
             }
 
@@ -958,31 +958,31 @@ class WashSync {
             $cdnUrl = WashImages::getShopifyCdnUrl($attachmentId);
             $isValidCdnUrl = $cdnUrl && strpos($cdnUrl, 'cdn.shopify.com') !== false;
             if ($isValidCdnUrl) {
-                error_log("[wash] syncContentFiles() - File {$attachmentId} already synced to: {$cdnUrl}");
+                washLog("[wash] syncContentFiles() - File {$attachmentId} already synced to: {$cdnUrl}");
                 continue;
             }
 
             // Clear invalid CDN URL if present
             if ($cdnUrl && !$isValidCdnUrl) {
-                error_log("[wash] syncContentFiles() - Clearing invalid CDN URL for file {$attachmentId}: {$cdnUrl}");
+                washLog("[wash] syncContentFiles() - Clearing invalid CDN URL for file {$attachmentId}: {$cdnUrl}");
                 delete_post_meta($attachmentId, '_wash_cdn_url');
                 delete_post_meta($attachmentId, '_wash_file_id');
             }
 
             // Sync the file
-            error_log("[wash] syncContentFiles() - Syncing file {$attachmentId} from URL: {$fileUrl}");
+            washLog("[wash] syncContentFiles() - Syncing file {$attachmentId} from URL: {$fileUrl}");
             $result = $fileHandler->syncFile($attachmentId);
 
             if ($result) {
                 $syncedCount++;
-                error_log("[wash] syncContentFiles() - Successfully synced file {$attachmentId}");
+                washLog("[wash] syncContentFiles() - Successfully synced file {$attachmentId}");
             } else {
-                error_log("[wash] syncContentFiles() - Failed to sync file {$attachmentId}");
+                washLog("[wash] syncContentFiles() - Failed to sync file {$attachmentId}");
             }
         }
 
         if ($syncedCount > 0) {
-            error_log("[wash] syncContentFiles() - Synced {$syncedCount} new files to Shopify");
+            washLog("[wash] syncContentFiles() - Synced {$syncedCount} new files to Shopify");
         }
     }
 
@@ -1007,26 +1007,26 @@ class WashSync {
         $cdnUrl = WashImages::getShopifyCdnUrl($attachmentId);
         $isValidCdnUrl = $cdnUrl && strpos($cdnUrl, 'cdn.shopify.com') !== false;
         if ($isValidCdnUrl) {
-            error_log("[wash] syncFeaturedImage() - Featured image {$attachmentId} already synced to: {$cdnUrl}");
+            washLog("[wash] syncFeaturedImage() - Featured image {$attachmentId} already synced to: {$cdnUrl}");
             return;
         }
 
         // Clear invalid CDN URL if present
         if ($cdnUrl && !$isValidCdnUrl) {
-            error_log("[wash] syncFeaturedImage() - Clearing invalid CDN URL for featured image {$attachmentId}: {$cdnUrl}");
+            washLog("[wash] syncFeaturedImage() - Clearing invalid CDN URL for featured image {$attachmentId}: {$cdnUrl}");
             delete_post_meta($attachmentId, '_wash_cdn_url');
             delete_post_meta($attachmentId, '_wash_file_id');
         }
 
         // Sync the featured image
-        error_log("[wash] syncFeaturedImage() - Syncing featured image {$attachmentId}");
+        washLog("[wash] syncFeaturedImage() - Syncing featured image {$attachmentId}");
         $imagesHandler = new WashImages();
         $result = $imagesHandler->syncImage($attachmentId);
 
         if ($result) {
-            error_log("[wash] syncFeaturedImage() - Successfully synced featured image {$attachmentId}");
+            washLog("[wash] syncFeaturedImage() - Successfully synced featured image {$attachmentId}");
         } else {
-            error_log("[wash] syncFeaturedImage() - Failed to sync featured image {$attachmentId}");
+            washLog("[wash] syncFeaturedImage() - Failed to sync featured image {$attachmentId}");
         }
     }
 
@@ -1036,11 +1036,11 @@ class WashSync {
     private function getPostTags($postId) {
         $tags = get_the_tags($postId);
         if (!$tags || is_wp_error($tags)) {
-            error_log("[wash] getPostTags() - No tags found for post {$postId}");
+            washLog("[wash] getPostTags() - No tags found for post {$postId}");
             return [];
         }
         $tagNames = array_map(fn($tag) => $tag->name, $tags);
-        error_log("[wash] getPostTags() - Found " . count($tagNames) . " tags: " . implode(', ', $tagNames));
+        washLog("[wash] getPostTags() - Found " . count($tagNames) . " tags: " . implode(', ', $tagNames));
         return $tagNames;
     }
 
@@ -1059,7 +1059,7 @@ class WashSync {
             $tags = array_values(array_unique(array_merge($tags, $categoryNames)));
         }
 
-        error_log("[wash] getPostTagsWithCategories() - Final tags for post {$postId}: " . implode(', ', $tags));
+        washLog("[wash] getPostTagsWithCategories() - Final tags for post {$postId}: " . implode(', ', $tags));
         return $tags;
     }
 
@@ -1141,7 +1141,7 @@ class WashSync {
             function_exists('wpml_get_language_information')
         ) {
             $langInfo = wpml_get_language_information(null, $postId);
-            error_log("[wash] getPostLanguage($postId) WPML returned: " . wp_json_encode($langInfo));
+            washLog("[wash] getPostLanguage($postId) WPML returned: " . wp_json_encode($langInfo));
             if (!empty($langInfo['locale'])) {
                 // Use full locale (e.g., fr_CH → fr-ch) for region-specific matching
                 return strtolower(str_replace('_', '-', $langInfo['locale']));
@@ -1398,31 +1398,31 @@ class WashSync {
      */
     private function shouldSkipSync($postId, $post) {
         if ($this->isSyncing) {
-            error_log("[wash] shouldSkipSync: isSyncing=true");
+            washLog("[wash] shouldSkipSync: isSyncing=true");
             return true;
         }
         if (wp_is_post_revision($postId)) {
-            error_log("[wash] shouldSkipSync: is revision");
+            washLog("[wash] shouldSkipSync: is revision");
             return true;
         }
         if (wp_is_post_autosave($postId)) {
-            error_log("[wash] shouldSkipSync: is autosave");
+            washLog("[wash] shouldSkipSync: is autosave");
             return true;
         }
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
-            error_log("[wash] shouldSkipSync: DOING_AUTOSAVE constant");
+            washLog("[wash] shouldSkipSync: DOING_AUTOSAVE constant");
             return true;
         }
         if (!$this->isAllowedPostType($post->post_type)) {
-            error_log("[wash] shouldSkipSync: post_type '{$post->post_type}' not allowed");
+            washLog("[wash] shouldSkipSync: post_type '{$post->post_type}' not allowed");
             return true;
         }
         if (!$this->apiClient->isConfigured()) {
-            error_log("[wash] shouldSkipSync: API client not configured (missing api_key or api_secret)");
+            washLog("[wash] shouldSkipSync: API client not configured (missing api_key or api_secret)");
             return true;
         }
 
-        error_log("[wash] shouldSkipSync: all checks passed, will sync");
+        washLog("[wash] shouldSkipSync: all checks passed, will sync");
         return false;
     }
 
@@ -1466,7 +1466,7 @@ class WashSync {
 
         $response = wp_remote_get($permalink, $args);
         if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
-            error_log("[wash] fetchPageBuilderCss: fetch failed for {$permalink}");
+            washLog("[wash] fetchPageBuilderCss: fetch failed for {$permalink}");
             return '';
         }
 
@@ -1493,7 +1493,7 @@ class WashSync {
             }
         }
 
-        error_log("[wash] fetchPageBuilderCss: total CSS " . strlen($css) . " bytes");
+        washLog("[wash] fetchPageBuilderCss: total CSS " . strlen($css) . " bytes");
         return $css;
     }
 
@@ -1542,13 +1542,13 @@ class WashSync {
         // Get WordPress post permalink and extract path
         $wpPermalink = get_permalink($postId);
         if (!$wpPermalink) {
-            error_log("[wash] createAutomaticRedirect: No permalink for post {$postId}");
+            washLog("[wash] createAutomaticRedirect: No permalink for post {$postId}");
             return;
         }
 
         $wpPath = wp_parse_url($wpPermalink, PHP_URL_PATH);
         if (!$wpPath || $wpPath === '/') {
-            error_log("[wash] createAutomaticRedirect: Invalid WP path for post {$postId}");
+            washLog("[wash] createAutomaticRedirect: Invalid WP path for post {$postId}");
             return;
         }
 
@@ -1556,14 +1556,14 @@ class WashSync {
         $normalizedWpPath = rtrim($wpPath, '/');
         $normalizedShopifyPath = rtrim($shopifyPath, '/');
         if ($normalizedWpPath === $normalizedShopifyPath) {
-            error_log("[wash] createAutomaticRedirect: Paths are identical, skipping redirect for post {$postId}");
+            washLog("[wash] createAutomaticRedirect: Paths are identical, skipping redirect for post {$postId}");
             return;
         }
 
         // Check if redirect already exists for this post
         $existingRedirect = get_post_meta($postId, '_wash_redirect_created', true);
         if ($existingRedirect === $normalizedWpPath) {
-            error_log("[wash] createAutomaticRedirect: Redirect already created for post {$postId}");
+            washLog("[wash] createAutomaticRedirect: Redirect already created for post {$postId}");
             return;
         }
 
@@ -1578,7 +1578,7 @@ class WashSync {
         ]);
 
         if (is_wp_error($result)) {
-            error_log("[wash] createAutomaticRedirect: Failed to create redirect for post {$postId}: " . $result->get_error_message());
+            washLog("[wash] createAutomaticRedirect: Failed to create redirect for post {$postId}: " . $result->get_error_message());
             return;
         }
 
@@ -1588,6 +1588,6 @@ class WashSync {
 
         $created = $result['created'] ?? 0;
         $skipped = $result['skipped'] ?? 0;
-        error_log("[wash] createAutomaticRedirect: Post {$postId} redirect {$normalizedWpPath} -> {$normalizedShopifyPath} (created: {$created}, skipped: {$skipped})");
+        washLog("[wash] createAutomaticRedirect: Post {$postId} redirect {$normalizedWpPath} -> {$normalizedShopifyPath} (created: {$created}, skipped: {$skipped})");
     }
 }

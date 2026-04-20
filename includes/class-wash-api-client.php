@@ -152,10 +152,10 @@ class WashApiClient {
      * @return array|WP_Error  Decoded response or WP_Error
      */
     public function post($endpoint, array $data) {
-        error_log("[wash API] POST request to endpoint: {$endpoint}");
+        washLog("[wash API] POST request to endpoint: {$endpoint}");
 
         if (empty($this->apiKey)) {
-            error_log("[wash API] ERROR: API key is empty - not configured");
+            washLog("[wash API] ERROR: API key is empty - not configured");
             return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
         }
 
@@ -163,8 +163,8 @@ class WashApiClient {
         $body = wp_json_encode($data);
         $timestamp = (string) time();
 
-        error_log("[wash API] URL: {$url}");
-        error_log("[wash API] API Key (first 8 chars): " . substr($this->apiKey, 0, 8) . "...");
+        washLog("[wash API] URL: {$url}");
+        washLog("[wash API] API Key (first 8 chars): " . substr($this->apiKey, 0, 8) . "...");
 
         $headers = $this->getBaseHeaders($timestamp);
         $headers['Content-Type'] = 'application/json';
@@ -172,9 +172,9 @@ class WashApiClient {
         $result = $this->sendWithRetry($url, $body, $headers);
 
         if (is_wp_error($result)) {
-            error_log("[wash API] ERROR: " . $result->get_error_message());
+            washLog("[wash API] ERROR: " . $result->get_error_message());
         } else {
-            error_log("[wash API] SUCCESS: " . wp_json_encode($result));
+            washLog("[wash API] SUCCESS: " . wp_json_encode($result));
         }
 
         return $result;
@@ -533,10 +533,10 @@ class WashApiClient {
         // Add HTTP Basic Auth if configured
         if (!empty($this->httpUser) && !empty($this->httpPass)) {
             $headers['Authorization'] = 'Basic ' . base64_encode($this->httpUser . ':' . $this->httpPass);
-            error_log("[wash API] Using HTTP Basic Auth");
+            washLog("[wash API] Using HTTP Basic Auth");
         }
 
-        error_log("[wash API] Sending POST request (attempt: {$attempt})");
+        washLog("[wash API] Sending POST request (attempt: {$attempt})");
 
         $response = wp_remote_post($url, [
             'timeout' => 30,
@@ -545,28 +545,28 @@ class WashApiClient {
         ]);
 
         if (is_wp_error($response)) {
-            error_log("[wash API] wp_remote_post error: " . $response->get_error_message());
+            washLog("[wash API] wp_remote_post error: " . $response->get_error_message());
             return $response;
         }
 
         $code = wp_remote_retrieve_response_code($response);
-        error_log("[wash API] Response HTTP code: {$code}");
+        washLog("[wash API] Response HTTP code: {$code}");
 
         if ($code === 429 && $attempt < $this->maxRetries) {
             $retryAfter = (int) wp_remote_retrieve_header($response, 'retry-after');
             $delay = $retryAfter > 0 ? $retryAfter : pow(2, $attempt + 1);
-            error_log("[wash API] Rate limited, retrying in {$delay}s");
+            washLog("[wash API] Rate limited, retrying in {$delay}s");
             sleep($delay);
             return $this->sendWithRetry($url, $body, $headers, $attempt + 1);
         }
 
         $body = wp_remote_retrieve_body($response);
-        error_log("[wash API] Response body: " . substr($body, 0, 500));
+        washLog("[wash API] Response body: " . substr($body, 0, 500));
         $responseBody = json_decode($body, true);
 
         if ($code >= 400) {
             $errorMsg = $this->extractErrorMessage($responseBody, $body, $code);
-            error_log("[wash API] Error response: {$errorMsg}");
+            washLog("[wash API] Error response: {$errorMsg}");
             return new \WP_Error('wash_api_error', $errorMsg, ['status' => $code]);
         }
 

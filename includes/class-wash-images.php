@@ -126,17 +126,17 @@ class WashImages {
         $result = $this->apiClient->post('/api/image-sync', $payload);
 
         if (is_wp_error($result)) {
-            error_log("[wash] uploadToShopify() - API error: " . $result->get_error_message());
+            washLog("[wash] uploadToShopify() - API error: " . $result->get_error_message());
             return false;
         }
 
         if (!isset($result['shopifyFileId'])) {
-            error_log("[wash] uploadToShopify() - Missing shopifyFileId in response");
+            washLog("[wash] uploadToShopify() - Missing shopifyFileId in response");
             return false;
         }
 
         $cdnUrl = $result['shopifyCdnUrl'] ?? '';
-        error_log("[wash] uploadToShopify() - Attachment {$attachmentId} synced. CDN URL: " . ($cdnUrl ?: 'EMPTY'));
+        washLog("[wash] uploadToShopify() - Attachment {$attachmentId} synced. CDN URL: " . ($cdnUrl ?: 'EMPTY'));
 
         update_post_meta($attachmentId, '_wash_file_id', $result['shopifyFileId']);
         update_post_meta($attachmentId, '_wash_cdn_url', $cdnUrl);

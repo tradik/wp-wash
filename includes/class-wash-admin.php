@@ -141,9 +141,9 @@ class WashAdmin {
         $result = $this->apiClient->backupSettings();
 
         if (is_wp_error($result)) {
-            error_log('[wash] Settings backup failed: ' . $result->get_error_message());
+            washLog('[wash] Settings backup failed: ' . $result->get_error_message());
         } else {
-            error_log('[wash] Settings backed up to Shopify App');
+            washLog('[wash] Settings backed up to Shopify App');
         }
 
         delete_transient('wash_settings_backup_pending');
@@ -338,13 +338,13 @@ class WashAdmin {
         $response = $this->apiClient->getBackedUpSettings();
 
         if (is_wp_error($response)) {
-            error_log('[wash] Failed to restore settings: ' . $response->get_error_message());
+            washLog('[wash] Failed to restore settings: ' . $response->get_error_message());
             return;
         }
 
         if (!empty($response['success']) && !empty($response['settings'])) {
             $this->apiClient->restoreSettings($response['settings']);
-            error_log('[wash] Settings restored from backup');
+            washLog('[wash] Settings restored from backup');
         }
     }
 
@@ -2153,20 +2153,20 @@ JS;
      * @return string Modified redirect URL.
      */
     public function handleBulkActions($redirectTo, $doaction, $postIds) {
-        error_log("[wash] handleBulkActions called: action={$doaction}, postIds=" . implode(',', $postIds));
+        washLog("[wash] handleBulkActions called: action={$doaction}, postIds=" . implode(',', $postIds));
 
         if (!in_array($doaction, ['wash_publish', 'wash_republish', 'wash_unpublish'], true)) {
-            error_log("[wash] handleBulkActions: action not recognized, returning");
+            washLog("[wash] handleBulkActions: action not recognized, returning");
             return $redirectTo;
         }
 
         if (!$this->apiClient->isConfigured()) {
-            error_log("[wash] handleBulkActions: API not configured");
+            washLog("[wash] handleBulkActions: API not configured");
             return add_query_arg('wash_bulk_error', 'not_configured', $redirectTo);
         }
 
         $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
-        error_log("[wash] handleBulkActions: allowedTypes=" . implode(',', $allowedTypes));
+        washLog("[wash] handleBulkActions: allowedTypes=" . implode(',', $allowedTypes));
         $sync = new WashSync();
         $processed = 0;
         $skipped = 0;
@@ -2250,7 +2250,7 @@ JS;
      */
     private function unpublishFromShopify($postId, $post) {
         $endpoint = $post->post_type === 'page' ? '/api/page-sync' : '/api/content-sync';
-        error_log("[wash] unpublishFromShopify: postId={$postId}, endpoint={$endpoint}");
+        washLog("[wash] unpublishFromShopify: postId={$postId}, endpoint={$endpoint}");
 
         $result = $this->apiClient->post($endpoint, [
             'action'   => 'delete',
@@ -2258,16 +2258,16 @@ JS;
             'wpSiteId' => get_current_blog_id(),
         ]);
 
-        error_log("[wash] unpublishFromShopify result: " . print_r($result, true));
+        washLog("[wash] unpublishFromShopify result: " . print_r($result, true));
 
         if (is_wp_error($result)) {
-            error_log("[wash] unpublishFromShopify error: " . $result->get_error_message());
+            washLog("[wash] unpublishFromShopify error: " . $result->get_error_message());
             return $result;
         }
 
         // Check if API returned an error in the response
         if (is_array($result) && isset($result['error'])) {
-            error_log("[wash] unpublishFromShopify API error: " . $result['error']);
+            washLog("[wash] unpublishFromShopify API error: " . $result['error']);
             return new WP_Error('wash_api_error', $result['error']);
         }
 
@@ -2279,7 +2279,7 @@ JS;
         delete_post_meta($postId, '_wash_sync_status');
         delete_post_meta($postId, '_wash_sync_error');
 
-        error_log("[wash] unpublishFromShopify: success, cleared meta for postId={$postId}");
+        washLog("[wash] unpublishFromShopify: success, cleared meta for postId={$postId}");
         return true;
     }
 }
