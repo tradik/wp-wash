@@ -68,7 +68,7 @@ class WashApiClient {
             return 'wash-blog-manager-dev';
         }
         if (strpos($this->appUrl, 'app-wash1') !== false) {
-            return 'wash1';
+            return 'wash-blog';
         }
         return 'wash';
     }
