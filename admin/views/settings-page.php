@@ -2492,6 +2492,85 @@ function wash_render_permission_locked_banner() {
         return result;
     }
 
+    /**
+     * Validate a single mapping. Returns array of issues, each as
+     * { msg: 'problem description', fix: 'how to fix it' }.
+     * Empty array = mapping looks good.
+     */
+    function validateMapping(m, allMappings) {
+        var issues = [];
+        var ruleType = m.ruleType || 'default';
+        var ruleValue = m.ruleValue || '';
+        var dest = m.destination || 'article';
+
+        if (ruleType !== 'default' && !ruleValue) {
+            issues.push({
+                msg: '<?php echo esc_js(__('Rule value is empty', 'wash')); ?>',
+                fix: '<?php echo esc_js(__('Open Edit and pick a Category and/or Language matching this rule.', 'wash')); ?>'
+            });
+        }
+
+        if (ruleType === 'language_category' && ruleValue && ruleValue.indexOf(':') === -1) {
+            issues.push({
+                msg: '<?php echo esc_js(__('Rule value should use "language:category" format', 'wash')); ?>',
+                fix: '<?php echo esc_js(__('Open Edit and re-select both Language and Category dropdowns — current value is malformed.', 'wash')); ?>'
+            });
+        }
+
+        if (dest === 'article' && !m.shopifyBlogId && m.shopifyBlogHandle !== '_new') {
+            issues.push({
+                msg: '<?php echo esc_js(__('No target Shopify blog selected', 'wash')); ?>',
+                fix: '<?php echo esc_js(__('Open Edit and pick a blog from "Target Blog" dropdown (or create a new one).', 'wash')); ?>'
+            });
+        }
+
+        if ((ruleType === 'language' || ruleType === 'language_category') && !m.shopifyLocale) {
+            issues.push({
+                msg: '<?php echo esc_js(__('No Shopify locale — redirects will lose market prefix', 'wash')); ?>',
+                fix: '<?php echo esc_js(__('Open Edit and pick a value in "Market & Locale" dropdown matching the language for this rule.', 'wash')); ?>'
+            });
+        }
+
+        if (m.shopifyLocale && !m.shopifyMarketId) {
+            issues.push({
+                msg: '<?php echo esc_js(__('Locale set but no market — translations may not route correctly', 'wash')); ?>',
+                fix: '<?php echo esc_js(__('Open Edit and re-pick "Market & Locale" — choose an entry under a market group.', 'wash')); ?>'
+            });
+        }
+
+        if (ruleType === 'language_category' && m.wpBlogName && ruleValue) {
+            var nameMatch = m.wpBlogName.match(/(?:language_category:\s*)?([a-z0-9-]+):([a-z0-9-]+)/i);
+            var valueMatch = ruleValue.match(/^([a-z0-9-]+):([a-z0-9-]+)$/i);
+            if (nameMatch && valueMatch) {
+                var nameLangShort = nameMatch[1].toLowerCase().split('-')[0];
+                var valueLangShort = valueMatch[1].toLowerCase().split('-')[0];
+                if (nameLangShort !== valueLangShort) {
+                    issues.push({
+                        msg: '<?php echo esc_js(__('Rule name and value disagree', 'wash')); ?> ("' + nameMatch[1] + '" vs "' + valueMatch[1] + '")',
+                        fix: '<?php echo esc_js(__('Open Edit and re-select Language. The stored value differs from what the name says — likely from an old import.', 'wash')); ?>'
+                    });
+                }
+            }
+        }
+
+        if (ruleType !== 'default' && ruleValue) {
+            var conflicts = allMappings.filter(function(other) {
+                if (other.id === m.id) return false;
+                return (other.ruleType || 'default') === ruleType
+                    && (other.ruleValue || '') === ruleValue
+                    && (other.destination || 'article') !== dest;
+            });
+            if (conflicts.length > 0) {
+                issues.push({
+                    msg: '<?php echo esc_js(__('Same rule value as another mapping with different destination', 'wash')); ?>',
+                    fix: '<?php echo esc_js(__('Delete one of the duplicates, or change the rule value so each mapping is unique.', 'wash')); ?>'
+                });
+            }
+        }
+
+        return issues;
+    }
+
     function renderMappings() {
         if (!mappingsList) return;
         if (mappingsData.length === 0) {
@@ -2535,9 +2614,21 @@ function wash_render_permission_locked_banner() {
             var rowBg = overlap ? 'background:' + overlap.color + ';' : '';
             var warnIcon = overlap ? '<span title="<?php echo esc_js(__('Overlapping rule — higher priority wins', 'wash')); ?>" style="color:#b45309;font-size:14px;margin-right:4px;cursor:help;">&#9888;</span>' : '';
 
+            // Configuration validation — show error icon with hints if rule is misconfigured
+            var validationIssues = validateMapping(m, mappingsData);
+            var errorIcon = '';
+            if (validationIssues.length > 0) {
+                var tipLines = validationIssues.map(function(issue) {
+                    return '• ' + issue.msg + '\n  → ' + issue.fix;
+                }).join('\n\n');
+                var tipTitle = '<?php echo esc_js(__('Configuration issues:', 'wash')); ?>\n\n' + tipLines;
+                errorIcon = '<span title="' + tipTitle.replace(/"/g, '&quot;') + '" style="color:#dc2626;font-size:16px;margin-right:4px;cursor:help;font-weight:bold;">&#10071;</span>';
+            }
+
             html += '<tr class="wash-mapping-row" data-id="' + m.id + '" data-priority="' + m.priority + '" style="' + rowBg + '">' +
                 '<td class="wash-mapping-drag" style="cursor:grab;text-align:center;color:#999;font-size:16px;user-select:none;vertical-align:middle;">☰</td>' +
                 '<td>' +
+                    errorIcon +
                     warnIcon +
                     destBadge +
                     '<span style="' + badgeClass + 'color:#fff;padding:2px 8px;border-radius:3px;font-size:12px;">' + ruleLabel + '</span>' +

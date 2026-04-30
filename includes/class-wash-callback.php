@@ -398,8 +398,13 @@ class WashCallback {
                     }
                     update_post_meta($wpPostId, '_wash_shopify_url', $shopifyUrl);
 
-                    // Create automatic redirect if enabled
-                    if (get_option('wash_redirections_enabled', '0') === '1') {
+                    // Create automatic redirect if enabled.
+                    // Skip for translation syncs — source post creates one redirect,
+                    // Shopify Markets handles per-locale routing automatically.
+                    // Otherwise we'd get N duplicate redirects (one per locale variant)
+                    // pointing to different Shopify handles, racing each other.
+                    $isTranslationSync = $translationGroup && isset($translationGroup['isSource']) && !$translationGroup['isSource'];
+                    if (!$isTranslationSync && get_option('wash_redirections_enabled', '0') === '1') {
                         $this->createAutomaticRedirect($wpPostId, $shopifyPath);
                     }
                 }
@@ -481,7 +486,6 @@ class WashCallback {
             return;
         }
 
-        // Get WordPress post permalink and extract path
         $wpPermalink = get_permalink($postId);
         if (!$wpPermalink) {
             washLog("[wash] createAutomaticRedirect: No permalink for post {$postId}");
@@ -494,7 +498,6 @@ class WashCallback {
             return;
         }
 
-        // Don't create redirect if paths are the same
         $normalizedWpPath = rtrim($wpPath, '/');
         $normalizedShopifyPath = rtrim($shopifyPath, '/');
         if ($normalizedWpPath === $normalizedShopifyPath) {
@@ -502,36 +505,55 @@ class WashCallback {
             return;
         }
 
-        // Check if redirect already exists for this post
+        // Already created? Same WP path stored in meta means we've handled this post.
         $existingRedirect = get_post_meta($postId, '_wash_redirect_created', true);
         if ($existingRedirect === $normalizedWpPath) {
             washLog("[wash] createAutomaticRedirect: Redirect already created for post {$postId}");
             return;
         }
 
-        // Create redirect via API
-        $apiClient = new WashApiClient();
-        $result = $apiClient->post('/api/redirections', [
-            'redirects' => [
-                [
-                    'from' => $normalizedWpPath,
-                    'to'   => $normalizedShopifyPath,
-                ],
-            ],
-        ]);
-
-        if (is_wp_error($result)) {
-            washLog("[wash] createAutomaticRedirect: Failed to create redirect for post {$postId}: " . $result->get_error_message());
+        // Acquire transient lock to prevent concurrent callbacks for the same post
+        // creating duplicate redirects (race between meta read and API call).
+        $lockKey = 'wash_redirect_lock_' . $postId;
+        if (get_transient($lockKey)) {
+            washLog("[wash] createAutomaticRedirect: Another callback already creating redirect for post {$postId}, skipping");
             return;
         }
+        set_transient($lockKey, 1, 60); // 60s safety expiration
 
-        // Store that redirect was created
-        update_post_meta($postId, '_wash_redirect_created', $normalizedWpPath);
-        update_post_meta($postId, '_wash_redirect_to', $normalizedShopifyPath);
+        try {
+            // Re-check meta after acquiring lock (another callback may have just finished)
+            $existingRedirect = get_post_meta($postId, '_wash_redirect_created', true);
+            if ($existingRedirect === $normalizedWpPath) {
+                washLog("[wash] createAutomaticRedirect: Redirect created by concurrent callback, skipping");
+                return;
+            }
 
-        $created = $result['created'] ?? 0;
-        $skipped = $result['skipped'] ?? 0;
-        washLog("[wash] createAutomaticRedirect: Post {$postId} redirect {$normalizedWpPath} -> {$normalizedShopifyPath} (created: {$created}, skipped: {$skipped})");
+            $apiClient = new WashApiClient();
+            $result = $apiClient->post('/api/redirections', [
+                'redirects' => [
+                    [
+                        'from' => $normalizedWpPath,
+                        'to'   => $normalizedShopifyPath,
+                    ],
+                ],
+            ]);
+
+            if (is_wp_error($result)) {
+                washLog("[wash] createAutomaticRedirect: Failed to create redirect for post {$postId}: " . $result->get_error_message());
+                return;
+            }
+
+            update_post_meta($postId, '_wash_redirect_created', $normalizedWpPath);
+            update_post_meta($postId, '_wash_redirect_to', $normalizedShopifyPath);
+
+            $created = $result['created'] ?? 0;
+            $skipped = $result['skipped'] ?? 0;
+            washLog("[wash] createAutomaticRedirect: Post {$postId} redirect {$normalizedWpPath} -> {$normalizedShopifyPath} (created: {$created}, skipped: {$skipped})");
+            return;
+        } finally {
+            delete_transient($lockKey);
+        }
     }
 
     /**

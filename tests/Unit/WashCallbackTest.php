@@ -45,6 +45,9 @@ class WashCallbackTest extends TestCase
         Functions\when('is_wp_error')->alias(fn($v) => false);
         Functions\when('current_time')->justReturn('2026-04-13 12:00:00');
         Functions\when('get_post_meta')->justReturn('');
+        Functions\when('get_transient')->justReturn(false);
+        Functions\when('set_transient')->justReturn(true);
+        Functions\when('delete_transient')->justReturn(true);
     }
 
     protected function tearDown(): void
