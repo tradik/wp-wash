@@ -20,6 +20,9 @@ class WashAdmin {
         add_action('admin_init', [$this, 'registerSettings']);
         add_action('admin_init', [$this, 'handleCallback']);
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
+        // Background bulk-publish dispatch — runs sync in a separate request,
+        // immune to per-request PHP/Apache/nginx/FastCGI timeouts.
+        add_action('wash_async_sync_post', [$this, 'asyncSyncPost']);
         add_action('wp_ajax_wash_test_connection', [$this, 'ajaxTestConnection']);
         add_action('wp_ajax_wash_disconnect', [$this, 'ajaxDisconnect']);
         add_action('wp_ajax_wash_debug_session', [$this, 'ajaxDebugSession']);
@@ -2185,15 +2188,15 @@ JS;
             return add_query_arg('wash_bulk_error', 'not_configured', $redirectTo);
         }
 
-        // Bulk publish hits each post synchronously (HTTP roundtrip + metafields).
-        // Default PHP max_execution_time of 30s caps batches at ~30 posts.
-        // Lift the limit and keep going if the user closes the tab.
-        @set_time_limit(0);
-        ignore_user_abort(true);
-
+        // Each post sync = HTTP roundtrip + metafields. Doing this synchronously
+        // breaks at any host-level timeout (PHP max_execution_time, nginx
+        // proxy_read_timeout, FastCGI request_terminate_timeout, etc).
+        // Strategy: dispatch each sync via WP-Cron (single event, ASAP) so the
+        // bulk action returns in milliseconds and each sync runs in its own
+        // request — immune to host-level timeouts. Unpublish stays sync because
+        // it must report errors to the user.
         $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
         washLog("[wash] handleBulkActions: allowedTypes=" . implode(',', $allowedTypes));
-        $sync = new WashSync();
         $processed = 0;
         $skipped = 0;
         $errors = 0;
@@ -2214,7 +2217,6 @@ JS;
 
             switch ($doaction) {
                 case 'wash_publish':
-                    // Only publish posts that are not already synced and are published in WP
                     if (!empty($shopifyArticleId)) {
                         $skipped++;
                         continue 2;
@@ -2223,12 +2225,11 @@ JS;
                         $skipped++;
                         continue 2;
                     }
-                    $sync->syncManually($postId, $post);
+                    $this->scheduleAsyncSync($postId);
                     $processed++;
                     break;
 
                 case 'wash_republish':
-                    // Re-publish already synced posts
                     if (empty($shopifyArticleId)) {
                         $skipped++;
                         continue 2;
@@ -2237,12 +2238,11 @@ JS;
                         $skipped++;
                         continue 2;
                     }
-                    $sync->syncManually($postId, $post);
+                    $this->scheduleAsyncSync($postId);
                     $processed++;
                     break;
 
                 case 'wash_unpublish':
-                    // Only unpublish posts that are synced
                     if (empty($shopifyArticleId)) {
                         $skipped++;
                         continue 2;
@@ -2257,6 +2257,12 @@ JS;
             }
         }
 
+        // Kick the cron loop so scheduled syncs start immediately rather than
+        // waiting for the next public request to trigger wp-cron.
+        if ($processed > 0 && in_array($doaction, ['wash_publish', 'wash_republish'], true)) {
+            $this->triggerCronAsync();
+        }
+
         $redirectTo = add_query_arg([
             'wash_bulk_action' => $doaction,
             'wash_bulk_processed' => $processed,
@@ -2265,6 +2271,56 @@ JS;
         ], $redirectTo);
 
         return $redirectTo;
+    }
+
+    /**
+     * Schedule a single post sync via WP-Cron — runs in a separate request
+     * so it cannot be killed by per-request timeouts (PHP, nginx, FastCGI, etc).
+     *
+     * @param int $postId Post ID.
+     */
+    private function scheduleAsyncSync($postId) {
+        // Args must be array — WP-Cron passes it spread to the action handler.
+        // Use postId as event arg so duplicate scheduling for the same post
+        // collapses to a single cron event.
+        if (!wp_next_scheduled('wash_async_sync_post', [(int) $postId])) {
+            wp_schedule_single_event(time(), 'wash_async_sync_post', [(int) $postId]);
+        }
+    }
+
+    /**
+     * Background handler for scheduled bulk syncs.
+     * Each call runs in its own request via WP-Cron — no shared timeout.
+     *
+     * @param int $postId Post ID.
+     */
+    public function asyncSyncPost($postId) {
+        @set_time_limit(0);
+        $post = get_post((int) $postId);
+        if (!$post || $post->post_status !== 'publish') {
+            washLog("[wash] asyncSyncPost: skipping {$postId} — not published");
+            return;
+        }
+        washLog("[wash] asyncSyncPost: syncing {$postId}");
+        $sync = new WashSync();
+        $sync->syncManually((int) $postId, $post);
+    }
+
+    /**
+     * Fire-and-forget HTTP request to wp-cron.php to start the cron loop now.
+     * Without this, scheduled events wait for the next public page request.
+     */
+    private function triggerCronAsync() {
+        if (defined('DISABLE_WP_CRON') && DISABLE_WP_CRON) {
+            // Site uses real cron — events will be picked up by system cron.
+            return;
+        }
+        $cronUrl = site_url('wp-cron.php?doing_wp_cron=' . microtime(true));
+        wp_remote_post($cronUrl, [
+            'timeout'   => 0.01,
+            'blocking'  => false,
+            'sslverify' => apply_filters('https_local_ssl_verify', false),
+        ]);
     }
 
     /**
