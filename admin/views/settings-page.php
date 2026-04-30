@@ -2638,7 +2638,7 @@ function wash_render_permission_locked_banner() {
     // Region aliases (ISO ↔ common) — must match queue-worker REGION_ALIASES
     var REGION_ALIASES = { gb: 'uk', uk: 'gb' };
 
-    /** Ensure a value exists as an option in a select, adding it if missing. */
+    /** Ensure a value exists as an option in a select, adding it as legacy if missing. */
     function ensureSelectOption(select, value) {
         if (!select || !value) return;
         for (var i = 0; i < select.options.length; i++) {
@@ -2646,7 +2646,8 @@ function wash_render_permission_locked_banner() {
         }
         var opt = document.createElement('option');
         opt.value = value;
-        opt.textContent = value + ' (Shopify market)';
+        opt.textContent = value + ' (legacy — re-save to migrate)';
+        opt.style.color = '#b45309';
         select.appendChild(opt);
     }
 
