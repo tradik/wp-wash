@@ -30,27 +30,29 @@ class WashApiClient {
     /**
      * Resolve the Shopify App URL based on environment.
      * Dev sites (*.tradik.dev) use dev API, others use production.
-     * Hilo domains route to secondary app instance.
+     * Hilo domains route to secondary app instance (forced — overrides any option).
      *
      * @return string App URL
      */
     private function resolveAppUrl() {
+        $siteUrl = get_site_url();
+        $host = parse_url($siteUrl, PHP_URL_HOST);
+
+        // Hilo domains: force secondary app instance regardless of stored option
+        // (override needed because legacy installs may have wash_app_url set to primary)
+        if ($host === 'hilo.com' || substr($host, -9) === '.hilo.com') {
+            return 'https://app-wash1.tradik.com';
+        }
+
         // Check if explicitly set in options
         $configuredUrl = get_option('wash_app_url', '');
         if (!empty($configuredUrl)) {
             return $configuredUrl;
         }
 
-        // Auto-detect based on current site URL
-        $siteUrl = get_site_url();
+        // Auto-detect dev environment
         if (strpos($siteUrl, 'tradik.dev') !== false) {
             return 'https://app-wash.tradik.dev';
-        }
-
-        // Hilo domains use secondary app instance
-        $host = parse_url($siteUrl, PHP_URL_HOST);
-        if ($host === 'hilo.com' || substr($host, -9) === '.hilo.com') {
-            return 'https://app-wash1.tradik.com';
         }
 
         // Default to production
