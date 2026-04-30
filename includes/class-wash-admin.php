@@ -2185,6 +2185,12 @@ JS;
             return add_query_arg('wash_bulk_error', 'not_configured', $redirectTo);
         }
 
+        // Bulk publish hits each post synchronously (HTTP roundtrip + metafields).
+        // Default PHP max_execution_time of 30s caps batches at ~30 posts.
+        // Lift the limit and keep going if the user closes the tab.
+        @set_time_limit(0);
+        ignore_user_abort(true);
+
         $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
         washLog("[wash] handleBulkActions: allowedTypes=" . implode(',', $allowedTypes));
         $sync = new WashSync();

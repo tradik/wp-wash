@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
     define('ABSPATH', '/tmp/fake-wp/');
 }
 if (!defined('WASH_VERSION')) {
-    define('WASH_VERSION', '1.20.5');
+    define('WASH_VERSION', '1.20.6');
 }
 if (!defined('WASH_PLUGIN_DIR')) {
     define('WASH_PLUGIN_DIR', dirname(__DIR__) . '/');
