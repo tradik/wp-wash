@@ -328,7 +328,11 @@ class WashHreflangs {
         }
         $result = [];
         foreach ($languages as $code => $lang) {
-            $result[] = ['code' => $code, 'name' => $lang['native_name'] ?? $lang['translated_name'] ?? $code];
+            // Use full locale (e.g., de_CH → de-ch) to match what sync sends
+            $locale = !empty($lang['default_locale'])
+                ? strtolower(str_replace('_', '-', $lang['default_locale']))
+                : $code;
+            $result[] = ['code' => $locale, 'name' => $lang['native_name'] ?? $lang['translated_name'] ?? $code];
         }
         return $result;
     }
@@ -341,7 +345,9 @@ class WashHreflangs {
         $names = pll_languages_list(['fields' => 'name']);
         $result = [];
         foreach ($slugs as $i => $slug) {
-            $result[] = ['code' => $slug, 'name' => $names[$i] ?? $slug];
+            // Use full locale lowercased (e.g., de_CH → de-ch) to match what sync sends
+            $locale = strtolower($this->getPolylangLocale($slug) ?: $slug);
+            $result[] = ['code' => $locale, 'name' => $names[$i] ?? $slug];
         }
         return $result;
     }

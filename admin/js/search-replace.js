@@ -33,6 +33,75 @@
         loadSuggestions();
         saveBtn.on("click", saveRules);
 
+        // Export rules as JSON
+        $("#wash-sr-export-rules").on("click", function () {
+            var rules = [];
+            tbody.find(".wash-sr-row").each(function () {
+                var search = $(this).find(".wash-sr-search").val();
+                var replace = $(this).find(".wash-sr-replace").val();
+                var type = $(this).attr("data-type") || "string";
+                if (search !== "") {
+                    rules.push({ search: search, replace: replace, type: type });
+                }
+            });
+            if (rules.length === 0) {
+                alert(i18n("srNoRules", "No rules to export."));
+                return;
+            }
+            var json = JSON.stringify(rules, null, 2);
+            var blob = new Blob([json], { type: "application/json" });
+            var url = URL.createObjectURL(blob);
+            var now = new Date();
+            var ts = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0") + "_" + String(now.getHours()).padStart(2, "0") + String(now.getMinutes()).padStart(2, "0") + String(now.getSeconds()).padStart(2, "0");
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = "wash-search-replace-rules_" + ts + ".json";
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Import rules from JSON
+        var srImportBtn = $("#wash-sr-import-rules");
+        var srImportFile = $("#wash-sr-import-file");
+        srImportBtn.on("click", function () {
+            srImportFile.trigger("click");
+        });
+        srImportFile.on("change", function () {
+            var file = this.files[0];
+            if (!file) return;
+            this.value = "";
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var imported;
+                try {
+                    imported = JSON.parse(e.target.result);
+                } catch (err) {
+                    alert(i18n("srInvalidJson", "Invalid JSON file."));
+                    return;
+                }
+                if (!Array.isArray(imported) || imported.length === 0) {
+                    alert(i18n("srNoRulesInFile", "No rules found in file."));
+                    return;
+                }
+                if (!confirm(i18n("srImportConfirm", "This will replace all existing rules with") + " " + imported.length + " " + i18n("srImportRules", "imported rules. Continue?"))) {
+                    return;
+                }
+                // Clear existing rows and add imported
+                tbody.find(".wash-sr-row, .wash-sr-empty").remove();
+                imported.forEach(function (rule) {
+                    if (rule.search) {
+                        appendRuleRow(rule.search, rule.replace || "", rule.type || "string");
+                    }
+                });
+                renumberRows();
+                detectOverlaps();
+                markDirty();
+                // Auto-save
+                saveRules();
+            };
+            reader.readAsText(file);
+        });
+
         // Enable drag-and-drop reordering
         tbody.sortable({
             handle: ".wash-sr-drag",

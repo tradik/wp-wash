@@ -328,6 +328,7 @@ class WashCallback {
         $shopifyBlogId = $body['shopifyBlogId'] ?? null;
         $shopifyBlogHandle = $body['shopifyBlogHandle'] ?? null;
         $shopifyHandle = $body['shopifyHandle'] ?? null;
+        $shopifyLocale = $body['shopifyLocale'] ?? null;
         $translationGroup = $body['translationGroup'] ?? null;
 
         // Fallback: detect translation group server-side if not in callback payload
@@ -378,18 +379,22 @@ class WashCallback {
                     update_post_meta($wpPostId, '_wash_handle', $shopifyHandle);
                 }
 
-                // Build Shopify URL
+                // Build Shopify URL with locale prefix for non-primary markets
                 $shopifyStore = get_option('wash_shopify_store', '');
                 $shopifyDomain = $shopifyStore ? "{$shopifyStore}.myshopify.com" : '';
                 if ($shopifyDomain && $shopifyHandle) {
+                    // Locale prefix for market subfolders (e.g., /de-eu, /fr-eu)
+                    $localePrefix = '';
+                    if ($shopifyLocale) {
+                        $localePrefix = '/' . strtolower($shopifyLocale);
+                    }
+
                     if ($shopifyBlogHandle) {
-                        // Article URL: /blogs/{blogHandle}/{articleHandle}
-                        $shopifyUrl = "https://{$shopifyDomain}/blogs/{$shopifyBlogHandle}/{$shopifyHandle}";
-                        $shopifyPath = "/blogs/{$shopifyBlogHandle}/{$shopifyHandle}";
+                        $shopifyUrl = "https://{$shopifyDomain}{$localePrefix}/blogs/{$shopifyBlogHandle}/{$shopifyHandle}";
+                        $shopifyPath = "{$localePrefix}/blogs/{$shopifyBlogHandle}/{$shopifyHandle}";
                     } else {
-                        // Page URL: /pages/{handle}
-                        $shopifyUrl = "https://{$shopifyDomain}/pages/{$shopifyHandle}";
-                        $shopifyPath = "/pages/{$shopifyHandle}";
+                        $shopifyUrl = "https://{$shopifyDomain}{$localePrefix}/pages/{$shopifyHandle}";
+                        $shopifyPath = "{$localePrefix}/pages/{$shopifyHandle}";
                     }
                     update_post_meta($wpPostId, '_wash_shopify_url', $shopifyUrl);
 

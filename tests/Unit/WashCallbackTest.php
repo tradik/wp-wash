@@ -70,7 +70,9 @@ class WashCallbackTest extends TestCase
 
     private function loadCallback(): \WashCallback
     {
-        require_once dirname(__DIR__, 2) . '/includes/class-wash-api-client.php';
+        if (!class_exists('WashApiClient', false)) {
+            require_once dirname(__DIR__, 2) . '/includes/class-wash-api-client.php';
+        }
         require_once dirname(__DIR__, 2) . '/includes/class-wash-callback.php';
         return new \WashCallback();
     }
@@ -179,5 +181,194 @@ class WashCallbackTest extends TestCase
         $cb = $this->loadCallback();
         $response = $cb->handleCallback($this->makeRequest());
         $this->assertTrue($response->data['success']);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testShopifyUrlWithoutLocaleHasNoPrefix(): void
+    {
+        $metaMock = Mockery::mock('overload:WashMetafields');
+        $metaMock->shouldReceive('syncAllMetafields')->andReturn(['count' => 0]);
+
+        $hrefMock = Mockery::mock('overload:WashHreflangs');
+        $hrefMock->shouldReceive('getTranslationGroupSource')->andReturn(null);
+
+        $storedUrl = null;
+        Functions\when('update_post_meta')->alias(function ($postId, $key, $value) use (&$storedUrl) {
+            if ($key === '_wash_shopify_url') {
+                $storedUrl = $value;
+            }
+            return true;
+        });
+
+        $cb = $this->loadCallback();
+        $cb->handleCallback($this->makeRequest());
+
+        $this->assertSame('https://test.myshopify.com/blogs/news/test-post', $storedUrl);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testShopifyUrlWithLocaleHasPrefix(): void
+    {
+        $metaMock = Mockery::mock('overload:WashMetafields');
+        $metaMock->shouldReceive('syncAllMetafields')->andReturn(['count' => 0]);
+
+        $hrefMock = Mockery::mock('overload:WashHreflangs');
+        $hrefMock->shouldReceive('getTranslationGroupSource')->andReturn(null);
+
+        $storedUrl = null;
+        Functions\when('update_post_meta')->alias(function ($postId, $key, $value) use (&$storedUrl) {
+            if ($key === '_wash_shopify_url') {
+                $storedUrl = $value;
+            }
+            return true;
+        });
+
+        $cb = $this->loadCallback();
+        $cb->handleCallback($this->makeRequest([
+            'shopifyLocale' => 'de',
+        ]));
+
+        $this->assertSame('https://test.myshopify.com/de/blogs/news/test-post', $storedUrl);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testShopifyPageUrlWithLocaleHasPrefix(): void
+    {
+        $metaMock = Mockery::mock('overload:WashMetafields');
+        $metaMock->shouldReceive('syncAllMetafields')->andReturn(['count' => 0]);
+
+        $hrefMock = Mockery::mock('overload:WashHreflangs');
+        $hrefMock->shouldReceive('getTranslationGroupSource')->andReturn(null);
+
+        $storedUrl = null;
+        Functions\when('update_post_meta')->alias(function ($postId, $key, $value) use (&$storedUrl) {
+            if ($key === '_wash_shopify_url') {
+                $storedUrl = $value;
+            }
+            return true;
+        });
+
+        $cb = $this->loadCallback();
+        $cb->handleCallback($this->makeRequest([
+            'shopifyArticleId' => null,
+            'shopifyPageId' => 'gid://shopify/Page/200',
+            'shopifyBlogId' => null,
+            'shopifyBlogHandle' => null,
+            'shopifyHandle' => 'about-us',
+            'shopifyLocale' => 'fr',
+        ]));
+
+        $this->assertSame('https://test.myshopify.com/fr/pages/about-us', $storedUrl);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testRedirectPathIncludesLocalePrefix(): void
+    {
+        Functions\when('get_option')->alias(function ($key, $default = '') {
+            return match ($key) {
+                'wash_redirections_enabled' => '1',
+                'wash_shopify_store' => 'test',
+                'wash_sync_metafields' => '0',
+                'wash_api_key' => 'test-key',
+                'wash_app_url' => 'https://app-wash.tradik.dev',
+                'wash_http_user' => '',
+                'wash_http_pass' => '',
+                default => $default,
+            };
+        });
+        Functions\when('get_permalink')->justReturn('https://example.com/de/art/mein-artikel');
+        Functions\when('wp_parse_url')->alias(fn($url, $comp) => parse_url($url, $comp));
+
+        $redirectTo = null;
+        Functions\when('update_post_meta')->alias(function ($postId, $key, $value) use (&$redirectTo) {
+            if ($key === '_wash_redirect_to') {
+                $redirectTo = $value;
+            }
+            return true;
+        });
+        Functions\when('get_post_meta')->justReturn('');
+
+        $metaMock = Mockery::mock('overload:WashMetafields');
+        $metaMock->shouldReceive('syncAllMetafields')->never();
+
+        $hrefMock = Mockery::mock('overload:WashHreflangs');
+        $hrefMock->shouldReceive('getTranslationGroupSource')->andReturn(null);
+
+        // Mock API client to capture redirect request
+        $apiMock = Mockery::mock('overload:WashApiClient');
+        $apiMock->shouldReceive('post')
+            ->with('/api/redirections', Mockery::type('array'))
+            ->andReturn(['created' => 1, 'skipped' => 0]);
+
+        $cb = $this->loadCallback();
+        $cb->handleCallback($this->makeRequest([
+            'shopifyBlogHandle' => 'art',
+            'shopifyHandle' => 'mein-artikel',
+            'shopifyLocale' => 'de',
+        ]));
+
+        $this->assertSame('/de/blogs/art/mein-artikel', $redirectTo);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testRedirectPathWithoutLocaleHasNoPrefix(): void
+    {
+        Functions\when('get_option')->alias(function ($key, $default = '') {
+            return match ($key) {
+                'wash_redirections_enabled' => '1',
+                'wash_shopify_store' => 'test',
+                'wash_sync_metafields' => '0',
+                'wash_api_key' => 'test-key',
+                'wash_app_url' => 'https://app-wash.tradik.dev',
+                'wash_http_user' => '',
+                'wash_http_pass' => '',
+                default => $default,
+            };
+        });
+        Functions\when('get_permalink')->justReturn('https://example.com/uk/art/my-article');
+        Functions\when('wp_parse_url')->alias(fn($url, $comp) => parse_url($url, $comp));
+
+        $redirectTo = null;
+        Functions\when('update_post_meta')->alias(function ($postId, $key, $value) use (&$redirectTo) {
+            if ($key === '_wash_redirect_to') {
+                $redirectTo = $value;
+            }
+            return true;
+        });
+        Functions\when('get_post_meta')->justReturn('');
+
+        $metaMock = Mockery::mock('overload:WashMetafields');
+        $metaMock->shouldReceive('syncAllMetafields')->never();
+
+        $hrefMock = Mockery::mock('overload:WashHreflangs');
+        $hrefMock->shouldReceive('getTranslationGroupSource')->andReturn(null);
+
+        $apiMock = Mockery::mock('overload:WashApiClient');
+        $apiMock->shouldReceive('post')
+            ->with('/api/redirections', Mockery::type('array'))
+            ->andReturn(['created' => 1, 'skipped' => 0]);
+
+        $cb = $this->loadCallback();
+        $cb->handleCallback($this->makeRequest([
+            'shopifyBlogHandle' => 'art',
+            'shopifyHandle' => 'my-article',
+        ]));
+
+        $this->assertSame('/blogs/art/my-article', $redirectTo);
     }
 }

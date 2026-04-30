@@ -31,6 +31,7 @@ class WashAdmin {
         add_action('wp_ajax_wash_get_mappings', [$this, 'ajaxGetMappings']);
         add_action('wp_ajax_wash_get_shopify_blogs', [$this, 'ajaxGetShopifyBlogs']);
         add_action('wp_ajax_wash_get_shopify_markets', [$this, 'ajaxGetShopifyMarkets']);
+        add_action('wp_ajax_wash_get_shop_domains', [$this, 'ajaxGetShopDomains']);
         add_action('wp_ajax_wash_create_mapping', [$this, 'ajaxCreateMapping']);
         add_action('wp_ajax_wash_update_mapping', [$this, 'ajaxUpdateMapping']);
         add_action('wp_ajax_wash_delete_mapping', [$this, 'ajaxDeleteMapping']);
@@ -835,6 +836,25 @@ class WashAdmin {
         }
 
         wp_send_json_success(['markets' => $result['markets'] ?? []]);
+    }
+
+    /**
+     * AJAX handler for getting shop domains.
+     */
+    public function ajaxGetShopDomains() {
+        check_ajax_referer('wash_mappings', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $result = $this->apiClient->get('/api/shop-domains');
+
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        }
+
+        wp_send_json_success(['domains' => $result['domains'] ?? []]);
     }
 
     /**
