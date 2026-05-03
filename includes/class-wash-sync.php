@@ -1506,6 +1506,8 @@ class WashSync {
 
     /**
      * Log sync operation to the local database.
+     * Self-heals if the {$wpdb->prefix}wash_sync table is missing
+     * (e.g. dev DB without activator run, or table dropped manually).
      */
     private function logSync($postId, $action, $result) {
         global $wpdb;
@@ -1521,7 +1523,34 @@ class WashSync {
             'shopifyBlogId'    => $isError ? null : ($result['shopifyBlogId'] ?? null),
         ];
 
+        $this->ensureSyncTable($tableName);
+
+        // Suppress errors so a transient table issue doesn't break the post save flow.
+        $previousShowErrors = $wpdb->show_errors(false);
+        $previousSuppressErrors = $wpdb->suppress_errors(true);
         $wpdb->insert($tableName, $data);
+        $wpdb->show_errors($previousShowErrors);
+        $wpdb->suppress_errors($previousSuppressErrors);
+    }
+
+    /**
+     * Ensure the wash_sync tracking table exists. Idempotent — uses dbDelta
+     * via WashActivator::createSyncTable(). Cached per-request so we don't
+     * hit information_schema on every save.
+     */
+    private function ensureSyncTable($tableName) {
+        static $verified = [];
+        if (isset($verified[$tableName])) {
+            return;
+        }
+        global $wpdb;
+        $exists = $wpdb->get_var(
+            $wpdb->prepare("SHOW TABLES LIKE %s", $tableName)
+        );
+        if (!$exists && class_exists('WashActivator')) {
+            WashActivator::createSyncTable();
+        }
+        $verified[$tableName] = true;
     }
 
     /**

@@ -104,8 +104,11 @@ class WashActivator {
 
     /**
      * Create the local sync tracking table.
+     * Public so that WashSync::logSync() can self-heal when the table
+     * goes missing (e.g. a dev database restored without it, or the
+     * activator hook was never fired during a manual code drop-in).
      */
-    private static function createSyncTable() {
+    public static function createSyncTable() {
         global $wpdb;
         $tableName = $wpdb->prefix . 'wash_sync';
         $charsetCollate = 'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';

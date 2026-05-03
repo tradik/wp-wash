@@ -743,8 +743,16 @@
             }
         };
 
-        // Auto-detect changes on form inputs within tab contents
+        // Auto-detect changes on form inputs within tab contents.
+        // Skip view-only controls like list filters and sort widgets — they don't
+        // mutate any saved data, so they shouldn't trigger the unsaved-changes dot.
         $(document).on("input change", ".wash-tab-content input, .wash-tab-content select, .wash-tab-content textarea", function () {
+            // View-only widgets opt out via [data-no-dirty] or by living inside a [data-no-dirty] container
+            if ($(this).is("[data-no-dirty]") || $(this).closest("[data-no-dirty]").length) return;
+            // Built-in opt-out for the blog-mappings filter toolbar (id="wash-filter-*")
+            var elId = this.id || "";
+            if (elId.indexOf("wash-filter-") === 0) return;
+
             var tabContent = $(this).closest(".wash-tab-content");
             if (tabContent.length) {
                 var tabId = tabContent.attr("id")?.replace("tab-", "");

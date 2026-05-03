@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.20.8
+Stable tag: 1.20.9
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -46,6 +46,9 @@ Yes. The companion Shopify app (included in this monorepo) must be deployed and 
 Yes. Each site in the network maps to a separate Shopify blog.
 
 == Changelog ==
+
+= 1.20.9 =
+* Added Rule ID badge to each row in the Blog Mappings list (admin UI). Click the badge to copy the ID to clipboard. Makes it easier to identify which rule is which when troubleshooting overlapping rules or referencing them in support tickets.
 
 = 1.15.3 =
 * Added Search & Replace tab — define text replacement rules applied to content before syncing to Shopify (Business plan)

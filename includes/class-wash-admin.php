@@ -34,6 +34,7 @@ class WashAdmin {
         add_action('wp_ajax_wash_get_mappings', [$this, 'ajaxGetMappings']);
         add_action('wp_ajax_wash_get_shopify_blogs', [$this, 'ajaxGetShopifyBlogs']);
         add_action('wp_ajax_wash_get_shopify_markets', [$this, 'ajaxGetShopifyMarkets']);
+        add_action('wp_ajax_wash_get_shop_locales', [$this, 'ajaxGetShopLocales']);
         add_action('wp_ajax_wash_get_shop_domains', [$this, 'ajaxGetShopDomains']);
         add_action('wp_ajax_wash_create_mapping', [$this, 'ajaxCreateMapping']);
         add_action('wp_ajax_wash_update_mapping', [$this, 'ajaxUpdateMapping']);
@@ -839,6 +840,26 @@ class WashAdmin {
         }
 
         wp_send_json_success(['markets' => $result['markets'] ?? []]);
+    }
+
+    /**
+     * AJAX handler for fetching published shop-level locales (no market scope).
+     * Used by the blog mappings UI to expose the "🌍 Global (no market)" group.
+     */
+    public function ajaxGetShopLocales() {
+        check_ajax_referer('wash_mappings', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $result = $this->apiClient->get('/api/shop-locales');
+
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        }
+
+        wp_send_json_success(['locales' => $result['locales'] ?? []]);
     }
 
     /**
@@ -1911,6 +1932,23 @@ JS;
      * Render admin notices for sync results.
      */
     public function renderSyncNotices() {
+        // Per-post edit screen: surface async sync failures so the merchant
+        // sees them on the next visit. Auto-sync (on save_post) finishes after
+        // the WordPress UI has already shown its "Post published" notice, so a
+        // queue-side failure used to vanish silently into _wash_sync_error meta.
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        if ($screen && $screen->base === 'post' && !empty($_GET['post'])) {
+            $postId = (int) $_GET['post'];
+            $syncError = get_post_meta($postId, '_wash_sync_error', true);
+            if (!empty($syncError)) {
+                echo '<div class="notice notice-error is-dismissible">';
+                echo '<p><strong>Wash:</strong> ';
+                echo esc_html__('Last sync to Shopify failed:', 'wash');
+                echo ' ' . esc_html($syncError);
+                echo '</p></div>';
+            }
+        }
+
         // Show persistent notice when plugin is not connected to Shopify
         if (!$this->apiClient->isConfigured()) {
             $settingsUrl = admin_url('options-general.php?page=wash');

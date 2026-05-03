@@ -620,4 +620,60 @@ class WashAdminSecurityTest extends TestCase
 
         unset($_POST['post_ids']);
     }
+
+    // ---------------------------------------------------------------
+    // ajaxGetShopLocales — security gating
+    // ---------------------------------------------------------------
+
+    public function testGetShopLocalesRejectsInvalidNonce(): void
+    {
+        Functions\when('check_ajax_referer')->alias(function ($action) {
+            if ($action === 'wash_mappings') {
+                throw new \RuntimeException('nonce_failed');
+            }
+        });
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('nonce_failed');
+        $this->admin->ajaxGetShopLocales();
+    }
+
+    public function testGetShopLocalesRejectsUnauthorizedUser(): void
+    {
+        Functions\when('check_ajax_referer')->justReturn(true);
+        Functions\when('current_user_can')->justReturn(false);
+
+        try {
+            $this->admin->ajaxGetShopLocales();
+        } catch (\RuntimeException $e) {
+            // wp_send_json_error throws
+        }
+
+        $this->assertNotEmpty($this->jsonResponses);
+        $this->assertSame('error', $this->jsonResponses[0]['type']);
+        $this->assertSame('Unauthorized', $this->jsonResponses[0]['data']);
+    }
+
+    public function testGetShopLocalesUsesSpecificNonceAction(): void
+    {
+        $nonceActionUsed = null;
+        Functions\when('check_ajax_referer')->alias(function ($action) use (&$nonceActionUsed) {
+            $nonceActionUsed = $action;
+            return true;
+        });
+        Functions\when('current_user_can')->justReturn(true);
+        Functions\when('is_wp_error')->justReturn(false);
+        Functions\when('wp_remote_get')->justReturn(['body' => '{"locales":[]}']);
+        Functions\when('wp_remote_retrieve_response_code')->justReturn(200);
+        Functions\when('wp_remote_retrieve_body')->justReturn('{"locales":[]}');
+        Functions\when('wp_remote_retrieve_header')->justReturn('');
+
+        try {
+            $this->admin->ajaxGetShopLocales();
+        } catch (\RuntimeException $e) {
+            // wp_send_json_success/error
+        }
+
+        $this->assertSame('wash_mappings', $nonceActionUsed);
+    }
 }

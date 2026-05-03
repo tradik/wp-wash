@@ -502,3 +502,74 @@ td.column-wash_sync span {
   background: #fff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+/* Mapping action icon buttons (Edit / Duplicate / Delete) */
+.wash-icon-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px !important;
+  min-height: 26px;
+  line-height: 1 !important;
+}
+
+.wash-icon-btn .dashicons {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 1;
+}
+
+.wash-icon-btn:hover .dashicons {
+  opacity: 0.85;
+}
+
+.wash-delete-mapping.wash-icon-btn:hover {
+  border-color: #dc3545;
+  background: #fef2f2;
+}
+
+/* Row hover for blog mappings table */
+.wash-mappings-hover tbody tr:hover td {
+  background: #f0f9ff !important;
+  transition: background 0.12s ease;
+}
+
+/* Sortable column headers */
+#wash-mappings-table th.wash-sortable:hover {
+  background: #f3f4f6;
+  color: #1d4ed8;
+}
+
+/* Mappings toolbar — visually attached to the top of #wash-mappings-table */
+.wash-mappings-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  padding: 10px 12px;
+  background: #f6f7f7;
+  border: 1px solid #c3c4c7;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+}
+
+.wash-mappings-toolbar-left {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#wash-mappings-filter-slot {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-left: auto;
+  font-size: 13px;
+}
+
+#wash-mappings-table.widefat {
+  border-radius: 0 0 4px 4px;
+  margin-top: 0;
+  border-top: 0;
+}

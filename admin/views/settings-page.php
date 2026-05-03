@@ -477,20 +477,23 @@ function wash_render_permission_locked_banner() {
 
             <?php if ($isConnected) : ?>
                 <div id="wash-blog-mappings">
-                    <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center;">
-                        <button type="button" id="wash-add-mapping" class="button button-primary">
-                            <span class="dashicons dashicons-plus-alt2" style="vertical-align: text-bottom;"></span>
-                            <?php esc_html_e('Add Mapping Rule', 'wash'); ?>
-                        </button>
-                        <button type="button" id="wash-export-mappings" class="button" title="<?php esc_attr_e('Export rules as JSON', 'wash'); ?>">
-                            <span class="dashicons dashicons-download" style="vertical-align: text-bottom;"></span>
-                            <?php esc_html_e('Export', 'wash'); ?>
-                        </button>
-                        <button type="button" id="wash-import-mappings" class="button" title="<?php esc_attr_e('Import rules from JSON', 'wash'); ?>">
-                            <span class="dashicons dashicons-upload" style="vertical-align: text-bottom;"></span>
-                            <?php esc_html_e('Import', 'wash'); ?>
-                        </button>
-                        <input type="file" id="wash-import-mappings-file" accept=".json" style="display:none;" />
+                    <div class="wash-mappings-toolbar">
+                        <div class="wash-mappings-toolbar-left">
+                            <button type="button" id="wash-add-mapping" class="button button-primary">
+                                <span class="dashicons dashicons-plus-alt2" style="vertical-align: text-bottom;"></span>
+                                <?php esc_html_e('Add Mapping Rule', 'wash'); ?>
+                            </button>
+                            <button type="button" id="wash-export-mappings" class="button" title="<?php esc_attr_e('Export rules as JSON', 'wash'); ?>">
+                                <span class="dashicons dashicons-download" style="vertical-align: text-bottom;"></span>
+                                <?php esc_html_e('Export', 'wash'); ?>
+                            </button>
+                            <button type="button" id="wash-import-mappings" class="button" title="<?php esc_attr_e('Import rules from JSON', 'wash'); ?>">
+                                <span class="dashicons dashicons-upload" style="vertical-align: text-bottom;"></span>
+                                <?php esc_html_e('Import', 'wash'); ?>
+                            </button>
+                            <input type="file" id="wash-import-mappings-file" accept=".json" style="display:none;" />
+                        </div>
+                        <div id="wash-mappings-filter-slot" data-no-dirty="1"></div>
                     </div>
 
                     <div class="wash-mappings-list" id="wash-mappings-list">
@@ -655,9 +658,11 @@ function wash_render_permission_locked_banner() {
                                     <td>
                                         <select id="wash-market-locale" class="regular-text">
                                             <option value=""><?php esc_html_e('Default (primary market)', 'wash'); ?></option>
-                                            <!-- Options loaded via JavaScript from Shopify Markets API -->
+                                            <!-- Options loaded via JavaScript from Shopify Markets / Locales API -->
                                         </select>
-                                        <p class="description"><?php esc_html_e('Select market and language for URL routing (e.g., /en-ch for Switzerland English)', 'wash'); ?></p>
+                                        <p class="description">
+                                            <?php esc_html_e('🌍 Global = one shop-wide translation (Shopify Translate & Adapt). 📍 Market = override applied only when the buyer is in that market.', 'wash'); ?>
+                                        </p>
                                     </td>
                                 </tr>
                                 <tr style="display:none;">
@@ -2155,6 +2160,7 @@ function wash_render_permission_locked_banner() {
     var mappingsData = [];
     var shopifyBlogs = [];
     var shopifyMarkets = [];
+    var shopLocales = [];
 
     /** Show a brief toast notification near the mappings list */
     function washMappingsToast(message, type) {
@@ -2218,6 +2224,7 @@ function wash_render_permission_locked_banner() {
         loadMappings();
         loadShopifyBlogs();
         loadShopifyMarkets();
+        loadShopLocales();
         loadShopDomains();
     }
 
@@ -2278,6 +2285,17 @@ function wash_render_permission_locked_banner() {
             });
     }
 
+    function loadShopLocales() {
+        fetch('<?php echo admin_url('admin-ajax.php'); ?>?action=wash_get_shop_locales&nonce=<?php echo wp_create_nonce('wash_mappings'); ?>')
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
+                if (response.success) {
+                    shopLocales = response.data.locales || [];
+                    updateMarketLocaleSelect();
+                }
+            });
+    }
+
     var shopDomains = [];
     var domainSelect = document.getElementById('wash-destination-domain');
 
@@ -2310,9 +2328,22 @@ function wash_render_permission_locked_banner() {
         var currentVal = marketLocaleSelect.value;
         marketLocaleSelect.innerHTML = '<option value=""><?php echo esc_js(__('Default (primary market)', 'wash')); ?></option>';
 
+        // 🌍 Global (no market) — shop-wide Translate & Adapt translations
+        if (shopLocales && shopLocales.length > 0) {
+            var globalGroup = document.createElement('optgroup');
+            globalGroup.label = '<?php echo esc_js(__('🌍 Global (no market)', 'wash')); ?>';
+            shopLocales.forEach(function(loc) {
+                var opt = document.createElement('option');
+                opt.value = '|' + loc.locale;
+                opt.textContent = (loc.name || loc.locale) + ' (' + loc.locale + ')' + (loc.primary ? ' — primary' : '');
+                globalGroup.appendChild(opt);
+            });
+            marketLocaleSelect.appendChild(globalGroup);
+        }
+
         shopifyMarkets.forEach(function(market) {
             var optgroup = document.createElement('optgroup');
-            optgroup.label = market.name + (market.primary ? ' (primary)' : '');
+            optgroup.label = '📍 ' + market.name + (market.primary ? ' (primary)' : '');
             var hasOptions = false;
 
             if (market.webPresence && market.webPresence.defaultLocale) {
@@ -2320,7 +2351,7 @@ function wash_render_permission_locked_banner() {
                 var defaultLocale = market.webPresence.defaultLocale;
                 var opt = document.createElement('option');
                 opt.value = market.id + '|' + defaultLocale;
-                opt.textContent = market.name + ' / ' + defaultLocale + ' (default)';
+                opt.textContent = market.name + ' / ' + defaultLocale + ' (market default)';
                 optgroup.appendChild(opt);
                 hasOptions = true;
 
@@ -2526,17 +2557,13 @@ function wash_render_permission_locked_banner() {
 
         if ((ruleType === 'language' || ruleType === 'language_category') && !m.shopifyLocale) {
             issues.push({
-                msg: '<?php echo esc_js(__('No Shopify locale — redirects will lose market prefix', 'wash')); ?>',
-                fix: '<?php echo esc_js(__('Open Edit and pick a value in "Market & Locale" dropdown matching the language for this rule.', 'wash')); ?>'
+                msg: '<?php echo esc_js(__('No Shopify locale — translations will not be registered', 'wash')); ?>',
+                fix: '<?php echo esc_js(__('Open Edit and pick a value in "Market & Locale" — either 🌍 Global or a market-scoped entry.', 'wash')); ?>'
             });
         }
-
-        if (m.shopifyLocale && !m.shopifyMarketId) {
-            issues.push({
-                msg: '<?php echo esc_js(__('Locale set but no market — translations may not route correctly', 'wash')); ?>',
-                fix: '<?php echo esc_js(__('Open Edit and re-pick "Market & Locale" — choose an entry under a market group.', 'wash')); ?>'
-            });
-        }
+        // NOTE: shopifyLocale set + shopifyMarketId null is a valid state
+        // ("🌍 Global / no market" — shop-wide Translate & Adapt translation).
+        // No warning here.
 
         if (ruleType === 'language_category' && m.wpBlogName && ruleValue) {
             var nameMatch = m.wpBlogName.match(/(?:language_category:\s*)?([a-z0-9-]+):([a-z0-9-]+)/i);
@@ -2554,16 +2581,21 @@ function wash_render_permission_locked_banner() {
         }
 
         if (ruleType !== 'default' && ruleValue) {
+            var myTypes = (m.wpPostTypes || 'post').split(',').map(function(t) { return t.trim().toLowerCase(); });
             var conflicts = allMappings.filter(function(other) {
                 if (other.id === m.id) return false;
-                return (other.ruleType || 'default') === ruleType
-                    && (other.ruleValue || '') === ruleValue
-                    && (other.destination || 'article') !== dest;
+                if ((other.ruleType || 'default') !== ruleType) return false;
+                if ((other.ruleValue || '') !== ruleValue) return false;
+                // Real conflict requires the same destination AND overlapping wpPostTypes.
+                // Article + Page sharing a language rule is fine — they handle different WP post types.
+                if ((other.destination || 'article') !== dest) return false;
+                var otherTypes = (other.wpPostTypes || 'post').split(',').map(function(t) { return t.trim().toLowerCase(); });
+                return myTypes.some(function(t) { return otherTypes.indexOf(t) !== -1; });
             });
             if (conflicts.length > 0) {
                 issues.push({
-                    msg: '<?php echo esc_js(__('Same rule value as another mapping with different destination', 'wash')); ?>',
-                    fix: '<?php echo esc_js(__('Delete one of the duplicates, or change the rule value so each mapping is unique.', 'wash')); ?>'
+                    msg: '<?php echo esc_js(__('Duplicate rule — another mapping with the same destination and post type already matches', 'wash')); ?>',
+                    fix: '<?php echo esc_js(__('Delete one of the duplicates, or change the rule value / post types so each mapping is unique.', 'wash')); ?>'
                 });
             }
         }
@@ -2571,23 +2603,267 @@ function wash_render_permission_locked_banner() {
         return issues;
     }
 
+    var mappingsSortKey = null; // null | 'rule' | 'blog' | 'translation'
+    var mappingsSortDir = 'asc'; // 'asc' | 'desc'
+    var mappingsFilterTarget = ''; // '' = all; otherwise blog handle or '__pages__'
+    var mappingsFilterLanguage = ''; // '' = all; otherwise ruleValue (e.g. 'de-de')
+    var mappingsFilterTranslation = ''; // '' = all; otherwise shopifyLocale code (e.g. 'de') or '__none__' / '__global__' / '__market__'
+    var mappingsFilterDestination = ''; // '' = all; 'article' | 'page'
+
+    function targetKey(m) {
+        if (m.destination === 'page') return '__pages__';
+        return getBlogHandle(m.shopifyBlogId) || m.shopifyBlogHandle || m.shopifyBlogId || '';
+    }
+
+    function targetLabelText(m) {
+        return m.destination === 'page' ? '/pages/' : targetKey(m);
+    }
+
+    function attachFilterListeners() {
+        var t = document.getElementById('wash-filter-target');
+        if (t) {
+            t.addEventListener('change', function() {
+                mappingsFilterTarget = this.value;
+                renderMappings();
+            });
+        }
+        var l = document.getElementById('wash-filter-language');
+        if (l) {
+            l.addEventListener('change', function() {
+                mappingsFilterLanguage = this.value;
+                renderMappings();
+            });
+        }
+        var d = document.getElementById('wash-filter-destination');
+        if (d) {
+            d.addEventListener('change', function() {
+                mappingsFilterDestination = this.value;
+                renderMappings();
+            });
+        }
+        var x = document.getElementById('wash-filter-translation');
+        if (x) {
+            x.addEventListener('change', function() {
+                mappingsFilterTranslation = this.value;
+                renderMappings();
+            });
+        }
+        var r = document.getElementById('wash-filter-reset');
+        if (r) {
+            r.addEventListener('click', function() {
+                mappingsFilterTarget = '';
+                mappingsFilterLanguage = '';
+                mappingsFilterDestination = '';
+                mappingsFilterTranslation = '';
+                renderMappings();
+            });
+        }
+    }
+
+    function buildFilterToolbar() {
+        var targets = {};
+        var languages = {};
+        var translations = {};
+        var destinations = {};
+        mappingsData.forEach(function(m) {
+            var tk = targetKey(m);
+            if (tk) targets[tk] = targetLabelText(m);
+            if (m.ruleType === 'language' && m.ruleValue) {
+                languages[m.ruleValue] = m.ruleValue;
+            }
+            if (m.shopifyLocale) {
+                translations[m.shopifyLocale] = m.shopifyLocale;
+            }
+            destinations[m.destination || 'article'] = true;
+        });
+
+        var totalCount = mappingsData.length;
+        var visibleCount = mappingsData.filter(function(m) {
+            if (mappingsFilterTarget && targetKey(m) !== mappingsFilterTarget) return false;
+            if (mappingsFilterLanguage && (m.ruleType !== 'language' || (m.ruleValue || '') !== mappingsFilterLanguage)) return false;
+            if (mappingsFilterDestination && (m.destination || 'article') !== mappingsFilterDestination) return false;
+            if (mappingsFilterTranslation) {
+                var hasLocale = !!m.shopifyLocale;
+                var hasMarket = !!m.shopifyMarketId;
+                if (mappingsFilterTranslation === '__global__' && !(hasLocale && !hasMarket)) return false;
+                else if (mappingsFilterTranslation === '__market__' && !(hasLocale && hasMarket)) return false;
+                else if (mappingsFilterTranslation === '__none__' && hasLocale) return false;
+                else if (mappingsFilterTranslation.indexOf('__') !== 0 && (m.shopifyLocale || '') !== mappingsFilterTranslation) return false;
+            }
+            return true;
+        }).length;
+        var filterActive = mappingsFilterTarget || mappingsFilterLanguage || mappingsFilterTranslation || mappingsFilterDestination;
+
+        var html = '';
+        html += '<span style="color:#374151;font-weight:500;"><?php echo esc_js(__('Filter:', 'wash')); ?></span>';
+
+        // Destination filter
+        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('Destination', 'wash')); ?>: ';
+        html += '<select id="wash-filter-destination" style="font-size:12px;padding:2px 6px;">';
+        html += '<option value=""><?php echo esc_js(__('All', 'wash')); ?></option>';
+        ['article', 'page'].forEach(function(d) {
+            if (!destinations[d]) return;
+            var sel = (d === mappingsFilterDestination) ? ' selected' : '';
+            var label = d === 'article' ? '<?php echo esc_js(__('Article', 'wash')); ?>' : '<?php echo esc_js(__('Page', 'wash')); ?>';
+            html += '<option value="' + d + '"' + sel + '>' + label + '</option>';
+        });
+        html += '</select></label>';
+
+        // Target (blog/page) filter
+        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('Blog/Page', 'wash')); ?>: ';
+        html += '<select id="wash-filter-target" style="font-size:12px;padding:2px 6px;">';
+        html += '<option value=""><?php echo esc_js(__('All', 'wash')); ?></option>';
+        Object.keys(targets).sort().forEach(function(k) {
+            var sel = (k === mappingsFilterTarget) ? ' selected' : '';
+            html += '<option value="' + k + '"' + sel + '>' + targets[k] + '</option>';
+        });
+        html += '</select></label>';
+
+        // WP language filter
+        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('WP Language', 'wash')); ?>: ';
+        html += '<select id="wash-filter-language" style="font-size:12px;padding:2px 6px;">';
+        html += '<option value=""><?php echo esc_js(__('All', 'wash')); ?></option>';
+        Object.keys(languages).sort().forEach(function(k) {
+            var sel = (k === mappingsFilterLanguage) ? ' selected' : '';
+            html += '<option value="' + k + '"' + sel + '>' + k + '</option>';
+        });
+        html += '</select></label>';
+
+        // Translation filter (shopifyLocale + scope)
+        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('Translation', 'wash')); ?>: ';
+        html += '<select id="wash-filter-translation" style="font-size:12px;padding:2px 6px;">';
+        html += '<option value=""><?php echo esc_js(__('All', 'wash')); ?></option>';
+        // Scope groups
+        html += '<optgroup label="<?php echo esc_js(__('Scope', 'wash')); ?>">';
+        ['__global__', '__market__', '__none__'].forEach(function(k) {
+            var sel = (k === mappingsFilterTranslation) ? ' selected' : '';
+            var label = k === '__global__' ? '🌍 <?php echo esc_js(__('Global only', 'wash')); ?>'
+                : k === '__market__' ? '📍 <?php echo esc_js(__('Market-scoped', 'wash')); ?>'
+                : '— <?php echo esc_js(__('Primary only', 'wash')); ?>';
+            html += '<option value="' + k + '"' + sel + '>' + label + '</option>';
+        });
+        html += '</optgroup>';
+        // Locale codes
+        if (Object.keys(translations).length > 0) {
+            html += '<optgroup label="<?php echo esc_js(__('Locale', 'wash')); ?>">';
+            Object.keys(translations).sort().forEach(function(k) {
+                var sel = (k === mappingsFilterTranslation) ? ' selected' : '';
+                html += '<option value="' + k + '"' + sel + '>' + k + '</option>';
+            });
+            html += '</optgroup>';
+        }
+        html += '</select></label>';
+
+        if (filterActive) {
+            html += '<button type="button" id="wash-filter-reset" class="button button-small" style="margin-left:auto;"><?php echo esc_js(__('Reset filters', 'wash')); ?></button>';
+        }
+
+        html += '<span style="color:#6b7280;font-size:12px;">' + visibleCount + ' / ' + totalCount + '</span>';
+        return html;
+    }
+
+    function renderFilterToolbar() {
+        var slot = document.getElementById('wash-mappings-filter-slot');
+        if (!slot) return;
+        if (!mappingsData || mappingsData.length === 0) {
+            slot.innerHTML = '';
+            return;
+        }
+        slot.innerHTML = buildFilterToolbar();
+        attachFilterListeners();
+    }
+
+    function getSortValue(m, key) {
+        if (key === 'rule') {
+            return (m.ruleType || 'default') + ':' + (m.ruleValue || '');
+        }
+        if (key === 'blog') {
+            return (m.destination === 'page' ? '/pages/' : (getBlogHandle(m.shopifyBlogId) || m.shopifyBlogHandle || '')).toLowerCase();
+        }
+        if (key === 'translation') {
+            // Order: Global (0) → Market (1) → none (2), then by locale
+            if (m.shopifyLocale && !m.shopifyMarketId) return '0:' + m.shopifyLocale;
+            if (m.shopifyLocale && m.shopifyMarketId) return '1:' + (m.shopifyLocale || '');
+            return '2:';
+        }
+        return '';
+    }
+
+    function sortMappingsBy(key) {
+        if (mappingsSortKey === key) {
+            // Toggle: asc → desc → off (back to priority order)
+            if (mappingsSortDir === 'asc') {
+                mappingsSortDir = 'desc';
+            } else {
+                mappingsSortKey = null;
+                mappingsSortDir = 'asc';
+            }
+        } else {
+            mappingsSortKey = key;
+            mappingsSortDir = 'asc';
+        }
+        renderMappings();
+    }
+
+    function sortIndicator(key) {
+        if (mappingsSortKey !== key) return '<span style="color:#9ca3af;font-size:10px;margin-left:4px;">⇅</span>';
+        return '<span style="color:#1d4ed8;font-size:10px;margin-left:4px;font-weight:bold;">' + (mappingsSortDir === 'asc' ? '▲' : '▼') + '</span>';
+    }
+
     function renderMappings() {
         if (!mappingsList) return;
+        renderFilterToolbar();
         if (mappingsData.length === 0) {
             mappingsList.innerHTML = '<p style="color: #666;"><?php echo esc_js(__('No mapping rules configured. Posts will sync to the default Shopify blog.', 'wash')); ?></p>';
             return;
         }
 
-        var html = '<table class="widefat striped" id="wash-mappings-table"><thead><tr>' +
-            '<th style="width:30px;" title="<?php echo esc_js(__('Drag to reorder priority', 'wash')); ?>">⇅</th>' +
-            '<th><?php echo esc_js(__('Rule', 'wash')); ?></th>' +
-            '<th><?php echo esc_js(__('Target', 'wash')); ?></th>' +
+        var dragHeaderTitle = mappingsSortKey
+            ? '<?php echo esc_js(__('Drag disabled while sorted by column — click the same header twice to clear sort.', 'wash')); ?>'
+            : '<?php echo esc_js(__('Drag to reorder priority', 'wash')); ?>';
+
+        var html = '';
+        html += '<table class="widefat striped wash-mappings-hover" id="wash-mappings-table"><thead><tr>' +
+            '<th style="width:30px;" title="' + dragHeaderTitle + '">⇅</th>' +
+            '<th class="wash-sortable" data-sort="rule" style="cursor:pointer;user-select:none;"><?php echo esc_js(__('Rule', 'wash')); ?>' + sortIndicator('rule') + '</th>' +
+            '<th class="wash-sortable" data-sort="blog" style="cursor:pointer;user-select:none;"><?php echo esc_js(__('Blog / Page', 'wash')); ?>' + sortIndicator('blog') + '</th>' +
+            '<th class="wash-sortable" data-sort="translation" style="cursor:pointer;user-select:none;"><?php echo esc_js(__('Translation', 'wash')); ?>' + sortIndicator('translation') + '</th>' +
             '<th><?php echo esc_js(__('Actions', 'wash')); ?></th>' +
             '</tr></thead><tbody id="wash-mappings-tbody">';
 
         var overlapGroups = detectOverlapGroups(mappingsData);
 
-        mappingsData.forEach(function(m) {
+        var rowsToRender = mappingsData.filter(function(m) {
+            if (mappingsFilterTarget && targetKey(m) !== mappingsFilterTarget) return false;
+            if (mappingsFilterLanguage && (m.ruleType !== 'language' || (m.ruleValue || '') !== mappingsFilterLanguage)) return false;
+            if (mappingsFilterDestination && (m.destination || 'article') !== mappingsFilterDestination) return false;
+            if (mappingsFilterTranslation) {
+                var hasLocale = !!m.shopifyLocale;
+                var hasMarket = !!m.shopifyMarketId;
+                if (mappingsFilterTranslation === '__global__' && !(hasLocale && !hasMarket)) return false;
+                else if (mappingsFilterTranslation === '__market__' && !(hasLocale && hasMarket)) return false;
+                else if (mappingsFilterTranslation === '__none__' && hasLocale) return false;
+                else if (mappingsFilterTranslation.indexOf('__') !== 0 && (m.shopifyLocale || '') !== mappingsFilterTranslation) return false;
+            }
+            return true;
+        });
+
+        if (rowsToRender.length === 0) {
+            mappingsList.innerHTML = '<p style="color:#6b7280;padding:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;text-align:center;"><?php echo esc_js(__('No mappings match the current filters.', 'wash')); ?></p>';
+            return;
+        }
+
+        if (mappingsSortKey) {
+            rowsToRender = rowsToRender.slice().sort(function(a, b) {
+                var av = getSortValue(a, mappingsSortKey);
+                var bv = getSortValue(b, mappingsSortKey);
+                if (av < bv) return mappingsSortDir === 'asc' ? -1 : 1;
+                if (av > bv) return mappingsSortDir === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        rowsToRender.forEach(function(m, idx) {
             var ruleLabel, badgeClass;
             if (m.ruleType === 'default') {
                 ruleLabel = '<?php echo esc_js(__('Default', 'wash')); ?>';
@@ -2610,6 +2886,18 @@ function wash_render_permission_locked_banner() {
             var urlExample = getUrlExample(m);
             var targetLabel = m.destination === 'page' ? '/pages/' : (getBlogHandle(m.shopifyBlogId) || m.shopifyBlogHandle || m.shopifyBlogId);
 
+            // Scope badge — where the translation lands in Shopify
+            var scopeBadge = '';
+            if (m.shopifyLocale && !m.shopifyMarketId) {
+                scopeBadge = '<div title="<?php echo esc_js(__('Shop-wide translation (Translate & Adapt). No market scope.', 'wash')); ?>" style="display:inline-block;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;">🌍 Global / ' + m.shopifyLocale.toUpperCase() + '</div>';
+            } else if (m.shopifyLocale && m.shopifyMarketId) {
+                var marketForBadge = getMarketById(m.shopifyMarketId);
+                var marketBadgeName = marketForBadge ? marketForBadge.name : '?';
+                scopeBadge = '<div title="<?php echo esc_js(__('Market-scoped translation. Visible only to buyers in this market.', 'wash')); ?>" style="display:inline-block;background:#eff6ff;color:#1e3a8a;border:1px solid #93c5fd;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;">📍 ' + marketBadgeName + ' / ' + m.shopifyLocale + '</div>';
+            } else {
+                scopeBadge = '<div title="<?php echo esc_js(__('Primary language only — no translation registered.', 'wash')); ?>" style="display:inline-block;background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;padding:1px 6px;border-radius:3px;font-size:11px;">— primary only</div>';
+            }
+
             var overlap = overlapGroups[m.id];
             var rowBg = overlap ? 'background:' + overlap.color + ';' : '';
             var warnIcon = overlap ? '<span title="<?php echo esc_js(__('Overlapping rule — higher priority wins', 'wash')); ?>" style="color:#b45309;font-size:14px;margin-right:4px;cursor:help;">&#9888;</span>' : '';
@@ -2625,9 +2913,14 @@ function wash_render_permission_locked_banner() {
                 errorIcon = '<span title="' + tipTitle.replace(/"/g, '&quot;') + '" style="color:#dc2626;font-size:16px;margin-right:4px;cursor:help;font-weight:bold;">&#10071;</span>';
             }
 
+            var displayNumber = '#' + (idx + 1);
+            var idTooltip = m.id + ' — <?php echo esc_js(__('click to copy', 'wash')); ?>';
+            var ruleIdBadge = '<span title="' + idTooltip + '" class="wash-mapping-id" data-id="' + m.id + '" style="display:inline-block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-weight:600;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:1px 8px;border-radius:10px;margin-right:6px;cursor:copy;user-select:none;">' + displayNumber + '</span>';
+
             html += '<tr class="wash-mapping-row" data-id="' + m.id + '" data-priority="' + m.priority + '" style="' + rowBg + '">' +
                 '<td class="wash-mapping-drag" style="cursor:grab;text-align:center;color:#999;font-size:16px;user-select:none;vertical-align:middle;">☰</td>' +
                 '<td>' +
+                    ruleIdBadge +
                     errorIcon +
                     warnIcon +
                     destBadge +
@@ -2635,11 +2928,12 @@ function wash_render_permission_locked_banner() {
                     typesTag +
                     '<div style="margin-top:6px;padding:4px 6px;background:#f8f9fa;border-radius:3px;border:1px solid #e9ecef;">' + urlExample + '</div>' +
                 '</td>' +
-                '<td>' + targetLabel + '</td>' +
-                '<td>' +
-                '<button type="button" class="button button-small wash-edit-mapping" data-id="' + m.id + '"><?php echo esc_js(__('Edit', 'wash')); ?></button> ' +
-                '<button type="button" class="button button-small wash-duplicate-mapping" data-id="' + m.id + '"><?php echo esc_js(__('Duplicate', 'wash')); ?></button> ' +
-                '<button type="button" class="button button-small wash-delete-mapping" data-id="' + m.id + '" style="color:#dc3545;"><?php echo esc_js(__('Delete', 'wash')); ?></button>' +
+                '<td style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#1f2937;">' + targetLabel + '</td>' +
+                '<td>' + scopeBadge + '</td>' +
+                '<td style="white-space:nowrap;">' +
+                '<button type="button" class="button button-small wash-edit-mapping wash-icon-btn" data-id="' + m.id + '" title="<?php echo esc_js(__('Edit', 'wash')); ?>" aria-label="<?php echo esc_js(__('Edit', 'wash')); ?>"><span class="dashicons dashicons-edit" aria-hidden="true"></span></button> ' +
+                '<button type="button" class="button button-small wash-duplicate-mapping wash-icon-btn" data-id="' + m.id + '" title="<?php echo esc_js(__('Duplicate', 'wash')); ?>" aria-label="<?php echo esc_js(__('Duplicate', 'wash')); ?>"><span class="dashicons dashicons-admin-page" aria-hidden="true"></span></button> ' +
+                '<button type="button" class="button button-small wash-delete-mapping wash-icon-btn" data-id="' + m.id + '" title="<?php echo esc_js(__('Delete', 'wash')); ?>" aria-label="<?php echo esc_js(__('Delete', 'wash')); ?>" style="color:#dc3545;"><span class="dashicons dashicons-trash" aria-hidden="true"></span></button>' +
                 '</td></tr>';
         });
 
@@ -2661,6 +2955,21 @@ function wash_render_permission_locked_banner() {
         mappingsList.querySelectorAll('.wash-duplicate-mapping').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 duplicateMapping(this.getAttribute('data-id'));
+            });
+        });
+        mappingsList.querySelectorAll('.wash-mapping-id').forEach(function(el) {
+            el.addEventListener('click', function() {
+                var id = this.getAttribute('data-id');
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(id);
+                }
+            });
+        });
+
+        // Sortable column headers
+        mappingsList.querySelectorAll('th.wash-sortable').forEach(function(th) {
+            th.addEventListener('click', function() {
+                sortMappingsBy(this.getAttribute('data-sort'));
             });
         });
 
@@ -3016,16 +3325,12 @@ function wash_render_permission_locked_banner() {
         shopifyBlogSelect.value = mapping.shopifyBlogId || '';
         document.getElementById('wash-priority').value = mapping.priority;
         newBlogRow.style.display = 'none';
-        // Set market/locale — use exact marketId|locale if available, fallback to locale match
+        // Set market/locale — value format is "marketId|locale" (marketId empty = 🌍 Global)
         if (marketLocaleSelect && mapping.shopifyLocale) {
-            var exactMatch = mapping.shopifyMarketId
-                ? mapping.shopifyMarketId + '|' + mapping.shopifyLocale
-                : null;
-            if (exactMatch) {
-                marketLocaleSelect.value = exactMatch;
-            }
-            if (!exactMatch || !marketLocaleSelect.value) {
-                // Fallback: find first option matching locale
+            var exactMatch = (mapping.shopifyMarketId || '') + '|' + mapping.shopifyLocale;
+            marketLocaleSelect.value = exactMatch;
+            if (!marketLocaleSelect.value) {
+                // Fallback: find first option matching locale (e.g. when target market was deleted)
                 for (var i = 0; i < marketLocaleSelect.options.length; i++) {
                     var optVal = marketLocaleSelect.options[i].value;
                     if (optVal && optVal.split('|')[1] === mapping.shopifyLocale) {
@@ -3038,6 +3343,10 @@ function wash_render_permission_locked_banner() {
             marketLocaleSelect.value = '';
         }
         mappingForm.style.display = 'block';
+        // Scroll to form so the user sees what they're editing
+        setTimeout(function() {
+            mappingForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
     }
 
     // --- Duplicate mapping support ---
@@ -3057,8 +3366,9 @@ function wash_render_permission_locked_banner() {
         shopifyBlogSelect.value = mapping.shopifyBlogId || '';
         document.getElementById('wash-priority').value = '0';
         newBlogRow.style.display = 'none';
-        if (marketLocaleSelect && mapping.shopifyLocale && mapping.shopifyMarketId) {
-            marketLocaleSelect.value = mapping.shopifyMarketId + '|' + mapping.shopifyLocale;
+        if (marketLocaleSelect && mapping.shopifyLocale) {
+            // Empty marketId = Global (no market scope)
+            marketLocaleSelect.value = (mapping.shopifyMarketId || '') + '|' + mapping.shopifyLocale;
         } else if (marketLocaleSelect) {
             marketLocaleSelect.value = '';
         }
