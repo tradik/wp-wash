@@ -26,6 +26,7 @@ class WashActivator {
             'wash_post_types'      => 'post,page',
             'wash_blog_name'       => get_bloginfo('name'),
             'wash_auto_clear_errors' => '1',
+            'wash_sync_inline' => '0',
         ];
 
         foreach ($defaults as $key => $value) {

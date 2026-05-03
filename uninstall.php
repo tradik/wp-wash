@@ -26,6 +26,7 @@ $optionKeys = [
     'wash_meta_field_config',
     'wash_hreflangs_enabled',
     'wash_auto_clear_errors',
+    'wash_sync_inline',
 ];
 
 if (is_multisite()) {

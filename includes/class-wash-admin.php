@@ -211,6 +211,7 @@ class WashAdmin {
             'wash_sync_blocks_css',
             'wash_redirections_enabled',
             'wash_auto_clear_errors',
+            'wash_sync_inline',
         ];
 
         foreach ($textSettings as $setting) {
@@ -2388,6 +2389,17 @@ JS;
         $skipped = 0;
         $errors = 0;
 
+        // Inline mode bypasses WP-Cron — for sites where cron is unreliable.
+        // Pre-2c8f7df behaviour: works for small batches, may hit PHP / nginx
+        // / FastCGI timeouts on big ones (>30 posts on default php.ini).
+        $inlineMode = get_option('wash_sync_inline', '0') === '1';
+        $inlineSync = null;
+        if ($inlineMode) {
+            @set_time_limit(0);
+            ignore_user_abort(true);
+            $inlineSync = new WashSync();
+        }
+
         foreach ($postIds as $postId) {
             $post = get_post($postId);
             if (!$post) {
@@ -2412,7 +2424,11 @@ JS;
                         $skipped++;
                         continue 2;
                     }
-                    $this->scheduleAsyncSync($postId);
+                    if ($inlineMode) {
+                        $inlineSync->syncManually($postId, $post);
+                    } else {
+                        $this->scheduleAsyncSync($postId);
+                    }
                     $processed++;
                     break;
 
@@ -2425,7 +2441,11 @@ JS;
                         $skipped++;
                         continue 2;
                     }
-                    $this->scheduleAsyncSync($postId);
+                    if ($inlineMode) {
+                        $inlineSync->syncManually($postId, $post);
+                    } else {
+                        $this->scheduleAsyncSync($postId);
+                    }
                     $processed++;
                     break;
 
@@ -2446,7 +2466,7 @@ JS;
 
         // Kick the cron loop so scheduled syncs start immediately rather than
         // waiting for the next public request to trigger wp-cron.
-        if ($processed > 0 && in_array($doaction, ['wash_publish', 'wash_republish'], true)) {
+        if (!$inlineMode && $processed > 0 && in_array($doaction, ['wash_publish', 'wash_republish'], true)) {
             $this->triggerCronAsync();
         }
 
