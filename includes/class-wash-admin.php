@@ -1811,6 +1811,11 @@ JS;
                 ? sprintf(__('Waiting — master post #%d must sync to Shopify first', 'wash'), $masterPostId)
                 : __('Waiting — master language version must sync to Shopify first', 'wash');
             echo '<span class="dashicons dashicons-clock" style="color: #2271b1;" title="' . esc_attr($title) . '"></span>';
+        } elseif (!empty($syncError)) {
+            // Any other persisted sync failure (Shop session not found, Handle taken, USAGE_LIMIT_EXCEEDED, etc).
+            $shortError = function_exists('mb_strimwidth') ? mb_strimwidth($syncError, 0, 120, '…') : substr($syncError, 0, 120);
+            $title = sprintf(__('Sync failed: %s', 'wash'), $shortError);
+            echo '<span class="dashicons dashicons-warning" style="color: #d63638;" title="' . esc_attr($title) . '"></span>';
         } else {
             $post = get_post($postId);
             if ($post->post_status === 'publish') {
