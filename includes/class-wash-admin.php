@@ -78,6 +78,9 @@ class WashAdmin {
         add_action('admin_init', [$this, 'handleRefreshStatus']);
         // Daily cron: clear old _wash_sync_error meta on currently-published posts
         add_action('wash_clear_stale_errors', [$this, 'clearStaleErrors']);
+        // Hidden admin page: JS-driven progress view for inline bulk publish
+        add_action('admin_menu', [$this, 'addBulkProgressPage'], 99);
+        add_action('wp_ajax_wash_bulk_sync_batch', [$this, 'ajaxBulkSyncBatch']);
 
         // Bulk actions for posts
         add_filter('bulk_actions-edit-post', [$this, 'addBulkActions']);
@@ -2013,6 +2016,224 @@ JS;
     }
 
     /**
+     * Register the hidden Bulk Sync Progress page (parent=null = not shown in
+     * the admin menu — only reachable via the redirect from handleBulkActions).
+     */
+    public function addBulkProgressPage() {
+        add_submenu_page(
+            null,
+            __('Bulk Sync Progress', 'wash'),
+            __('Bulk Sync Progress', 'wash'),
+            'edit_posts',
+            'wash-bulk-progress',
+            [$this, 'renderBulkProgressPage']
+        );
+    }
+
+    /**
+     * Render the JS-driven progress UI for bulk publish/republish/unpublish.
+     * Reads the post-id list from a one-shot transient (set by handleBulkActions),
+     * shows a progress bar, and fires AJAX batches at wash_bulk_sync_batch.
+     */
+    public function renderBulkProgressPage() {
+        if (!current_user_can('edit_posts')) {
+            wp_die(__('Permission denied', 'wash'));
+        }
+
+        $token = isset($_GET['token']) ? sanitize_key($_GET['token']) : '';
+        $data  = $token ? get_transient('wash_bulk_' . $token) : null;
+        if (!$data || empty($data['postIds'])) {
+            wp_die(__('Bulk operation expired or not found. Re-run the bulk action from the posts list.', 'wash'));
+        }
+
+        $action     = $data['action'];
+        $total      = count($data['postIds']);
+        $skipped    = (int) ($data['skipped'] ?? 0);
+        $returnUrl  = $data['returnUrl'] ?? admin_url('edit.php');
+        $batchSize  = (int) apply_filters('wash_bulk_batch_size', 50);
+        $ajaxUrl    = admin_url('admin-ajax.php');
+        $nonce      = wp_create_nonce('wash_bulk_progress');
+
+        $actionLabel = [
+            'wash_publish'   => __('Publishing to Shopify', 'wash'),
+            'wash_republish' => __('Re-publishing to Shopify', 'wash'),
+            'wash_unpublish' => __('Unpublishing from Shopify', 'wash'),
+        ][$action] ?? __('Processing', 'wash');
+
+        $finalRedirect = add_query_arg([
+            'wash_bulk_action'    => $action,
+            'wash_bulk_processed' => '__processed__',
+            'wash_bulk_skipped'   => $skipped,
+            'wash_bulk_errors'    => '__errors__',
+        ], $returnUrl);
+
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html($actionLabel); ?></h1>
+            <p class="description">
+                <?php
+                echo esc_html(sprintf(
+                    /* translators: %1$d total posts, %2$d batch size */
+                    __('Processing %1$d posts in batches of %2$d. Do not close this tab until the bar reaches 100%%.', 'wash'),
+                    $total,
+                    $batchSize
+                ));
+                ?>
+            </p>
+            <div style="margin: 20px 0;">
+                <progress id="wash-bulk-progress" value="0" max="<?php echo esc_attr($total); ?>" style="width: 100%; height: 24px;"></progress>
+                <p id="wash-bulk-status" style="margin-top: 8px; font-size: 14px;">
+                    <strong><span id="wash-bulk-done">0</span> / <?php echo esc_html($total); ?></strong>
+                    — <?php esc_html_e('starting…', 'wash'); ?>
+                </p>
+                <ul id="wash-bulk-errors" style="color: #d63638; font-size: 13px;"></ul>
+            </div>
+            <p>
+                <a href="<?php echo esc_url($returnUrl); ?>" id="wash-bulk-cancel" class="button">
+                    <?php esc_html_e('Cancel and return', 'wash'); ?>
+                </a>
+            </p>
+        </div>
+        <script>
+        (function() {
+            const TOKEN = <?php echo wp_json_encode($token); ?>;
+            const NONCE = <?php echo wp_json_encode($nonce); ?>;
+            const TOTAL = <?php echo (int) $total; ?>;
+            const FINAL = <?php echo wp_json_encode($finalRedirect); ?>;
+            const URL   = <?php echo wp_json_encode($ajaxUrl); ?>;
+            const $progress = document.getElementById('wash-bulk-progress');
+            const $done     = document.getElementById('wash-bulk-done');
+            const $status   = document.getElementById('wash-bulk-status');
+            const $errors   = document.getElementById('wash-bulk-errors');
+            let totalProcessed = 0;
+            let totalErrors = 0;
+            let cancelled = false;
+            document.getElementById('wash-bulk-cancel').addEventListener('click', () => { cancelled = true; });
+
+            async function runBatch(offset) {
+                const body = new URLSearchParams();
+                body.append('action', 'wash_bulk_sync_batch');
+                body.append('token', TOKEN);
+                body.append('nonce', NONCE);
+                body.append('offset', String(offset));
+                const res = await fetch(URL, { method: 'POST', credentials: 'same-origin', body });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const json = await res.json();
+                if (!json.success) throw new Error(json.data || 'Unknown error');
+                return json.data;
+            }
+
+            async function loop() {
+                let offset = 0;
+                while (offset < TOTAL) {
+                    if (cancelled) return;
+                    try {
+                        const r = await runBatch(offset);
+                        totalProcessed += (r.processed || 0);
+                        totalErrors    += (r.errors || 0);
+                        offset = r.nextOffset;
+                        $progress.value = offset;
+                        $done.textContent = String(offset);
+                        $status.lastChild.textContent = ' — ' + (r.done ? '<?php echo esc_js(__('done', 'wash')); ?>' : '<?php echo esc_js(__('working…', 'wash')); ?>');
+                        if (r.errorMessages && r.errorMessages.length) {
+                            r.errorMessages.forEach(m => {
+                                const li = document.createElement('li');
+                                li.textContent = m;
+                                $errors.appendChild(li);
+                            });
+                        }
+                        if (r.done) break;
+                    } catch (err) {
+                        const li = document.createElement('li');
+                        li.textContent = String(err);
+                        $errors.appendChild(li);
+                        totalErrors++;
+                        break;
+                    }
+                }
+                const url = FINAL.replace('__processed__', String(totalProcessed)).replace('__errors__', String(totalErrors));
+                setTimeout(() => { window.location.href = url; }, 1500);
+            }
+
+            loop();
+        })();
+        </script>
+        <?php
+    }
+
+    /**
+     * AJAX: process one batch of N post IDs from the transient queue.
+     * Each call is short (one batch) so it fits comfortably under any
+     * PHP / nginx / FastCGI execution limit; the JS loop drives N batches.
+     */
+    public function ajaxBulkSyncBatch() {
+        check_ajax_referer('wash_bulk_progress', 'nonce');
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(__('Unauthorized', 'wash'));
+        }
+
+        $token = isset($_POST['token']) ? sanitize_key($_POST['token']) : '';
+        $data  = $token ? get_transient('wash_bulk_' . $token) : null;
+        if (!$data || empty($data['postIds'])) {
+            wp_send_json_error(__('Bulk session expired', 'wash'));
+        }
+
+        $offset    = absint($_POST['offset'] ?? 0);
+        $batchSize = (int) apply_filters('wash_bulk_batch_size', 50);
+        $batch     = array_slice($data['postIds'], $offset, $batchSize);
+        $action    = $data['action'];
+
+        if (empty($batch)) {
+            delete_transient('wash_bulk_' . $token);
+            wp_send_json_success(['processed' => 0, 'errors' => 0, 'nextOffset' => $offset, 'done' => true, 'errorMessages' => []]);
+        }
+
+        @set_time_limit(0);
+        ignore_user_abort(true);
+
+        $processed = 0;
+        $errors    = 0;
+        $errorMsgs = [];
+        $sync      = ($action !== 'wash_unpublish') ? new WashSync() : null;
+
+        foreach ($batch as $postId) {
+            $post = get_post((int) $postId);
+            if (!$post) { $errors++; $errorMsgs[] = "Post #{$postId}: not found"; continue; }
+            try {
+                if ($action === 'wash_unpublish') {
+                    $result = $this->unpublishFromShopify((int) $postId, $post);
+                    if (is_wp_error($result)) {
+                        $errors++;
+                        $errorMsgs[] = "Post #{$postId}: " . $result->get_error_message();
+                    } else {
+                        $processed++;
+                    }
+                } else {
+                    $sync->syncManually((int) $postId, $post);
+                    $processed++;
+                }
+            } catch (Throwable $e) {
+                $errors++;
+                $errorMsgs[] = "Post #{$postId}: " . $e->getMessage();
+            }
+        }
+
+        $nextOffset = $offset + count($batch);
+        $done       = $nextOffset >= count($data['postIds']);
+        if ($done) {
+            delete_transient('wash_bulk_' . $token);
+        }
+
+        wp_send_json_success([
+            'processed'     => $processed,
+            'errors'        => $errors,
+            'errorMessages' => array_slice($errorMsgs, 0, 5),
+            'nextOffset'    => $nextOffset,
+            'done'          => $done,
+        ]);
+    }
+
+    /**
      * Handle manual sync action from posts list.
      */
     public function handleManualSync() {
@@ -2364,120 +2585,98 @@ JS;
      * @return string Modified redirect URL.
      */
     public function handleBulkActions($redirectTo, $doaction, $postIds) {
-        washLog("[wash] handleBulkActions called: action={$doaction}, postIds=" . implode(',', $postIds));
-
         if (!in_array($doaction, ['wash_publish', 'wash_republish', 'wash_unpublish'], true)) {
-            washLog("[wash] handleBulkActions: action not recognized, returning");
             return $redirectTo;
         }
 
         if (!$this->apiClient->isConfigured()) {
-            washLog("[wash] handleBulkActions: API not configured");
             return add_query_arg('wash_bulk_error', 'not_configured', $redirectTo);
         }
 
-        // Each post sync = HTTP roundtrip + metafields. Doing this synchronously
-        // breaks at any host-level timeout (PHP max_execution_time, nginx
-        // proxy_read_timeout, FastCGI request_terminate_timeout, etc).
-        // Strategy: dispatch each sync via WP-Cron (single event, ASAP) so the
-        // bulk action returns in milliseconds and each sync runs in its own
-        // request — immune to host-level timeouts. Unpublish stays sync because
-        // it must report errors to the user.
         $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
-        washLog("[wash] handleBulkActions: allowedTypes=" . implode(',', $allowedTypes));
-        $processed = 0;
+
+        // Pre-validate: split into "to act on" vs "skipped". Per-post action-specific
+        // skip rules: already-synced for publish, never-synced for republish/unpublish,
+        // not currently published for publish/republish.
+        $validIds = [];
         $skipped = 0;
-        $errors = 0;
-
-        // Inline mode bypasses WP-Cron — for sites where cron is unreliable.
-        // Pre-2c8f7df behaviour: works for small batches, may hit PHP / nginx
-        // / FastCGI timeouts on big ones (>30 posts on default php.ini).
-        $inlineMode = get_option('wash_sync_inline', '0') === '1';
-        $inlineSync = null;
-        if ($inlineMode) {
-            @set_time_limit(0);
-            ignore_user_abort(true);
-            $inlineSync = new WashSync();
-        }
-
         foreach ($postIds as $postId) {
             $post = get_post($postId);
-            if (!$post) {
+            if (!$post || !in_array($post->post_type, $allowedTypes, true)) {
                 $skipped++;
                 continue;
             }
-
-            if (!in_array($post->post_type, $allowedTypes, true)) {
-                $skipped++;
-                continue;
-            }
-
             $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
-
+            $isPublished = $post->post_status === 'publish';
             switch ($doaction) {
                 case 'wash_publish':
-                    if (!empty($shopifyArticleId)) {
-                        $skipped++;
-                        continue 2;
-                    }
-                    if ($post->post_status !== 'publish') {
-                        $skipped++;
-                        continue 2;
-                    }
-                    if ($inlineMode) {
-                        $inlineSync->syncManually($postId, $post);
-                    } else {
-                        $this->scheduleAsyncSync($postId);
-                    }
-                    $processed++;
+                    if (!empty($shopifyArticleId) || !$isPublished) { $skipped++; continue 2; }
                     break;
-
                 case 'wash_republish':
-                    if (empty($shopifyArticleId)) {
-                        $skipped++;
-                        continue 2;
-                    }
-                    if ($post->post_status !== 'publish') {
-                        $skipped++;
-                        continue 2;
-                    }
-                    if ($inlineMode) {
-                        $inlineSync->syncManually($postId, $post);
-                    } else {
-                        $this->scheduleAsyncSync($postId);
-                    }
-                    $processed++;
+                    if (empty($shopifyArticleId) || !$isPublished) { $skipped++; continue 2; }
                     break;
-
                 case 'wash_unpublish':
-                    if (empty($shopifyArticleId)) {
-                        $skipped++;
-                        continue 2;
-                    }
-                    $result = $this->unpublishFromShopify($postId, $post);
-                    if (is_wp_error($result)) {
-                        $errors++;
-                    } else {
-                        $processed++;
-                    }
+                    if (empty($shopifyArticleId)) { $skipped++; continue 2; }
                     break;
+            }
+            $validIds[] = (int) $postId;
+        }
+
+        // Nothing to do — show notice with skip count and return.
+        if (empty($validIds)) {
+            return add_query_arg([
+                'wash_bulk_action' => $doaction,
+                'wash_bulk_processed' => 0,
+                'wash_bulk_skipped' => $skipped,
+                'wash_bulk_errors' => 0,
+            ], $redirectTo);
+        }
+
+        $inlineMode = get_option('wash_sync_inline', '1') === '1';
+
+        if ($inlineMode) {
+            // Hand off to a JS-driven progress page that AJAX-batches the work.
+            // Each batch is its own short request, so no PHP / nginx / FastCGI
+            // timeout can kill a 500-post migration; the user sees live progress.
+            $token = wp_generate_password(20, false, false);
+            set_transient('wash_bulk_' . $token, [
+                'action'    => $doaction,
+                'postIds'   => $validIds,
+                'skipped'   => $skipped,
+                'returnUrl' => $redirectTo,
+            ], HOUR_IN_SECONDS);
+
+            return add_query_arg([
+                'page'  => 'wash-bulk-progress',
+                'token' => $token,
+            ], admin_url('admin.php'));
+        }
+
+        // Cron mode: queue each sync as a WP-Cron event, return fast. Requires
+        // WP-Cron to actually fire (broken on idle / password-protected sites —
+        // see the wash_sync_inline setting).
+        $processed = 0;
+        $errors = 0;
+        foreach ($validIds as $postId) {
+            if ($doaction === 'wash_unpublish') {
+                $result = $this->unpublishFromShopify($postId, get_post($postId));
+                if (is_wp_error($result)) { $errors++; } else { $processed++; }
+            } else {
+                $this->scheduleAsyncSync($postId);
+                $processed++;
             }
         }
 
-        // Kick the cron loop so scheduled syncs start immediately rather than
-        // waiting for the next public request to trigger wp-cron.
-        if (!$inlineMode && $processed > 0 && in_array($doaction, ['wash_publish', 'wash_republish'], true)) {
+        if ($processed > 0 && in_array($doaction, ['wash_publish', 'wash_republish'], true)) {
             $this->triggerCronAsync();
         }
 
-        $redirectTo = add_query_arg([
+        return add_query_arg([
             'wash_bulk_action' => $doaction,
             'wash_bulk_processed' => $processed,
             'wash_bulk_skipped' => $skipped,
             'wash_bulk_errors' => $errors,
         ], $redirectTo);
-
-        return $redirectTo;
     }
 
     /**
@@ -2529,8 +2728,12 @@ JS;
             return;
         }
         $cronUrl = site_url('wp-cron.php?doing_wp_cron=' . microtime(true));
+        // 0.01s was too aggressive — cURL often returned timeout before
+        // even sending the request, so the cron loop never started.
+        // 1s gives the socket time to open + push headers; blocking=false
+        // means we don't wait for the response anyway.
         wp_remote_post($cronUrl, [
-            'timeout'   => 0.01,
+            'timeout'   => 1.0,
             'blocking'  => false,
             'sslverify' => apply_filters('https_local_ssl_verify', false),
         ]);

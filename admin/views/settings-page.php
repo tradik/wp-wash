@@ -1650,6 +1650,30 @@ function wash_render_permission_locked_banner() {
                         <p class="description"><?php esc_html_e('Rewrites links like /blog/post-slug to /blogs/{blog-handle}/post-slug and /page-slug to /pages/page-slug during sync.', 'wash'); ?></p>
                     </td>
                 </tr>
+<tr>
+                    <th scope="row"><?php esc_html_e('Bulk publish: inline progress mode', 'wash'); ?></th>
+                    <td>
+                        <label>
+                            <input type="hidden" name="wash_sync_inline" value="0" />
+                            <input type="checkbox" name="wash_sync_inline" value="1"
+                                <?php checked(get_option('wash_sync_inline', '1'), '1'); ?> />
+                            <?php esc_html_e('Run bulk publish through the JS progress page (recommended)', 'wash'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('ON (default): bulk action redirects to a live progress bar; the browser drives N batches via AJAX, immune to PHP / proxy timeouts and works on private / password-protected sites where WP-Cron does not fire. OFF: legacy WP-Cron mode — each sync is queued as a single cron event. Requires WP-Cron to actually run; broken on idle sites.', 'wash'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e('Auto-clear stale sync errors', 'wash'); ?></th>
+                    <td>
+                        <label>
+                            <input type="hidden" name="wash_auto_clear_errors" value="0" />
+                            <input type="checkbox" name="wash_auto_clear_errors" value="1"
+                                <?php checked(get_option('wash_auto_clear_errors', '1'), '1'); ?> />
+                            <?php esc_html_e('Daily WP-Cron job clears sync errors older than 30 days on published posts', 'wash'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Stops the red "sync failed" icon from accumulating indefinitely. Adjustable via the wash_sync_error_retention_days filter.', 'wash'); ?></p>
+                    </td>
+                </tr>
                 <tr>
                     <th scope="row"><?php esc_html_e('Post Types', 'wash'); ?></th>
                     <td>

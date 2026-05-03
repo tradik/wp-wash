@@ -26,7 +26,12 @@ class WashActivator {
             'wash_post_types'      => 'post,page',
             'wash_blog_name'       => get_bloginfo('name'),
             'wash_auto_clear_errors' => '1',
-            'wash_sync_inline' => '0',
+            // Inline by default. WP-Cron path was added for >100-post bulk
+            // batches on hosting with strict PHP timeouts, but it requires
+            // a reliable wp-cron.php hit — broken on password-protected /
+            // staging / low-traffic sites. Inline handles the common case
+            // (≤100 posts × ~150 ms HTTP per post = under default 30 s).
+            'wash_sync_inline' => '1',
         ];
 
         foreach ($defaults as $key => $value) {
