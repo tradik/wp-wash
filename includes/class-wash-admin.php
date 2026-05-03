@@ -1804,21 +1804,22 @@ JS;
                 $queuedAt ? date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($queuedAt)) : __('just now', 'wash')
             );
             echo '<span class="dashicons dashicons-update wash-syncing" style="color: #f0b849;" title="' . esc_attr($title) . '" data-post-id="' . esc_attr($postId) . '"></span>';
-        } elseif (!empty($syncError) && strpos($syncError, 'PENDING_SOURCE') !== false) {
-            // Translation post waiting for its master language version to sync first.
-            $masterPostId = preg_match('/WP post #(\d+)/', $syncError, $m) ? (int) $m[1] : 0;
-            $title = $masterPostId
-                ? sprintf(__('Waiting — master post #%d must sync to Shopify first', 'wash'), $masterPostId)
-                : __('Waiting — master language version must sync to Shopify first', 'wash');
-            echo '<span class="dashicons dashicons-clock" style="color: #2271b1;" title="' . esc_attr($title) . '"></span>';
-        } elseif (!empty($syncError)) {
-            // Any other persisted sync failure (Shop session not found, Handle taken, USAGE_LIMIT_EXCEEDED, etc).
-            $shortError = function_exists('mb_strimwidth') ? mb_strimwidth($syncError, 0, 120, '…') : substr($syncError, 0, 120);
-            $title = sprintf(__('Sync failed: %s', 'wash'), $shortError);
-            echo '<span class="dashicons dashicons-warning" style="color: #d63638;" title="' . esc_attr($title) . '"></span>';
         } else {
             $post = get_post($postId);
-            if ($post->post_status === 'publish') {
+            $isPublished = $post && $post->post_status === 'publish';
+            // Stale error meta only matters for currently-published posts. Drafts/private/scheduled
+            // get their own icons regardless of past sync attempts.
+            if ($isPublished && !empty($syncError) && strpos($syncError, 'PENDING_SOURCE') !== false) {
+                $masterPostId = preg_match('/WP post #(\d+)/', $syncError, $m) ? (int) $m[1] : 0;
+                $title = $masterPostId
+                    ? sprintf(__('Waiting — master post #%d must sync to Shopify first', 'wash'), $masterPostId)
+                    : __('Waiting — master language version must sync to Shopify first', 'wash');
+                echo '<span class="dashicons dashicons-clock" style="color: #2271b1;" title="' . esc_attr($title) . '"></span>';
+            } elseif ($isPublished && !empty($syncError)) {
+                $shortError = function_exists('mb_strimwidth') ? mb_strimwidth($syncError, 0, 120, '…') : substr($syncError, 0, 120);
+                $title = sprintf(__('Sync failed: %s', 'wash'), $shortError);
+                echo '<span class="dashicons dashicons-warning" style="color: #d63638;" title="' . esc_attr($title) . '"></span>';
+            } elseif ($isPublished) {
                 echo '<span class="dashicons dashicons-minus" style="color: #ddd;" title="' . esc_attr__('Not synced', 'wash') . '"></span>';
             } else {
                 echo '<span class="dashicons dashicons-hidden" style="color: #ccc;" title="' . esc_attr__('Draft - will sync when published', 'wash') . '"></span>';
