@@ -445,6 +445,7 @@ class WashCallback {
             delete_post_meta($wpPostId, '_wash_job_id');
             delete_post_meta($wpPostId, '_wash_queued_at');
             delete_post_meta($wpPostId, '_wash_sync_error');
+            delete_post_meta($wpPostId, '_wash_sync_error_at');
 
             washLog("[wash] Callback: Post {$wpPostId} synced successfully, shopifyId: {$shopifyId}");
 
@@ -452,8 +453,9 @@ class WashCallback {
             do_action('wash_callback_success', $wpPostId, $body);
 
         } else {
-            // Store error
+            // Store error with timestamp so the auto-clear cron can age them out.
             update_post_meta($wpPostId, '_wash_sync_error', $error ?: 'Unknown error');
+            update_post_meta($wpPostId, '_wash_sync_error_at', current_time('mysql'));
             delete_post_meta($wpPostId, '_wash_sync_status');
             delete_post_meta($wpPostId, '_wash_job_id');
 

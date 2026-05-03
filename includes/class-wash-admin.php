@@ -74,6 +74,10 @@ class WashAdmin {
 
         // Handle manual sync action
         add_action('admin_init', [$this, 'handleManualSync']);
+        // Handle "Refresh status from Shopify" row action
+        add_action('admin_init', [$this, 'handleRefreshStatus']);
+        // Daily cron: clear old _wash_sync_error meta on currently-published posts
+        add_action('wash_clear_stale_errors', [$this, 'clearStaleErrors']);
 
         // Bulk actions for posts
         add_filter('bulk_actions-edit-post', [$this, 'addBulkActions']);
@@ -206,6 +210,7 @@ class WashAdmin {
             'wash_sync_blocks_meta',
             'wash_sync_blocks_css',
             'wash_redirections_enabled',
+            'wash_auto_clear_errors',
         ];
 
         foreach ($textSettings as $setting) {
@@ -1873,7 +1878,137 @@ JS;
             );
         }
 
+        // "Refresh status" — reconcile local meta with shopify-app DB
+        $refreshUrl = wp_nonce_url(
+            add_query_arg([
+                'action' => 'wash_refresh_status',
+                'post_id' => $post->ID,
+            ], admin_url('edit.php')),
+            'wash_refresh_status_' . $post->ID
+        );
+        $actions['wash_refresh'] = sprintf(
+            '<a href="%s" style="color: #2271b1;" title="%s">↻ %s</a>',
+            esc_url($refreshUrl),
+            esc_attr__('Compare local sync state with Shopify and clear stale errors', 'wash'),
+            __('Refresh status', 'wash')
+        );
+
         return $actions;
+    }
+
+    /**
+     * Handle "Refresh status" row action.
+     * Calls /api/check-status for the post and reconciles local meta
+     * (_wash_article_id / _wash_sync_error) with shopify-app's source of truth.
+     */
+    public function handleRefreshStatus() {
+        if (!isset($_GET['action']) || $_GET['action'] !== 'wash_refresh_status') {
+            return;
+        }
+        if (!isset($_GET['post_id'])) {
+            return;
+        }
+
+        $postId = absint($_GET['post_id']);
+        if (!wp_verify_nonce($_GET['_wpnonce'] ?? '', 'wash_refresh_status_' . $postId)) {
+            wp_die(__('Security check failed', 'wash'));
+        }
+        if (!current_user_can('edit_post', $postId)) {
+            wp_die(__('Permission denied', 'wash'));
+        }
+
+        $redirectUrl = wp_get_referer() ?: admin_url('edit.php');
+
+        if (!$this->apiClient->isConfigured()) {
+            wp_redirect(add_query_arg('wash_error', 'not_configured', $redirectUrl));
+            exit;
+        }
+
+        $response = $this->apiClient->post('/api/check-status', [
+            'wpPostIds' => [$postId],
+            'wpSiteId' => get_current_blog_id(),
+        ]);
+
+        if (is_wp_error($response) || !is_array($response) || empty($response['success'])) {
+            wp_redirect(add_query_arg('wash_refresh_result', 'error', $redirectUrl));
+            exit;
+        }
+
+        $status = $response['statuses'][(string) $postId] ?? $response['statuses'][$postId] ?? null;
+        if ($status && !empty($status['exists'])) {
+            // shopify-app says the article exists — sync local meta to match.
+            if (!empty($status['shopifyArticleId'])) {
+                update_post_meta($postId, '_wash_article_id', $status['shopifyArticleId']);
+            }
+            if (!empty($status['shopifyBlogId'])) {
+                update_post_meta($postId, '_wash_blog_id', $status['shopifyBlogId']);
+            }
+            if (!empty($status['shopifyBlogHandle'])) {
+                update_post_meta($postId, '_wash_blog_handle', $status['shopifyBlogHandle']);
+            }
+            if (!empty($status['syncedAt'])) {
+                update_post_meta($postId, '_wash_synced_at', $status['syncedAt']);
+            }
+            delete_post_meta($postId, '_wash_sync_error');
+            delete_post_meta($postId, '_wash_sync_error_at');
+            wp_redirect(add_query_arg('wash_refresh_result', 'synced', $redirectUrl));
+            exit;
+        }
+
+        // Article does not exist in Shopify — clear stale article meta if present,
+        // and clear stale errors so the post falls back to the gray "not synced" state.
+        delete_post_meta($postId, '_wash_article_id');
+        delete_post_meta($postId, '_wash_blog_id');
+        delete_post_meta($postId, '_wash_blog_handle');
+        delete_post_meta($postId, '_wash_synced_at');
+        delete_post_meta($postId, '_wash_sync_error');
+        delete_post_meta($postId, '_wash_sync_error_at');
+        wp_redirect(add_query_arg('wash_refresh_result', 'not_synced', $redirectUrl));
+        exit;
+    }
+
+    /**
+     * Cron handler: clear `_wash_sync_error` meta on published posts where the
+     * error is older than the retention window (default 30 days, filterable).
+     * Disabled if `wash_auto_clear_errors` option is '0'.
+     */
+    public function clearStaleErrors() {
+        if (get_option('wash_auto_clear_errors', '1') !== '1') {
+            return;
+        }
+
+        $retentionDays = (int) apply_filters('wash_sync_error_retention_days', 30);
+        if ($retentionDays < 1) {
+            return;
+        }
+
+        global $wpdb;
+        $cutoff = gmdate('Y-m-d H:i:s', strtotime("-{$retentionDays} days"));
+        $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+        $typePlaceholders = implode(',', array_fill(0, count($allowedTypes), '%s'));
+
+        $sql = $wpdb->prepare(
+            "SELECT pm.post_id
+             FROM {$wpdb->postmeta} pm
+             INNER JOIN {$wpdb->postmeta} pm2 ON pm2.post_id = pm.post_id AND pm2.meta_key = '_wash_sync_error_at'
+             INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+             WHERE pm.meta_key = '_wash_sync_error'
+               AND pm2.meta_value < %s
+               AND p.post_status = 'publish'
+               AND p.post_type IN ({$typePlaceholders})",
+            array_merge([$cutoff], $allowedTypes)
+        );
+        $stalePostIds = $wpdb->get_col($sql);
+
+        $cleared = 0;
+        foreach ($stalePostIds as $postId) {
+            delete_post_meta((int) $postId, '_wash_sync_error');
+            delete_post_meta((int) $postId, '_wash_sync_error_at');
+            $cleared++;
+        }
+        if ($cleared > 0) {
+            washLog("[wash] clearStaleErrors: cleared {$cleared} stale sync errors (older than {$retentionDays} days)");
+        }
     }
 
     /**
@@ -2332,6 +2467,12 @@ JS;
      * @param int $postId Post ID.
      */
     private function scheduleAsyncSync($postId) {
+        // Mark the post as queued immediately so the spinner icon shows in the
+        // posts list before WP-Cron has a chance to fire the actual sync.
+        // syncManually() will re-set these when the cron event runs.
+        update_post_meta((int) $postId, '_wash_sync_status', 'queued');
+        update_post_meta((int) $postId, '_wash_queued_at', current_time('mysql'));
+
         // Args must be array — WP-Cron passes it spread to the action handler.
         // Use postId as event arg so duplicate scheduling for the same post
         // collapses to a single cron event.

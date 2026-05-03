@@ -25,6 +25,7 @@ class WashActivator {
             'wash_sync_metafields' => '1',
             'wash_post_types'      => 'post,page',
             'wash_blog_name'       => get_bloginfo('name'),
+            'wash_auto_clear_errors' => '1',
         ];
 
         foreach ($defaults as $key => $value) {
@@ -52,6 +53,11 @@ class WashActivator {
         if (!wp_next_scheduled('wash_ping_shopify')) {
             wp_schedule_single_event(time() + 5, 'wash_ping_shopify');
         }
+
+        // Daily cleanup of stale _wash_sync_error meta
+        if (!wp_next_scheduled('wash_clear_stale_errors')) {
+            wp_schedule_event(time() + 60, 'daily', 'wash_clear_stale_errors');
+        }
     }
 
     /**
@@ -59,6 +65,7 @@ class WashActivator {
      */
     public static function deactivate() {
         wp_clear_scheduled_hook('wash_ping_shopify');
+        wp_clear_scheduled_hook('wash_clear_stale_errors');
         flush_rewrite_rules();
     }
 

@@ -25,6 +25,7 @@ $optionKeys = [
     'wash_meta_acf',
     'wash_meta_field_config',
     'wash_hreflangs_enabled',
+    'wash_auto_clear_errors',
 ];
 
 if (is_multisite()) {
@@ -49,6 +50,16 @@ if (is_multisite()) {
 // Clean up post meta across all posts
 delete_metadata('post', 0, '_wash_article_id', '', true);
 delete_metadata('post', 0, '_wash_blog_id', '', true);
+delete_metadata('post', 0, '_wash_blog_handle', '', true);
 delete_metadata('post', 0, '_wash_synced_at', '', true);
 delete_metadata('post', 0, '_wash_file_id', '', true);
 delete_metadata('post', 0, '_wash_cdn_url', '', true);
+delete_metadata('post', 0, '_wash_sync_status', '', true);
+delete_metadata('post', 0, '_wash_sync_error', '', true);
+delete_metadata('post', 0, '_wash_sync_error_at', '', true);
+delete_metadata('post', 0, '_wash_queued_at', '', true);
+delete_metadata('post', 0, '_wash_job_id', '', true);
+
+// Clear scheduled events
+wp_clear_scheduled_hook('wash_clear_stale_errors');
+wp_clear_scheduled_hook('wash_ping_shopify');
