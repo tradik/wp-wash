@@ -1786,6 +1786,7 @@ JS;
         $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
         $syncedAt = get_post_meta($postId, '_wash_synced_at', true);
         $syncStatus = get_post_meta($postId, '_wash_sync_status', true);
+        $syncError = get_post_meta($postId, '_wash_sync_error', true);
         $queuedAt = get_post_meta($postId, '_wash_queued_at', true);
 
         if (!empty($shopifyArticleId)) {
@@ -1803,6 +1804,13 @@ JS;
                 $queuedAt ? date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($queuedAt)) : __('just now', 'wash')
             );
             echo '<span class="dashicons dashicons-update wash-syncing" style="color: #f0b849;" title="' . esc_attr($title) . '" data-post-id="' . esc_attr($postId) . '"></span>';
+        } elseif (!empty($syncError) && strpos($syncError, 'PENDING_SOURCE') !== false) {
+            // Translation post waiting for its master language version to sync first.
+            $masterPostId = preg_match('/WP post #(\d+)/', $syncError, $m) ? (int) $m[1] : 0;
+            $title = $masterPostId
+                ? sprintf(__('Waiting — master post #%d must sync to Shopify first', 'wash'), $masterPostId)
+                : __('Waiting — master language version must sync to Shopify first', 'wash');
+            echo '<span class="dashicons dashicons-clock" style="color: #2271b1;" title="' . esc_attr($title) . '"></span>';
         } else {
             $post = get_post($postId);
             if ($post->post_status === 'publish') {
