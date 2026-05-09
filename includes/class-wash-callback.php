@@ -145,8 +145,149 @@ class WashCallback {
                 'private'   => (int) $pageCounts->private,
                 'synced'    => $syncedPages,
             ],
+            'languages'     => $this->getLanguageStats(),
+            'categories'    => $this->getCategoryStats(),
             'pluginVersion' => defined('WASH_VERSION') ? WASH_VERSION : null,
         ]);
+    }
+
+    /**
+     * Per-language post counts. Detects Polylang or WPML; falls back to
+     * single-language site (all published posts assigned to site locale).
+     *
+     * @return array { detector: 'polylang'|'wpml'|null, primary: string, byLanguage: array }
+     */
+    public function getLanguageStats() {
+        if (function_exists('pll_languages_list') && function_exists('pll_count_posts')) {
+            return $this->getLanguageStatsPolylang();
+        }
+
+        if (function_exists('icl_object_id')) {
+            $wpmlLangs = apply_filters('wpml_active_languages', null, ['skip_missing' => 0]);
+            if (is_array($wpmlLangs) && !empty($wpmlLangs)) {
+                return $this->getLanguageStatsWpml($wpmlLangs);
+            }
+        }
+
+        $siteLang = function_exists('get_locale') ? substr(get_locale(), 0, 2) : 'en';
+        $postCounts = wp_count_posts('post');
+        return [
+            'detector'   => null,
+            'primary'    => $siteLang,
+            'byLanguage' => [
+                $siteLang => ['posts' => (int) ($postCounts->publish ?? 0), 'translatedTo' => []],
+            ],
+        ];
+    }
+
+    /**
+     * Polylang branch — uses pll_count_posts() per language.
+     *
+     * @return array
+     */
+    private function getLanguageStatsPolylang() {
+        $primary = pll_default_language();
+        $languages = pll_languages_list();
+        $byLanguage = [];
+
+        foreach ($languages as $lang) {
+            $count = pll_count_posts($lang, ['post_type' => 'post']);
+            $byLanguage[$lang] = [
+                'posts'        => (int) $count,
+                'translatedTo' => array_values(array_diff($languages, [$lang])),
+            ];
+        }
+
+        return [
+            'detector'   => 'polylang',
+            'primary'    => $primary,
+            'byLanguage' => $byLanguage,
+        ];
+    }
+
+    /**
+     * WPML branch — uses WP_Query with suppress_filters=false to count per language.
+     *
+     * @param array $wpmlLangs Result of `wpml_active_languages` filter.
+     * @return array
+     */
+    private function getLanguageStatsWpml($wpmlLangs) {
+        $primary = apply_filters('wpml_default_language', null);
+        $byLanguage = [];
+        $codes = [];
+
+        foreach ($wpmlLangs as $code => $info) {
+            $codes[] = $code;
+        }
+
+        foreach ($wpmlLangs as $code => $info) {
+            $lang = (string) $code;
+            do_action('wpml_switch_language', $lang);
+
+            $query = new WP_Query([
+                'post_type'      => 'post',
+                'post_status'    => 'publish',
+                'posts_per_page' => 1,
+                'fields'         => 'ids',
+                'suppress_filters' => false,
+            ]);
+
+            $byLanguage[$lang] = [
+                'posts'        => (int) $query->found_posts,
+                'translatedTo' => array_values(array_diff($codes, [$lang])),
+            ];
+        }
+
+        do_action('wpml_switch_language', $primary);
+
+        return [
+            'detector'   => 'wpml',
+            'primary'    => (string) ($primary ?: 'en'),
+            'byLanguage' => $byLanguage,
+        ];
+    }
+
+    /**
+     * Per-category published-post counts. When Polylang/WPML is active each
+     * category row carries its language code (a category can exist per language
+     * with the same slug, so the (slug, language) tuple is the natural key).
+     *
+     * @return array
+     */
+    public function getCategoryStats() {
+        $terms = get_terms([
+            'taxonomy'   => 'category',
+            'hide_empty' => false,
+        ]);
+
+        if (is_wp_error($terms) || empty($terms)) {
+            return [];
+        }
+
+        $hasPolylang = function_exists('pll_get_term_language');
+        $hasWpml = function_exists('icl_object_id');
+        $stats = [];
+
+        foreach ($terms as $term) {
+            $language = null;
+            if ($hasPolylang) {
+                $language = pll_get_term_language($term->term_id) ?: null;
+            } elseif ($hasWpml) {
+                $language = apply_filters('wpml_element_language_code', null, [
+                    'element_id'   => $term->term_id,
+                    'element_type' => 'category',
+                ]);
+            }
+
+            $stats[] = [
+                'slug'      => sanitize_title($term->slug),
+                'name'      => (string) $term->name,
+                'postCount' => (int) $term->count,
+                'language'  => $language ? (string) $language : null,
+            ];
+        }
+
+        return $stats;
     }
 
     /**
