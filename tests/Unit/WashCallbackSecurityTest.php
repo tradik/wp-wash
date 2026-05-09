@@ -288,6 +288,9 @@ class WashCallbackSecurityTest extends TestCase
             ];
         });
         Functions\when('rest_ensure_response')->alias(fn($data) => new \WP_REST_Response($data));
+        Functions\when('get_terms')->justReturn([]);
+        Functions\when('get_locale')->justReturn('en_US');
+        Functions\when('is_wp_error')->justReturn(false);
 
         // Mock $wpdb - the queries in getContentStats use hardcoded meta_key
         // (no user input), but let's verify the query structure
