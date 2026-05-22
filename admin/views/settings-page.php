@@ -648,7 +648,7 @@ function wash_render_permission_locked_banner() {
                                             <option value=""><?php esc_html_e('Default (primary domain)', 'wash'); ?></option>
                                             <!-- Options loaded via JavaScript from /api/shop-domains -->
                                         </select>
-                                        <p class="description"><?php esc_html_e('Custom domain for preview URLs (e.g., shopifydev.hilo.com)', 'wash'); ?></p>
+                                        <p class="description"><?php esc_html_e('Custom domain for preview URLs (e.g., shopifydev.domain.com)', 'wash'); ?></p>
                                     </td>
                                 </tr>
                                 <tr id="wash-market-locale-row">
