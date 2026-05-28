@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.24.0
+Stable tag: 1.24.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -46,6 +46,9 @@ Yes. The companion Shopify app (included in this monorepo) must be deployed and 
 Yes. Each site in the network maps to a separate Shopify blog.
 
 == Changelog ==
+
+= 1.24.1 =
+* Fixes the 1.24.0 release pipeline so the signed media endpoint actually reaches production — the queue worker image failed to publish in 1.24.0 (out-of-sync lockfile), so image syncs from sites behind HTTP Basic Auth kept failing with 401. No plugin behaviour change vs 1.24.0.
 
 = 1.20.9 =
 * Added Rule ID badge to each row in the Blog Mappings list (admin UI). Click the badge to copy the ID to clipboard. Makes it easier to identify which rule is which when troubleshooting overlapping rules or referencing them in support tickets.
