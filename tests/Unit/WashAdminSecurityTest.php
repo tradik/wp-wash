@@ -23,6 +23,9 @@ class WashAdminSecurityTest extends TestCase
         parent::setUp();
         Monkey\setUp();
 
+        Functions\when('wp_unslash')->returnArg(1);
+        Functions\when('sanitize_text_field')->returnArg(1);
+
         Functions\when('get_option')->alias(function ($key, $default = '') {
             return match ($key) {
                 'wash_api_key' => 'test-key',

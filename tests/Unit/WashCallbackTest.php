@@ -292,7 +292,6 @@ class WashCallbackTest extends TestCase
             };
         });
         Functions\when('get_permalink')->justReturn('https://example.com/de/art/mein-artikel');
-        Functions\when('wp_parse_url')->alias(fn($url, $comp) => parse_url($url, $comp));
 
         $redirectTo = null;
         Functions\when('update_post_meta')->alias(function ($postId, $key, $value) use (&$redirectTo) {
@@ -344,7 +343,6 @@ class WashCallbackTest extends TestCase
             };
         });
         Functions\when('get_permalink')->justReturn('https://example.com/uk/art/my-article');
-        Functions\when('wp_parse_url')->alias(fn($url, $comp) => parse_url($url, $comp));
 
         $redirectTo = null;
         Functions\when('update_post_meta')->alias(function ($postId, $key, $value) use (&$redirectTo) {

@@ -3,6 +3,10 @@
  * File synchronization handler.
  * Uploads WordPress media attachments (images, PDFs, documents) to Shopify and handles deletion.
  */
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct file access.
+}
+
 class WashImages {
 
     /** @var WashApiClient */

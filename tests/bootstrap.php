@@ -78,6 +78,13 @@ if (!function_exists('plugin_basename')) {
         return basename(dirname($file)) . '/' . basename($file);
     }
 }
+// wp_parse_url() is a thin wrapper over native parse_url(); the API client calls
+// it during construction (resolveAppUrl), before per-test Brain\Monkey stubs run.
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url($url, $component = -1) {
+        return parse_url($url, $component);
+    }
+}
 if (!class_exists('WP_Error')) {
     class WP_Error
     {
@@ -106,3 +113,6 @@ if (!class_exists('WP_Error')) {
 // Brain\Monkey (Patchwork) needs to define them itself for unit tests.
 // For integration tests (ContentSyncContractTest), they are stubbed
 // in the integration bootstrap which loads before Patchwork.
+// Note: sanitize_text_field() and wp_unslash() are stubbed per-test by
+// Brain\Monkey via the base TestCase setUp(); they cannot be defined here
+// because Patchwork must see them as redefinable userland functions.

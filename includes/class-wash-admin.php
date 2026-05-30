@@ -3,6 +3,10 @@
  * Admin settings page for Wash.
  * Provides UI for configuring Shopify App connection and sync preferences.
  */
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct file access.
+}
+
 class WashAdmin {
 
     /** @var WashApiClient */
@@ -25,6 +29,7 @@ class WashAdmin {
         add_action('wash_async_sync_post', [$this, 'asyncSyncPost']);
         add_action('wp_ajax_wash_test_connection', [$this, 'ajaxTestConnection']);
         add_action('wp_ajax_wash_disconnect', [$this, 'ajaxDisconnect']);
+        add_action('wp_ajax_wash_save_consent', [$this, 'ajaxSaveConsent']);
         add_action('wp_ajax_wash_debug_session', [$this, 'ajaxDebugSession']);
         add_action('wp_ajax_wash_reset_session', [$this, 'ajaxResetSession']);
         add_action('wp_ajax_wash_fix_session', [$this, 'ajaxFixSession']);
@@ -166,8 +171,10 @@ class WashAdmin {
      */
     public function preserveTabAfterSave($location) {
         if (strpos($location, 'options-general.php?page=wash') !== false) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- hooked to wp_redirect inside the Settings API redirect cycle, which has already verified the options.php nonce by the time this filter fires. The tab value is only used to add a query arg.
             if (isset($_POST['_wp_http_referer_tab']) && !empty($_POST['_wp_http_referer_tab'])) {
-                $tab = sanitize_key($_POST['_wp_http_referer_tab']);
+                // phpcs:ignore WordPress.Security.NonceVerification.Missing -- see above.
+                $tab = sanitize_key(wp_unslash($_POST['_wp_http_referer_tab']));
                 $location = add_query_arg('tab', $tab, $location);
             }
         }
@@ -179,8 +186,8 @@ class WashAdmin {
      */
     public function addMenuPage() {
         add_options_page(
-            __('Wash Settings', 'wash'),
-            __('Wash: Manager', 'wash'),
+            __('Wash Settings', 'wash-blog-manager'),
+            __('Wash: Manager', 'wash-blog-manager'),
             'manage_options',
             'wash',
             [$this, 'renderSettingsPage']
@@ -212,6 +219,7 @@ class WashAdmin {
             'wash_blocks_enabled',
             'wash_sync_blocks_meta',
             'wash_sync_blocks_css',
+            'wash_transform_rankmath_faq',
             'wash_redirections_enabled',
             'wash_auto_clear_errors',
             'wash_sync_inline',
@@ -301,7 +309,16 @@ class WashAdmin {
 
     /**
      * Handle callback from Shopify app with credentials.
+     *
+     * This is the post-OAuth handoff from the Shopify-hosted app to WordPress:
+     * the user clicks "Connect" inside the Shopify admin and the Shopify app
+     * server-side-redirects back to `wp-admin/options-general.php?page=wash&wash_callback=1&api_key=...&store=...`.
+     * The Shopify app never sees a WordPress nonce, so authentication relies on
+     * (1) the merchant being logged into wp-admin (current_user_can check) and
+     * (2) the api_key value itself, which only the Shopify-side issuer can
+     * generate. WordPress nonces are intentionally not applicable here.
      */
+    // phpcs:disable WordPress.Security.NonceVerification.Recommended -- see method docblock; this is a server-to-server credential handoff from the Shopify app, gated by capability + api_key, not by a WP nonce.
     public function handleCallback() {
         if (!isset($_GET['page']) || $_GET['page'] !== 'wash') {
             return;
@@ -315,13 +332,13 @@ class WashAdmin {
 
         // Receive credentials from Shopify app callback
         if (isset($_GET['api_key'])) {
-            $apiKey = sanitize_text_field($_GET['api_key']);
+            $apiKey = sanitize_text_field(wp_unslash($_GET['api_key']));
 
             if (!empty($apiKey)) {
                 update_option('wash_api_key', $apiKey);
 
                 if (isset($_GET['store'])) {
-                    update_option('wash_shopify_store', sanitize_text_field($_GET['store']));
+                    update_option('wash_shopify_store', sanitize_text_field(wp_unslash($_GET['store'])));
                 }
 
                 // Check if this is a reauth with backup available
@@ -338,11 +355,12 @@ class WashAdmin {
                 if ($isReauth) {
                     $redirectUrl = add_query_arg('restored', $hasBackup ? '1' : '0', $redirectUrl);
                 }
-                wp_redirect($redirectUrl);
+                wp_safe_redirect($redirectUrl);
                 exit;
             }
         }
     }
+    // phpcs:enable WordPress.Security.NonceVerification.Recommended
 
     /**
      * Restore plugin settings from Shopify App backup.
@@ -393,10 +411,10 @@ class WashAdmin {
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'nonce'   => wp_create_nonce('wash_sync_status'),
                 'i18n'    => [
-                    'synced'  => __('Synced to Shopify', 'wash'),
-                    'queued'  => __('Sync in progress...', 'wash'),
-                    'error'   => __('Sync failed', 'wash'),
-                    'success' => __('Post synced to Shopify successfully.', 'wash'),
+                    'synced'  => __('Synced to Shopify', 'wash-blog-manager'),
+                    'queued'  => __('Sync in progress...', 'wash-blog-manager'),
+                    'error'   => __('Sync failed', 'wash-blog-manager'),
+                    'success' => __('Post synced to Shopify successfully.', 'wash-blog-manager'),
                 ],
             ]);
             return;
@@ -422,114 +440,115 @@ class WashAdmin {
             'redirectionsNonce' => wp_create_nonce('wash_redirections'),
             'i18n'              => [
                 // Connection testing
-                'testing'               => __('Testing connection...', 'wash'),
-                'success'               => __('Connection successful!', 'wash'),
-                'error'                 => __('Connection failed: ', 'wash'),
-                'testConnection'        => __('Test Connection', 'wash'),
+                'testing'               => __('Testing connection...', 'wash-blog-manager'),
+                'success'               => __('Connection successful!', 'wash-blog-manager'),
+                'error'                 => __('Connection failed: ', 'wash-blog-manager'),
+                'testConnection'        => __('Test Connection', 'wash-blog-manager'),
                 // Disconnect
-                'confirmDisconnect'     => __('Are you sure you want to disconnect from Shopify?', 'wash'),
-                'failedDisconnect'      => __('Failed to disconnect. Please try again.', 'wash'),
+                'confirmDisconnect'     => __('Are you sure you want to disconnect from Shopify?', 'wash-blog-manager'),
+                'failedDisconnect'      => __('Failed to disconnect. Please try again.', 'wash-blog-manager'),
                 // Debug session
-                'debugSession'          => __('Debug Session', 'wash'),
-                'checking'              => __('Checking...', 'wash'),
-                'networkErrorDebug'     => __('Network error - could not reach debug endpoint', 'wash'),
+                'debugSession'          => __('Debug Session', 'wash-blog-manager'),
+                'checking'              => __('Checking...', 'wash-blog-manager'),
+                'networkErrorDebug'     => __('Network error - could not reach debug endpoint', 'wash-blog-manager'),
                 // Reset session
-                'resetSession'          => __('Reset Session', 'wash'),
-                'resetting'             => __('Resetting...', 'wash'),
-                'confirmReset'          => __('This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?', 'wash'),
-                'sessionResetSuccess'   => __('Session reset. Now open the app from Shopify Admin to re-authenticate.', 'wash'),
-                'failedResetSession'    => __('Failed to reset session: ', 'wash'),
-                'networkErrorReset'     => __('Network error - could not reach reset endpoint', 'wash'),
-                'networkErrorResetAlert' => __('Network error while resetting session', 'wash'),
+                'resetSession'          => __('Reset Session', 'wash-blog-manager'),
+                'resetting'             => __('Resetting...', 'wash-blog-manager'),
+                'confirmReset'          => __('This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?', 'wash-blog-manager'),
+                'sessionResetSuccess'   => __('Session reset. Now open the app from Shopify Admin to re-authenticate.', 'wash-blog-manager'),
+                'failedResetSession'    => __('Failed to reset session: ', 'wash-blog-manager'),
+                'networkErrorReset'     => __('Network error - could not reach reset endpoint', 'wash-blog-manager'),
+                'networkErrorResetAlert' => __('Network error while resetting session', 'wash-blog-manager'),
                 // Redirections
-                'loading'               => __('Loading...', 'wash'),
-                'syncing'               => __('Syncing redirections...', 'wash'),
-                'generating'            => __('Generating redirections...', 'wash'),
-                'fetchingWp'            => __('Fetching WordPress redirections...', 'wash'),
-                'syncSuccess'           => __('Redirections synced successfully!', 'wash'),
-                'syncError'             => __('Failed to sync redirections: ', 'wash'),
-                'failedLoadStats'       => __('Failed to load stats', 'wash'),
-                'noRedirectionsFound'   => __('No redirections found in WordPress plugins (Redirection, RankMath, Yoast).', 'wash'),
-                'importedFromWp'        => __('# Imported from WordPress plugins', 'wash'),
-                'failedFetchRedirections' => __('Failed to fetch redirections: ', 'wash'),
-                'networkErrorFetch'     => __('Network error while fetching WordPress redirections', 'wash'),
-                'syncFromOldWebsite'    => __('Sync from Old Website', 'wash'),
-                'noSyncedPosts'         => __('No synced posts found. Sync some posts first to generate redirections.', 'wash'),
-                'generatedFromSynced'   => __('# Generated from synced posts', 'wash'),
-                'failedGenerateRedirections' => __('Failed to generate redirections: ', 'wash'),
-                'networkErrorGenerate'  => __('Network error while generating redirections', 'wash'),
-                'generateFromSynced'    => __('Generate from Synced Posts', 'wash'),
-                'failedLoadShopify'     => __('Failed to load Shopify redirections: ', 'wash'),
-                'loadFromShopify'       => __('Load from Shopify', 'wash'),
-                'noRedirectionsShopify' => __('No redirections found in Shopify.', 'wash'),
-                'existingShopifyRedirects' => __('# Existing Shopify redirections', 'wash'),
-                'networkErrorLoadShopify' => __('Network error while loading Shopify redirections', 'wash'),
+                'loading'               => __('Loading...', 'wash-blog-manager'),
+                'syncing'               => __('Syncing redirections...', 'wash-blog-manager'),
+                'generating'            => __('Generating redirections...', 'wash-blog-manager'),
+                'fetchingWp'            => __('Fetching WordPress redirections...', 'wash-blog-manager'),
+                'syncSuccess'           => __('Redirections synced successfully!', 'wash-blog-manager'),
+                'syncError'             => __('Failed to sync redirections: ', 'wash-blog-manager'),
+                'failedLoadStats'       => __('Failed to load stats', 'wash-blog-manager'),
+                'noRedirectionsFound'   => __('No redirections found in WordPress plugins (Redirection, RankMath, Yoast).', 'wash-blog-manager'),
+                'importedFromWp'        => __('# Imported from WordPress plugins', 'wash-blog-manager'),
+                'failedFetchRedirections' => __('Failed to fetch redirections: ', 'wash-blog-manager'),
+                'networkErrorFetch'     => __('Network error while fetching WordPress redirections', 'wash-blog-manager'),
+                'syncFromOldWebsite'    => __('Sync from Old Website', 'wash-blog-manager'),
+                'noSyncedPosts'         => __('No synced posts found. Sync some posts first to generate redirections.', 'wash-blog-manager'),
+                'generatedFromSynced'   => __('# Generated from synced posts', 'wash-blog-manager'),
+                'failedGenerateRedirections' => __('Failed to generate redirections: ', 'wash-blog-manager'),
+                'networkErrorGenerate'  => __('Network error while generating redirections', 'wash-blog-manager'),
+                'generateFromSynced'    => __('Generate from Synced Posts', 'wash-blog-manager'),
+                'failedLoadShopify'     => __('Failed to load Shopify redirections: ', 'wash-blog-manager'),
+                'loadFromShopify'       => __('Load from Shopify', 'wash-blog-manager'),
+                'noRedirectionsShopify' => __('No redirections found in Shopify.', 'wash-blog-manager'),
+                'existingShopifyRedirects' => __('# Existing Shopify redirections', 'wash-blog-manager'),
+                'networkErrorLoadShopify' => __('Network error while loading Shopify redirections', 'wash-blog-manager'),
                 // Fix session
-                'fixing'                => __('Fixing...', 'wash'),
-                'sessionFixed'          => __('Session fixed!', 'wash'),
-                'noSessionsNeedFix'     => __('No sessions needed fixing.', 'wash'),
-                'networkErrorFix'       => __('Network error while fixing session', 'wash'),
-                'fixSessionScopes'      => __('Fix Session Scopes', 'wash'),
-                'failedFixSession'      => __('Failed to fix session: ', 'wash'),
+                'fixing'                => __('Fixing...', 'wash-blog-manager'),
+                'sessionFixed'          => __('Session fixed!', 'wash-blog-manager'),
+                'noSessionsNeedFix'     => __('No sessions needed fixing.', 'wash-blog-manager'),
+                'networkErrorFix'       => __('Network error while fixing session', 'wash-blog-manager'),
+                'fixSessionScopes'      => __('Fix Session Scopes', 'wash-blog-manager'),
+                'failedFixSession'      => __('Failed to fix session: ', 'wash-blog-manager'),
                 // Sync redirections
-                'pleaseEnterRedirections' => __('Please enter redirections to sync.', 'wash'),
-                'networkErrorSync'      => __('Network error while syncing redirections', 'wash'),
-                'unknownError'          => __('Unknown error', 'wash'),
-                'networkError'          => __('Network error', 'wash'),
+                'pleaseEnterRedirections' => __('Please enter redirections to sync.', 'wash-blog-manager'),
+                'networkErrorSync'      => __('Network error while syncing redirections', 'wash-blog-manager'),
+                'unknownError'          => __('Unknown error', 'wash-blog-manager'),
+                'networkError'          => __('Network error', 'wash-blog-manager'),
                 // Results labels
-                'created'               => __('Created', 'wash'),
-                'skippedExist'          => __('Skipped (already exist)', 'wash'),
-                'failed'                => __('Failed', 'wash'),
-                'totalInShopify'        => __('Total in Shopify', 'wash'),
-                'remaining'             => __('Remaining', 'wash'),
-                'errors'                => __('Errors', 'wash'),
-                'andMore'               => __('... and %d more', 'wash'),
-                'tryAgain'              => __('Try loading redirections again.', 'wash'),
+                'created'               => __('Created', 'wash-blog-manager'),
+                'skippedExist'          => __('Skipped (already exist)', 'wash-blog-manager'),
+                'failed'                => __('Failed', 'wash-blog-manager'),
+                'totalInShopify'        => __('Total in Shopify', 'wash-blog-manager'),
+                'remaining'             => __('Remaining', 'wash-blog-manager'),
+                'errors'                => __('Errors', 'wash-blog-manager'),
+                // translators: %d is the number of additional items not shown.
+                'andMore'               => __('... and %d more', 'wash-blog-manager'),
+                'tryAgain'              => __('Try loading redirections again.', 'wash-blog-manager'),
                 // Mappings (inline JS in settings-page.php)
-                'failedLoadMappings'    => __('Failed to load mappings', 'wash'),
-                'edit'                  => __('Edit', 'wash'),
-                'delete'                => __('Delete', 'wash'),
+                'failedLoadMappings'    => __('Failed to load mappings', 'wash-blog-manager'),
+                'edit'                  => __('Edit', 'wash-blog-manager'),
+                'delete'                => __('Delete', 'wash-blog-manager'),
                 // Read-only mode
-                'readOnlyMode'          => __('You do not have permission to modify Wash settings. Contact your administrator for access.', 'wash'),
+                'readOnlyMode'          => __('You do not have permission to modify Wash settings. Contact your administrator for access.', 'wash-blog-manager'),
                 // Unlock/Lock redirections
-                'unlock'                => __('Unlock', 'wash'),
-                'lock'                  => __('Lock', 'wash'),
-                'unlockToSync'          => __('Unlock to enable sync', 'wash'),
-                'unlockWarningTitle'    => __('⚠️ Warning: Editing Redirections', 'wash'),
-                'unlockWarning1'        => __('Changes to redirections directly affect your Shopify store.', 'wash'),
-                'unlockWarning2'        => __('Incorrect redirections can break links and harm SEO.', 'wash'),
-                'unlockWarning3'        => __('Make sure you know what you are doing.', 'wash'),
-                'unlockConfirm'         => __('Do you want to unlock editing?', 'wash'),
+                'unlock'                => __('Unlock', 'wash-blog-manager'),
+                'lock'                  => __('Lock', 'wash-blog-manager'),
+                'unlockToSync'          => __('Unlock to enable sync', 'wash-blog-manager'),
+                'unlockWarningTitle'    => __('⚠️ Warning: Editing Redirections', 'wash-blog-manager'),
+                'unlockWarning1'        => __('Changes to redirections directly affect your Shopify store.', 'wash-blog-manager'),
+                'unlockWarning2'        => __('Incorrect redirections can break links and harm SEO.', 'wash-blog-manager'),
+                'unlockWarning3'        => __('Make sure you know what you are doing.', 'wash-blog-manager'),
+                'unlockConfirm'         => __('Do you want to unlock editing?', 'wash-blog-manager'),
                 // Verify redirections
-                'verifyLineError'       => __('Line', 'wash'),
-                'verifyInvalidFormat'   => __('Invalid format - missing separator (→, ->, =>)', 'wash'),
-                'verifyFromSlash'       => __('Source path should start with /', 'wash'),
-                'verifyToSlash'         => __('Target path should start with / or http', 'wash'),
-                'verifyDuplicate'       => __('Duplicate source path', 'wash'),
-                'verifyFirstAt'         => __('first at line', 'wash'),
-                'verifyLoop'            => __('Redirect loop - source equals target', 'wash'),
-                'verifySuccess'         => __('Syntax valid!', 'wash'),
-                'verifyRedirects'       => __('redirections', 'wash'),
-                'verifyComments'        => __('comments', 'wash'),
-                'verifyValidLines'      => __('valid', 'wash'),
-                'verifyErrors'          => __('Errors', 'wash'),
-                'verifyWarnings'        => __('Warnings', 'wash'),
-                'saved'                 => __('Saved', 'wash'),
+                'verifyLineError'       => __('Line', 'wash-blog-manager'),
+                'verifyInvalidFormat'   => __('Invalid format - missing separator (→, ->, =>)', 'wash-blog-manager'),
+                'verifyFromSlash'       => __('Source path should start with /', 'wash-blog-manager'),
+                'verifyToSlash'         => __('Target path should start with / or http', 'wash-blog-manager'),
+                'verifyDuplicate'       => __('Duplicate source path', 'wash-blog-manager'),
+                'verifyFirstAt'         => __('first at line', 'wash-blog-manager'),
+                'verifyLoop'            => __('Redirect loop - source equals target', 'wash-blog-manager'),
+                'verifySuccess'         => __('Syntax valid!', 'wash-blog-manager'),
+                'verifyRedirects'       => __('redirections', 'wash-blog-manager'),
+                'verifyComments'        => __('comments', 'wash-blog-manager'),
+                'verifyValidLines'      => __('valid', 'wash-blog-manager'),
+                'verifyErrors'          => __('Errors', 'wash-blog-manager'),
+                'verifyWarnings'        => __('Warnings', 'wash-blog-manager'),
+                'saved'                 => __('Saved', 'wash-blog-manager'),
                 // Sync from Shopify
-                'syncFromShopify'       => __('Sync from Shopify', 'wash'),
-                'syncingFromShopify'    => __('Syncing...', 'wash'),
-                'confirmSyncFromShopify' => __('This will overwrite your local settings with settings from Shopify App. Continue?', 'wash'),
-                'syncFromShopifySuccess' => __('Settings synced from Shopify App successfully.', 'wash'),
-                'failedSyncFromShopify' => __('Failed to sync settings: ', 'wash'),
+                'syncFromShopify'       => __('Sync from Shopify', 'wash-blog-manager'),
+                'syncingFromShopify'    => __('Syncing...', 'wash-blog-manager'),
+                'confirmSyncFromShopify' => __('This will overwrite your local settings with settings from Shopify App. Continue?', 'wash-blog-manager'),
+                'syncFromShopifySuccess' => __('Settings synced from Shopify App successfully.', 'wash-blog-manager'),
+                'failedSyncFromShopify' => __('Failed to sync settings: ', 'wash-blog-manager'),
                 // Search & Replace
-                'srSaving'              => __('Saving...', 'wash'),
-                'srSaved'               => __('Rules saved.', 'wash'),
-                'srSaveFailed'          => __('Failed to save rules: ', 'wash'),
-                'srNoRules'             => __('No rules defined yet. Click "Add Rule" to create one.', 'wash'),
-                'srRemoveConfirm'       => __('Remove this rule?', 'wash'),
-                'srDrag'                => __('Drag to reorder', 'wash'),
-                'srOverlapDuplicate'    => __('Duplicate rule', 'wash'),
-                'srOverlapContains'     => __('Overlapping rule', 'wash'),
+                'srSaving'              => __('Saving...', 'wash-blog-manager'),
+                'srSaved'               => __('Rules saved.', 'wash-blog-manager'),
+                'srSaveFailed'          => __('Failed to save rules: ', 'wash-blog-manager'),
+                'srNoRules'             => __('No rules defined yet. Click "Add Rule" to create one.', 'wash-blog-manager'),
+                'srRemoveConfirm'       => __('Remove this rule?', 'wash-blog-manager'),
+                'srDrag'                => __('Drag to reorder', 'wash-blog-manager'),
+                'srOverlapDuplicate'    => __('Duplicate rule', 'wash-blog-manager'),
+                'srOverlapContains'     => __('Overlapping rule', 'wash-blog-manager'),
             ],
         ]);
 
@@ -561,7 +580,7 @@ class WashAdmin {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->testConnection();
@@ -580,12 +599,35 @@ class WashAdmin {
         check_ajax_referer('wash_disconnect', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         delete_option('wash_api_key');
 
         wp_send_json_success();
+    }
+
+    /**
+     * AJAX handler for recording the merchant's explicit consent to send
+     * WordPress content to the Tradik Wash service (wp.org Plugin Directory
+     * guideline #10 — "Plugins may not gather data about a user without
+     * explicit confirmation"). Persists a `wash_consent_accepted` flag plus
+     * the timestamp so the audit trail survives a re-install. The Settings
+     * page disables the "Connect to Shopify" button until this is `1`.
+     */
+    public function ajaxSaveConsent() {
+        check_ajax_referer('wash_consent', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
+        }
+
+        update_option('wash_consent_accepted', '1');
+        update_option('wash_consent_accepted_at', time());
+
+        wp_send_json_success([
+            'accepted_at' => (int) get_option('wash_consent_accepted_at', 0),
+        ]);
     }
 
     /**
@@ -595,7 +637,7 @@ class WashAdmin {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->debugSession();
@@ -614,7 +656,7 @@ class WashAdmin {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->resetSession();
@@ -634,7 +676,7 @@ class WashAdmin {
         check_ajax_referer('wash_redirections', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->fixSession();
@@ -654,7 +696,7 @@ class WashAdmin {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $metafields = new WashMetafields();
@@ -690,15 +732,18 @@ class WashAdmin {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON payload; structure validated by json_decode, scalar values normalised by map_deep(sanitize_text_field) below. AJAX is gated by check_ajax_referer + current_user_can('manage_options').
         $raw = wp_unslash($_POST['config'] ?? '');
         $config = json_decode($raw, true);
 
         if (!is_array($config)) {
-            wp_send_json_error(__('Invalid field config', 'wash'));
+            wp_send_json_error(__('Invalid field config', 'wash-blog-manager'));
         }
+
+        $config = map_deep($config, 'sanitize_text_field');
 
         $metafields = new WashMetafields();
         $metafields->saveFieldConfig($config);
@@ -717,7 +762,7 @@ class WashAdmin {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         // Default settings as documented in configuration.md
@@ -740,6 +785,7 @@ class WashAdmin {
             'wash_blocks_enabled'    => '1',       // Enabled
             'wash_sync_blocks_meta'  => '1',       // Enabled
             'wash_sync_blocks_css'   => '0',       // Disabled
+            'wash_transform_rankmath_faq' => '1',  // Enabled
 
             // Advanced Features
             'wash_hreflangs_enabled'     => '0',   // Disabled
@@ -762,7 +808,7 @@ class WashAdmin {
         $this->runScheduledSettingsBackup();
 
         wp_send_json_success([
-            'message' => __('All settings have been reset to defaults.', 'wash'),
+            'message' => __('All settings have been reset to defaults.', 'wash-blog-manager'),
         ]);
     }
 
@@ -774,7 +820,7 @@ class WashAdmin {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $response = $this->apiClient->getBackedUpSettings();
@@ -784,13 +830,13 @@ class WashAdmin {
         }
 
         if (empty($response['success']) || empty($response['settings'])) {
-            wp_send_json_error(__('No settings found in Shopify App. Save settings in Shopify first.', 'wash'));
+            wp_send_json_error(__('No settings found in Shopify App. Save settings in Shopify first.', 'wash-blog-manager'));
         }
 
         $this->apiClient->restoreSettings($response['settings']);
 
         wp_send_json_success([
-            'message' => __('Settings synced from Shopify App successfully.', 'wash'),
+            'message' => __('Settings synced from Shopify App successfully.', 'wash-blog-manager'),
         ]);
     }
 
@@ -801,7 +847,7 @@ class WashAdmin {
         check_ajax_referer('wash_mappings', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->get('/api/blog-mappings');
@@ -820,7 +866,7 @@ class WashAdmin {
         check_ajax_referer('wash_mappings', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->get('/api/shopify-blogs');
@@ -839,7 +885,7 @@ class WashAdmin {
         check_ajax_referer('wash_mappings', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->get('/api/shopify-markets');
@@ -859,7 +905,7 @@ class WashAdmin {
         check_ajax_referer('wash_mappings', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->get('/api/shop-locales');
@@ -878,7 +924,7 @@ class WashAdmin {
         check_ajax_referer('wash_mappings', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->get('/api/shop-domains');
@@ -897,19 +943,19 @@ class WashAdmin {
         check_ajax_referer('wash_mappings', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $data = [
-            'destination'    => sanitize_text_field($_POST['destination'] ?? 'article'),
-            'wpPostTypes'    => sanitize_text_field($_POST['wpPostTypes'] ?? 'post'),
-            'ruleType'       => sanitize_text_field($_POST['ruleType'] ?? 'default'),
-            'ruleValue'      => sanitize_text_field($_POST['ruleValue'] ?? ''),
-            'shopifyBlogId'  => sanitize_text_field($_POST['shopifyBlogId'] ?? ''),
-            'newBlogName'    => sanitize_text_field($_POST['newBlogName'] ?? ''),
+            'destination'    => sanitize_text_field(wp_unslash($_POST['destination'] ?? 'article')),
+            'wpPostTypes'    => sanitize_text_field(wp_unslash($_POST['wpPostTypes'] ?? 'post')),
+            'ruleType'       => sanitize_text_field(wp_unslash($_POST['ruleType'] ?? 'default')),
+            'ruleValue'      => sanitize_text_field(wp_unslash($_POST['ruleValue'] ?? '')),
+            'shopifyBlogId'  => sanitize_text_field(wp_unslash($_POST['shopifyBlogId'] ?? '')),
+            'newBlogName'    => sanitize_text_field(wp_unslash($_POST['newBlogName'] ?? '')),
             'priority'       => absint($_POST['priority'] ?? 0),
-            'marketId'       => sanitize_text_field($_POST['marketId'] ?? ''),
-            'shopifyLocale'  => sanitize_text_field($_POST['shopifyLocale'] ?? ''),
+            'marketId'       => sanitize_text_field(wp_unslash($_POST['marketId'] ?? '')),
+            'shopifyLocale'  => sanitize_text_field(wp_unslash($_POST['shopifyLocale'] ?? '')),
         ];
 
         $result = $this->apiClient->post('/api/blog-mappings', $data);
@@ -931,23 +977,23 @@ class WashAdmin {
         check_ajax_referer('wash_mappings', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $mappingId = sanitize_text_field($_POST['mappingId'] ?? '');
+        $mappingId = sanitize_text_field(wp_unslash($_POST['mappingId'] ?? ''));
         if (empty($mappingId)) {
-            wp_send_json_error(__('Mapping ID is required', 'wash'));
+            wp_send_json_error(__('Mapping ID is required', 'wash-blog-manager'));
         }
 
         $data = [
-            'destination'    => sanitize_text_field($_POST['destination'] ?? 'article'),
-            'wpPostTypes'    => sanitize_text_field($_POST['wpPostTypes'] ?? 'post'),
-            'ruleType'       => sanitize_text_field($_POST['ruleType'] ?? 'default'),
-            'ruleValue'      => sanitize_text_field($_POST['ruleValue'] ?? ''),
-            'shopifyBlogId'  => sanitize_text_field($_POST['shopifyBlogId'] ?? ''),
+            'destination'    => sanitize_text_field(wp_unslash($_POST['destination'] ?? 'article')),
+            'wpPostTypes'    => sanitize_text_field(wp_unslash($_POST['wpPostTypes'] ?? 'post')),
+            'ruleType'       => sanitize_text_field(wp_unslash($_POST['ruleType'] ?? 'default')),
+            'ruleValue'      => sanitize_text_field(wp_unslash($_POST['ruleValue'] ?? '')),
+            'shopifyBlogId'  => sanitize_text_field(wp_unslash($_POST['shopifyBlogId'] ?? '')),
             'priority'       => absint($_POST['priority'] ?? 0),
-            'marketId'       => sanitize_text_field($_POST['marketId'] ?? ''),
-            'shopifyLocale'  => sanitize_text_field($_POST['shopifyLocale'] ?? ''),
+            'marketId'       => sanitize_text_field(wp_unslash($_POST['marketId'] ?? '')),
+            'shopifyLocale'  => sanitize_text_field(wp_unslash($_POST['shopifyLocale'] ?? '')),
         ];
 
         $result = $this->apiClient->post('/api/blog-mappings/' . $mappingId, $data);
@@ -966,12 +1012,12 @@ class WashAdmin {
         check_ajax_referer('wash_mappings', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $mappingId = sanitize_text_field($_POST['mappingId'] ?? '');
+        $mappingId = sanitize_text_field(wp_unslash($_POST['mappingId'] ?? ''));
         if (empty($mappingId)) {
-            wp_send_json_error(__('Mapping ID is required', 'wash'));
+            wp_send_json_error(__('Mapping ID is required', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->delete('/api/blog-mappings/' . $mappingId);
@@ -990,12 +1036,13 @@ class WashAdmin {
         check_ajax_referer('wash_mappings', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $updates = json_decode(stripslashes($_POST['updates'] ?? '[]'), true);
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON payload; the foreach below sanitizes each `id` (sanitize_text_field) and casts `priority` to int. AJAX is gated by check_ajax_referer + current_user_can('manage_options').
+        $updates = json_decode(wp_unslash($_POST['updates'] ?? '[]'), true);
         if (!is_array($updates)) {
-            wp_send_json_error(__('Invalid data', 'wash'));
+            wp_send_json_error(__('Invalid data', 'wash-blog-manager'));
         }
 
         $errors = [];
@@ -1029,7 +1076,7 @@ class WashAdmin {
         check_ajax_referer('wash_redirections', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->get('/api/redirections');
@@ -1040,7 +1087,7 @@ class WashAdmin {
             $errorMsg = $result->get_error_message();
 
             if (!is_wp_error($diagnosis) && isset($diagnosis['fix'])) {
-                $errorMsg .= "\n\n" . __('How to fix:', 'wash') . " " . $diagnosis['fix'];
+                $errorMsg .= "\n\n" . __('How to fix:', 'wash-blog-manager') . " " . $diagnosis['fix'];
             }
 
             wp_send_json_error($errorMsg);
@@ -1059,7 +1106,7 @@ class WashAdmin {
         check_ajax_referer('wash_redirections', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $redirections = [];
@@ -1070,6 +1117,7 @@ class WashAdmin {
             'post_type'      => $allowedTypes,
             'post_status'    => 'publish',
             'posts_per_page' => -1,
+            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- required to enumerate already-synced posts (those carrying _wash_article_id meta) for a reconciliation pass; alternative would be denormalising into a custom table just for this admin-only batch operation.
             'meta_query'     => [
                 [
                     'key'     => '_wash_article_id',
@@ -1114,19 +1162,19 @@ class WashAdmin {
         check_ajax_referer('wash_redirections', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $redirectionsRaw = isset($_POST['redirections']) ? sanitize_textarea_field(wp_unslash($_POST['redirections'])) : '';
 
         if (empty($redirectionsRaw)) {
-            wp_send_json_error(__('No redirections provided.', 'wash'));
+            wp_send_json_error(__('No redirections provided.', 'wash-blog-manager'));
         }
 
         $redirections = $this->parseRedirections($redirectionsRaw);
 
         if (empty($redirections)) {
-            wp_send_json_error(__('No valid redirections found. Format: /old-path -> /new-path', 'wash'));
+            wp_send_json_error(__('No valid redirections found. Format: /old-path -> /new-path', 'wash-blog-manager'));
         }
 
         $result = $this->apiClient->post('/api/redirections', [
@@ -1139,7 +1187,7 @@ class WashAdmin {
             $errorMsg = $result->get_error_message();
 
             if (!is_wp_error($diagnosis) && isset($diagnosis['fix'])) {
-                $errorMsg .= "\n\n" . __('How to fix:', 'wash') . " " . $diagnosis['fix'];
+                $errorMsg .= "\n\n" . __('How to fix:', 'wash-blog-manager') . " " . $diagnosis['fix'];
             }
 
             wp_send_json_error($errorMsg);
@@ -1162,7 +1210,7 @@ class WashAdmin {
         check_ajax_referer('wash_redirections', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $redirections = [];
@@ -1182,9 +1230,11 @@ class WashAdmin {
 
         global $wpdb;
         $rankMathTable = $wpdb->prefix . 'rank_math_redirections';
-        if ($wpdb->get_var("SHOW TABLES LIKE '$rankMathTable'") === $rankMathTable) {
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- 3rd-party (RankMath) table with no WP-API equivalent; admin-only batch read for redirect export.
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($rankMathTable))) === $rankMathTable) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- 3rd-party (RankMath) table; admin-only read. %i (identifier placeholder, WP 6.2+) keeps the table name properly escaped without string interpolation.
             $rankMathRedirects = $wpdb->get_results(
-                "SELECT sources, url_to FROM $rankMathTable WHERE status = 'active'",
+                $wpdb->prepare('SELECT sources, url_to FROM %i WHERE status = %s', $rankMathTable, 'active'),
                 ARRAY_A
             );
             foreach ($rankMathRedirects as $redirect) {
@@ -1225,14 +1275,14 @@ class WashAdmin {
         check_ajax_referer('wash_redirections', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $enabled = isset($_POST['enabled']) && $_POST['enabled'] === '1' ? '1' : '0';
         update_option('wash_redirections_enabled', $enabled);
 
         wp_send_json_success([
-            'message' => __('Settings saved', 'wash'),
+            'message' => __('Settings saved', 'wash-blog-manager'),
             'enabled' => $enabled,
         ]);
     }
@@ -1244,7 +1294,7 @@ class WashAdmin {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $rules = get_option('wash_search_replace_rules', []);
@@ -1262,13 +1312,14 @@ class WashAdmin {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $rawRules = isset($_POST['rules']) ? $_POST['rules'] : [];
-        if (!is_array($rawRules)) {
-            $rawRules = [];
-        }
+        // phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- array payload; the foreach below applies wp_kses_post() to search/replace strings and whitelist-validates `type`. AJAX is gated by check_ajax_referer + current_user_can('manage_options').
+        $rawRules = isset($_POST['rules']) && is_array($_POST['rules'])
+            ? wp_unslash($_POST['rules'])
+            : [];
+        // phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
         $validTypes = ['string', 'url', 'shortcode', 'block'];
         $sanitized = [];
@@ -1291,7 +1342,7 @@ class WashAdmin {
         update_option('wash_search_replace_rules', $sanitized);
 
         wp_send_json_success([
-            'message' => __('Rules saved', 'wash'),
+            'message' => __('Rules saved', 'wash-blog-manager'),
             'rules'   => $sanitized,
         ]);
     }
@@ -1304,7 +1355,7 @@ class WashAdmin {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $cached = get_transient('wash_content_links');
@@ -1457,7 +1508,7 @@ class WashAdmin {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $cached = get_transient('wash_shopify_links');
@@ -1518,6 +1569,7 @@ class WashAdmin {
             'post_type'      => 'any',
             'post_status'    => 'publish',
             'posts_per_page' => -1,
+            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- admin-only enumeration of synced posts (carrying _wash_article_id) to build a redirect map; meta_query is the right primitive here.
             'meta_query'     => [['key' => '_wash_article_id', 'compare' => 'EXISTS']],
             'fields'         => 'ids',
         ]);
@@ -1539,6 +1591,7 @@ class WashAdmin {
             'post_type'      => 'page',
             'post_status'    => 'publish',
             'posts_per_page' => -1,
+            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- see above; same pattern for synced pages.
             'meta_query'     => [['key' => '_wash_article_id', 'compare' => 'EXISTS']],
             'fields'         => 'ids',
         ]);
@@ -1628,7 +1681,7 @@ class WashAdmin {
         <div class="misc-pub-section wash-shopify-link">
             <span class="dashicons dashicons-store" style="color: #96bf48;"></span>
             <a href="<?php echo esc_url($shopifyUrl); ?>" target="_blank" rel="noopener noreferrer" style="color: #5c6ac4; text-decoration: none;">
-                <?php esc_html_e('View on Shopify', 'wash'); ?>
+                <?php esc_html_e('View on Shopify', 'wash-blog-manager'); ?>
                 <span class="dashicons dashicons-external" style="font-size: 14px; vertical-align: text-bottom;"></span>
             </a>
         </div>
@@ -1698,55 +1751,55 @@ class WashAdmin {
      * @return string JavaScript code.
      */
     private function getBlockEditorShopifyLinkScript($shopifyUrl) {
-        $label = esc_js(__('View on Shopify', 'wash'));
+        $label = esc_js(__('View on Shopify', 'wash-blog-manager'));
         $escapedUrl = esc_js($shopifyUrl);
 
-        return <<<JS
-(function() {
-    if (typeof wp === 'undefined' || !wp.plugins || !wp.editPost || !wp.element) {
-        return;
-    }
+        $template = "(function() {\n"
+            . "    if (typeof wp === 'undefined' || !wp.plugins || !wp.editPost || !wp.element) {\n"
+            . "        return;\n"
+            . "    }\n"
+            . "\n"
+            . "    var registerPlugin = wp.plugins.registerPlugin;\n"
+            . "    var PluginPostStatusInfo = wp.editPost.PluginPostStatusInfo;\n"
+            . "    var createElement = wp.element.createElement;\n"
+            . "    var Fragment = wp.element.Fragment;\n"
+            . "\n"
+            . "    registerPlugin('wash-shopify-link', {\n"
+            . "        render: function() {\n"
+            . "            return createElement(\n"
+            . "                PluginPostStatusInfo,\n"
+            . "                { className: 'wash-shopify-link-panel' },\n"
+            . "                createElement(\n"
+            . "                    'a',\n"
+            . "                    {\n"
+            . "                        href: '%1\$s',\n"
+            . "                        target: '_blank',\n"
+            . "                        rel: 'noopener noreferrer',\n"
+            . "                        style: {\n"
+            . "                            display: 'flex',\n"
+            . "                            alignItems: 'center',\n"
+            . "                            gap: '6px',\n"
+            . "                            color: '#5c6ac4',\n"
+            . "                            textDecoration: 'none',\n"
+            . "                            padding: '8px 0'\n"
+            . "                        }\n"
+            . "                    },\n"
+            . "                    createElement('span', {\n"
+            . "                        className: 'dashicons dashicons-store',\n"
+            . "                        style: { color: '#96bf48' }\n"
+            . "                    }),\n"
+            . "                    '%2\$s',\n"
+            . "                    createElement('span', {\n"
+            . "                        className: 'dashicons dashicons-external',\n"
+            . "                        style: { fontSize: '14px' }\n"
+            . "                    })\n"
+            . "                )\n"
+            . "            );\n"
+            . "        }\n"
+            . "    });\n"
+            . "})();\n";
 
-    var registerPlugin = wp.plugins.registerPlugin;
-    var PluginPostStatusInfo = wp.editPost.PluginPostStatusInfo;
-    var createElement = wp.element.createElement;
-    var Fragment = wp.element.Fragment;
-
-    registerPlugin('wash-shopify-link', {
-        render: function() {
-            return createElement(
-                PluginPostStatusInfo,
-                { className: 'wash-shopify-link-panel' },
-                createElement(
-                    'a',
-                    {
-                        href: '{$escapedUrl}',
-                        target: '_blank',
-                        rel: 'noopener noreferrer',
-                        style: {
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            color: '#5c6ac4',
-                            textDecoration: 'none',
-                            padding: '8px 0'
-                        }
-                    },
-                    createElement('span', {
-                        className: 'dashicons dashicons-store',
-                        style: { color: '#96bf48' }
-                    }),
-                    '{$label}',
-                    createElement('span', {
-                        className: 'dashicons dashicons-external',
-                        style: { fontSize: '14px' }
-                    })
-                )
-            );
-        }
-    });
-})();
-JS;
+        return sprintf($template, $escapedUrl, $label);
     }
 
     /**
@@ -1775,7 +1828,7 @@ JS;
         foreach ($columns as $key => $value) {
             $newColumns[$key] = $value;
             if ($key === 'title') {
-                $newColumns['wash_sync'] = '<span class="dashicons dashicons-store" title="' . esc_attr__('Shopify Sync', 'wash') . '" style="color: #96bf48;"></span>';
+                $newColumns['wash_sync'] = '<span class="dashicons dashicons-store" title="' . esc_attr__('Shopify Sync', 'wash-blog-manager') . '" style="color: #96bf48;"></span>';
             }
         }
         return $newColumns;
@@ -1801,16 +1854,18 @@ JS;
         if (!empty($shopifyArticleId)) {
             $shopifyUrl = $this->getShopifyArticleUrl($postId);
             $title = sprintf(
-                __('Synced to Shopify on %s', 'wash'),
-                $syncedAt ? date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($syncedAt)) : __('unknown date', 'wash')
+                // translators: %s is the formatted date/time the post was synced to Shopify.
+                __('Synced to Shopify on %s', 'wash-blog-manager'),
+                $syncedAt ? date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($syncedAt)) : __('unknown date', 'wash-blog-manager')
             );
             echo '<a href="' . esc_url($shopifyUrl) . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr($title) . '">';
             echo '<span class="dashicons dashicons-yes-alt" style="color: #46b450;"></span>';
             echo '</a>';
         } elseif ($syncStatus === 'queued') {
             $title = sprintf(
-                __('Sync queued on %s - processing...', 'wash'),
-                $queuedAt ? date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($queuedAt)) : __('just now', 'wash')
+                // translators: %s is the formatted date/time the sync was queued.
+                __('Sync queued on %s - processing...', 'wash-blog-manager'),
+                $queuedAt ? date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($queuedAt)) : __('just now', 'wash-blog-manager')
             );
             echo '<span class="dashicons dashicons-update wash-syncing" style="color: #f0b849;" title="' . esc_attr($title) . '" data-post-id="' . esc_attr($postId) . '"></span>';
         } else {
@@ -1821,17 +1876,19 @@ JS;
             if ($isPublished && !empty($syncError) && strpos($syncError, 'PENDING_SOURCE') !== false) {
                 $masterPostId = preg_match('/WP post #(\d+)/', $syncError, $m) ? (int) $m[1] : 0;
                 $title = $masterPostId
-                    ? sprintf(__('Waiting — master post #%d must sync to Shopify first', 'wash'), $masterPostId)
-                    : __('Waiting — master language version must sync to Shopify first', 'wash');
+                    // translators: %d is the WordPress post ID of the master post that must sync first.
+                    ? sprintf(__('Waiting — master post #%d must sync to Shopify first', 'wash-blog-manager'), $masterPostId)
+                    : __('Waiting — master language version must sync to Shopify first', 'wash-blog-manager');
                 echo '<span class="dashicons dashicons-clock" style="color: #2271b1;" title="' . esc_attr($title) . '"></span>';
             } elseif ($isPublished && !empty($syncError)) {
                 $shortError = function_exists('mb_strimwidth') ? mb_strimwidth($syncError, 0, 120, '…') : substr($syncError, 0, 120);
-                $title = sprintf(__('Sync failed: %s', 'wash'), $shortError);
+                // translators: %s is the error message returned by the failed sync.
+                $title = sprintf(__('Sync failed: %s', 'wash-blog-manager'), $shortError);
                 echo '<span class="dashicons dashicons-warning" style="color: #d63638;" title="' . esc_attr($title) . '"></span>';
             } elseif ($isPublished) {
-                echo '<span class="dashicons dashicons-minus" style="color: #ddd;" title="' . esc_attr__('Not synced', 'wash') . '"></span>';
+                echo '<span class="dashicons dashicons-minus" style="color: #ddd;" title="' . esc_attr__('Not synced', 'wash-blog-manager') . '"></span>';
             } else {
-                echo '<span class="dashicons dashicons-hidden" style="color: #ccc;" title="' . esc_attr__('Draft - will sync when published', 'wash') . '"></span>';
+                echo '<span class="dashicons dashicons-hidden" style="color: #ccc;" title="' . esc_attr__('Draft - will sync when published', 'wash-blog-manager') . '"></span>';
             }
         }
     }
@@ -1861,7 +1918,7 @@ JS;
             $actions['wash_view'] = sprintf(
                 '<a href="%s" target="_blank" rel="noopener noreferrer" style="color: #5c6ac4;">%s</a>',
                 esc_url($shopifyUrl),
-                __('View on Shopify', 'wash')
+                __('View on Shopify', 'wash-blog-manager')
             );
         }
 
@@ -1874,7 +1931,7 @@ JS;
                 ], admin_url('edit.php')),
                 'wash_sync_' . $post->ID
             );
-            $actionLabel = !empty($shopifyArticleId) ? __('Re-sync to Shopify', 'wash') : __('Sync to Shopify', 'wash');
+            $actionLabel = !empty($shopifyArticleId) ? __('Re-sync to Shopify', 'wash-blog-manager') : __('Sync to Shopify', 'wash-blog-manager');
             $actions['wash_sync'] = sprintf(
                 '<a href="%s" style="color: #96bf48;">%s</a>',
                 esc_url($syncUrl),
@@ -1893,8 +1950,8 @@ JS;
         $actions['wash_refresh'] = sprintf(
             '<a href="%s" style="color: #2271b1;" title="%s">↻ %s</a>',
             esc_url($refreshUrl),
-            esc_attr__('Compare local sync state with Shopify and clear stale errors', 'wash'),
-            __('Refresh status', 'wash')
+            esc_attr__('Compare local sync state with Shopify and clear stale errors', 'wash-blog-manager'),
+            __('Refresh status', 'wash-blog-manager')
         );
 
         return $actions;
@@ -1905,6 +1962,7 @@ JS;
      * Calls /api/check-status for the post and reconciles local meta
      * (_wash_article_id / _wash_sync_error) with shopify-app's source of truth.
      */
+    // phpcs:disable WordPress.Security.NonceVerification.Recommended -- the action/post_id checks below are guards on which path to enter; the actual security gate is the wp_verify_nonce() call further down (handler returns 403/wp_die on mismatch) plus the user-capability check inside the API call. Reading $_GET to dispatch is intentional and standard practice for admin row actions.
     public function handleRefreshStatus() {
         if (!isset($_GET['action']) || $_GET['action'] !== 'wash_refresh_status') {
             return;
@@ -1914,17 +1972,17 @@ JS;
         }
 
         $postId = absint($_GET['post_id']);
-        if (!wp_verify_nonce($_GET['_wpnonce'] ?? '', 'wash_refresh_status_' . $postId)) {
-            wp_die(__('Security check failed', 'wash'));
+        if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'] ?? '')), 'wash_refresh_status_' . $postId)) {
+            wp_die(esc_html__('Security check failed', 'wash-blog-manager'));
         }
         if (!current_user_can('edit_post', $postId)) {
-            wp_die(__('Permission denied', 'wash'));
+            wp_die(esc_html__('Permission denied', 'wash-blog-manager'));
         }
 
         $redirectUrl = wp_get_referer() ?: admin_url('edit.php');
 
         if (!$this->apiClient->isConfigured()) {
-            wp_redirect(add_query_arg('wash_error', 'not_configured', $redirectUrl));
+            wp_safe_redirect(add_query_arg('wash_error', 'not_configured', $redirectUrl));
             exit;
         }
 
@@ -1934,7 +1992,7 @@ JS;
         ]);
 
         if (is_wp_error($response) || !is_array($response) || empty($response['success'])) {
-            wp_redirect(add_query_arg('wash_refresh_result', 'error', $redirectUrl));
+            wp_safe_redirect(add_query_arg('wash_refresh_result', 'error', $redirectUrl));
             exit;
         }
 
@@ -1955,7 +2013,7 @@ JS;
             }
             delete_post_meta($postId, '_wash_sync_error');
             delete_post_meta($postId, '_wash_sync_error_at');
-            wp_redirect(add_query_arg('wash_refresh_result', 'synced', $redirectUrl));
+            wp_safe_redirect(add_query_arg('wash_refresh_result', 'synced', $redirectUrl));
             exit;
         }
 
@@ -1967,9 +2025,10 @@ JS;
         delete_post_meta($postId, '_wash_synced_at');
         delete_post_meta($postId, '_wash_sync_error');
         delete_post_meta($postId, '_wash_sync_error_at');
-        wp_redirect(add_query_arg('wash_refresh_result', 'not_synced', $redirectUrl));
+        wp_safe_redirect(add_query_arg('wash_refresh_result', 'not_synced', $redirectUrl));
         exit;
     }
+    // phpcs:enable WordPress.Security.NonceVerification.Recommended
 
     /**
      * Cron handler: clear `_wash_sync_error` meta on published posts where the
@@ -1991,6 +2050,7 @@ JS;
         $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
         $typePlaceholders = implode(',', array_fill(0, count($allowedTypes), '%s'));
 
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $typePlaceholders is a comma-separated list of %s placeholders; every value (cutoff + post types) is bound through prepare() below.
         $sql = $wpdb->prepare(
             "SELECT pm.post_id
              FROM {$wpdb->postmeta} pm
@@ -2002,7 +2062,9 @@ JS;
                AND p.post_type IN ({$typePlaceholders})",
             array_merge([$cutoff], $allowedTypes)
         );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- daily cron sweep over postmeta; meta_query would require an awkward double-join via WP_Query and still hit the same indexes.
         $stalePostIds = $wpdb->get_col($sql);
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 
         $cleared = 0;
         foreach ($stalePostIds as $postId) {
@@ -2022,8 +2084,8 @@ JS;
     public function addBulkProgressPage() {
         add_submenu_page(
             null,
-            __('Bulk Sync Progress', 'wash'),
-            __('Bulk Sync Progress', 'wash'),
+            __('Bulk Sync Progress', 'wash-blog-manager'),
+            __('Bulk Sync Progress', 'wash-blog-manager'),
             'edit_posts',
             'wash-bulk-progress',
             [$this, 'renderBulkProgressPage']
@@ -2037,13 +2099,14 @@ JS;
      */
     public function renderBulkProgressPage() {
         if (!current_user_can('edit_posts')) {
-            wp_die(__('Permission denied', 'wash'));
+            wp_die(esc_html__('Permission denied', 'wash-blog-manager'));
         }
 
-        $token = isset($_GET['token']) ? sanitize_key($_GET['token']) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- token is a one-shot transient key set by handleBulkActions() after a nonced bulk submission; it's already capability-checked above and the transient expires on first read.
+        $token = isset($_GET['token']) ? sanitize_key(wp_unslash($_GET['token'])) : '';
         $data  = $token ? get_transient('wash_bulk_' . $token) : null;
         if (!$data || empty($data['postIds'])) {
-            wp_die(__('Bulk operation expired or not found. Re-run the bulk action from the posts list.', 'wash'));
+            wp_die(esc_html__('Bulk operation expired or not found. Re-run the bulk action from the posts list.', 'wash-blog-manager'));
         }
 
         $action     = $data['action'];
@@ -2055,10 +2118,10 @@ JS;
         $nonce      = wp_create_nonce('wash_bulk_progress');
 
         $actionLabel = [
-            'wash_publish'   => __('Publishing to Shopify', 'wash'),
-            'wash_republish' => __('Re-publishing to Shopify', 'wash'),
-            'wash_unpublish' => __('Unpublishing from Shopify', 'wash'),
-        ][$action] ?? __('Processing', 'wash');
+            'wash_publish'   => __('Publishing to Shopify', 'wash-blog-manager'),
+            'wash_republish' => __('Re-publishing to Shopify', 'wash-blog-manager'),
+            'wash_unpublish' => __('Unpublishing from Shopify', 'wash-blog-manager'),
+        ][$action] ?? __('Processing', 'wash-blog-manager');
 
         $finalRedirect = add_query_arg([
             'wash_bulk_action'    => $action,
@@ -2074,7 +2137,7 @@ JS;
                 <?php
                 echo esc_html(sprintf(
                     /* translators: %1$d total posts, %2$d batch size */
-                    __('Processing %1$d posts in batches of %2$d. Do not close this tab until the bar reaches 100%%.', 'wash'),
+                    __('Processing %1$d posts in batches of %2$d. Do not close this tab until the bar reaches 100%%.', 'wash-blog-manager'),
                     $total,
                     $batchSize
                 ));
@@ -2084,13 +2147,13 @@ JS;
                 <progress id="wash-bulk-progress" value="0" max="<?php echo esc_attr($total); ?>" style="width: 100%; height: 24px;"></progress>
                 <p id="wash-bulk-status" style="margin-top: 8px; font-size: 14px;">
                     <strong><span id="wash-bulk-done">0</span> / <?php echo esc_html($total); ?></strong>
-                    — <?php esc_html_e('starting…', 'wash'); ?>
+                    — <?php esc_html_e('starting…', 'wash-blog-manager'); ?>
                 </p>
                 <ul id="wash-bulk-errors" style="color: #d63638; font-size: 13px;"></ul>
             </div>
             <p>
                 <a href="<?php echo esc_url($returnUrl); ?>" id="wash-bulk-cancel" class="button">
-                    <?php esc_html_e('Cancel and return', 'wash'); ?>
+                    <?php esc_html_e('Cancel and return', 'wash-blog-manager'); ?>
                 </a>
             </p>
         </div>
@@ -2134,7 +2197,7 @@ JS;
                         offset = r.nextOffset;
                         $progress.value = offset;
                         $done.textContent = String(offset);
-                        $status.lastChild.textContent = ' — ' + (r.done ? '<?php echo esc_js(__('done', 'wash')); ?>' : '<?php echo esc_js(__('working…', 'wash')); ?>');
+                        $status.lastChild.textContent = ' — ' + (r.done ? '<?php echo esc_js(__('done', 'wash-blog-manager')); ?>' : '<?php echo esc_js(__('working…', 'wash-blog-manager')); ?>');
                         if (r.errorMessages && r.errorMessages.length) {
                             r.errorMessages.forEach(m => {
                                 const li = document.createElement('li');
@@ -2169,16 +2232,16 @@ JS;
     public function ajaxBulkSyncBatch() {
         check_ajax_referer('wash_bulk_progress', 'nonce');
         if (!current_user_can('edit_posts')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $token = isset($_POST['token']) ? sanitize_key($_POST['token']) : '';
+        $token = isset($_POST['token']) ? sanitize_key(wp_unslash($_POST['token'])) : '';
         $data  = $token ? get_transient('wash_bulk_' . $token) : null;
         if (!$data || empty($data['postIds'])) {
-            wp_send_json_error(__('Bulk session expired', 'wash'));
+            wp_send_json_error(__('Bulk session expired', 'wash-blog-manager'));
         }
 
-        $offset    = absint($_POST['offset'] ?? 0);
+        $offset    = isset($_POST['offset']) ? absint($_POST['offset']) : 0;
         $batchSize = (int) apply_filters('wash_bulk_batch_size', 50);
         $batch     = array_slice($data['postIds'], $offset, $batchSize);
         $action    = $data['action'];
@@ -2188,6 +2251,7 @@ JS;
             wp_send_json_success(['processed' => 0, 'errors' => 0, 'nextOffset' => $offset, 'done' => true, 'errorMessages' => []]);
         }
 
+        // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- AJAX bulk-sync batch can legitimately exceed default PHP max_execution_time when syncing many posts to Shopify; suppressed (@) because some hosts disable set_time_limit and we don't want to spam logs.
         @set_time_limit(0);
         ignore_user_abort(true);
 
@@ -2236,6 +2300,7 @@ JS;
     /**
      * Handle manual sync action from posts list.
      */
+    // phpcs:disable WordPress.Security.NonceVerification.Recommended -- action/post_id reads are dispatch guards; the actual security gate is the wp_verify_nonce() call further down (handler wp_die's on mismatch).
     public function handleManualSync() {
         if (!isset($_GET['action']) || $_GET['action'] !== 'wash_sync') {
             return;
@@ -2245,19 +2310,19 @@ JS;
         }
 
         $postId = absint($_GET['post_id']);
-        if (!wp_verify_nonce($_GET['_wpnonce'] ?? '', 'wash_sync_' . $postId)) {
-            wp_die(__('Security check failed', 'wash'));
+        if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'] ?? '')), 'wash_sync_' . $postId)) {
+            wp_die(esc_html__('Security check failed', 'wash-blog-manager'));
         }
 
         if (!current_user_can('edit_post', $postId)) {
-            wp_die(__('You do not have permission to sync this post', 'wash'));
+            wp_die(esc_html__('You do not have permission to sync this post', 'wash-blog-manager'));
         }
 
         $post = get_post($postId);
         if (!$post || $post->post_status !== 'publish') {
             $referer = wp_get_referer();
             $redirectUrl = ($referer && strpos($referer, admin_url()) === 0) ? $referer : admin_url('edit.php');
-            wp_redirect(add_query_arg('wash_error', 'not_published', $redirectUrl));
+            wp_safe_redirect(add_query_arg('wash_error', 'not_published', $redirectUrl));
             exit;
         }
 
@@ -2295,13 +2360,22 @@ JS;
             }
         }
 
-        wp_redirect(add_query_arg($redirectArgs, $redirectUrl));
+        wp_safe_redirect(add_query_arg($redirectArgs, $redirectUrl));
         exit;
     }
+    // phpcs:enable WordPress.Security.NonceVerification.Recommended
 
     /**
      * Render admin notices for sync results.
+     *
+     * This is a read-only admin notice handler: it inspects $_GET / current
+     * post-edit screen to surface async sync state and post-redirect
+     * confirmations. It performs no state mutation, so a WP nonce is not
+     * applicable — every $_GET read below is either passed through
+     * sanitize_key/sanitize_text_field/(int) before display or fed back into
+     * a get_post_meta() lookup on the post the merchant is already viewing.
      */
+    // phpcs:disable WordPress.Security.NonceVerification.Recommended -- see method docblock; read-only notice rendering.
     public function renderSyncNotices() {
         // Per-post edit screen: surface async sync failures so the merchant
         // sees them on the next visit. Auto-sync (on save_post) finishes after
@@ -2314,7 +2388,7 @@ JS;
             if (!empty($syncError)) {
                 echo '<div class="notice notice-error is-dismissible">';
                 echo '<p><strong>Wash:</strong> ';
-                echo esc_html__('Last sync to Shopify failed:', 'wash');
+                echo esc_html__('Last sync to Shopify failed:', 'wash-blog-manager');
                 echo ' ' . esc_html($syncError);
                 echo '</p></div>';
             }
@@ -2327,7 +2401,7 @@ JS;
             echo '<strong>Wash:</strong> ';
             printf(
                 /* translators: %1$s = opening link tag, %2$s = closing link tag */
-                esc_html__('Plugin is not connected to Shopify. Posts will not sync until you %1$sconfigure the connection%2$s.', 'wash'),
+                esc_html__('Plugin is not connected to Shopify. Posts will not sync until you %1$sconfigure the connection%2$s.', 'wash-blog-manager'),
                 '<a href="' . esc_url($settingsUrl) . '">',
                 '</a>'
             );
@@ -2342,10 +2416,10 @@ JS;
 
         // Handle bulk error notices
         if (isset($_GET['wash_bulk_error'])) {
-            $error = sanitize_key($_GET['wash_bulk_error']);
+            $error = sanitize_key(wp_unslash($_GET['wash_bulk_error']));
             if ($error === 'not_configured') {
                 echo '<div class="notice notice-error is-dismissible"><p><strong>Wash:</strong> ';
-                echo esc_html__('Plugin is not connected to Shopify. Please configure the connection first.', 'wash');
+                echo esc_html__('Plugin is not connected to Shopify. Please configure the connection first.', 'wash-blog-manager');
                 echo '</p></div>';
             }
             return;
@@ -2355,8 +2429,13 @@ JS;
             return;
         }
 
-        $result = sanitize_key($_GET['wash_result']);
-        $errorMsg = isset($_GET['wash_error_msg']) ? sanitize_text_field(urldecode($_GET['wash_error_msg'])) : '';
+        $result = sanitize_key(wp_unslash($_GET['wash_result']));
+        $errorMsg = '';
+        if (isset($_GET['wash_error_msg'])) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitize_text_field is applied below; WPCS does not pierce the urldecode() wrapper to see the outer sanitizer.
+            $rawErrorMsg = wp_unslash($_GET['wash_error_msg']);
+            $errorMsg = sanitize_text_field(urldecode($rawErrorMsg));
+        }
         $class = '';
         $message = '';
         $showUpgrade = false;
@@ -2364,11 +2443,11 @@ JS;
         switch ($result) {
             case 'synced':
                 $class = 'notice-success';
-                $message = __('Post synced to Shopify successfully.', 'wash');
+                $message = __('Post synced to Shopify successfully.', 'wash-blog-manager');
                 break;
             case 'queued':
                 $class = 'notice-info';
-                $message = __('Post queued for sync. It will appear on Shopify shortly.', 'wash');
+                $message = __('Post queued for sync. It will appear on Shopify shortly.', 'wash-blog-manager');
                 break;
             case 'error':
                 $class = 'notice-error';
@@ -2379,12 +2458,12 @@ JS;
                         $showUpgrade = true;
                     }
                 } else {
-                    $message = __('Failed to sync post to Shopify. Check the debug log for details.', 'wash');
+                    $message = __('Failed to sync post to Shopify. Check the debug log for details.', 'wash-blog-manager');
                 }
                 break;
             case 'not_published':
                 $class = 'notice-warning';
-                $message = __('Only published posts can be synced to Shopify.', 'wash');
+                $message = __('Only published posts can be synced to Shopify.', 'wash-blog-manager');
                 break;
             default:
                 return;
@@ -2396,31 +2475,39 @@ JS;
         echo '<div class="notice ' . esc_attr($class) . ' is-dismissible"><p><strong>Wash:</strong> ' . esc_html($message);
         if ($showUpgrade && $upgradeUrl) {
             echo ' <a href="' . esc_url($upgradeUrl) . '" target="_blank" rel="noopener noreferrer" style="text-decoration: underline;">';
-            echo esc_html__('Upgrade your plan', 'wash');
+            echo esc_html__('Upgrade your plan', 'wash-blog-manager');
             echo '</a>';
         }
         echo '</p></div>';
     }
+    // phpcs:enable WordPress.Security.NonceVerification.Recommended
 
     /**
      * Render admin notice for bulk actions.
      */
     private function renderBulkActionNotice() {
-        $action = sanitize_key($_GET['wash_bulk_action']);
-        $processed = absint($_GET['wash_bulk_processed'] ?? 0);
-        $skipped = absint($_GET['wash_bulk_skipped'] ?? 0);
-        $errors = absint($_GET['wash_bulk_errors'] ?? 0);
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- post-redirect admin notice rendered on GET; values are absint/sanitize_key normalised and only displayed in a notice, no side effects.
+        $action = isset($_GET['wash_bulk_action']) ? sanitize_key(wp_unslash($_GET['wash_bulk_action'])) : '';
+        if ($action === '') {
+            return;
+        }
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- see above.
+        $processed = isset($_GET['wash_bulk_processed']) ? absint($_GET['wash_bulk_processed']) : 0;
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- see above.
+        $skipped = isset($_GET['wash_bulk_skipped']) ? absint($_GET['wash_bulk_skipped']) : 0;
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- see above.
+        $errors = isset($_GET['wash_bulk_errors']) ? absint($_GET['wash_bulk_errors']) : 0;
 
         $actionLabel = '';
         switch ($action) {
             case 'wash_publish':
-                $actionLabel = __('published to Shopify', 'wash');
+                $actionLabel = __('published to Shopify', 'wash-blog-manager');
                 break;
             case 'wash_republish':
-                $actionLabel = __('re-published to Shopify', 'wash');
+                $actionLabel = __('re-published to Shopify', 'wash-blog-manager');
                 break;
             case 'wash_unpublish':
-                $actionLabel = __('unpublished from Shopify', 'wash');
+                $actionLabel = __('unpublished from Shopify', 'wash-blog-manager');
                 break;
             default:
                 return;
@@ -2431,7 +2518,7 @@ JS;
         if ($processed > 0) {
             $messages[] = sprintf(
                 /* translators: 1: number of posts, 2: action performed */
-                _n('%1$d post %2$s.', '%1$d posts %2$s.', $processed, 'wash'),
+                _n('%1$d post %2$s.', '%1$d posts %2$s.', $processed, 'wash-blog-manager'),
                 $processed,
                 $actionLabel
             );
@@ -2440,7 +2527,7 @@ JS;
         if ($skipped > 0) {
             $messages[] = sprintf(
                 /* translators: %d: number of posts skipped */
-                _n('%d post skipped.', '%d posts skipped.', $skipped, 'wash'),
+                _n('%d post skipped.', '%d posts skipped.', $skipped, 'wash-blog-manager'),
                 $skipped
             );
         }
@@ -2448,7 +2535,7 @@ JS;
         if ($errors > 0) {
             $messages[] = sprintf(
                 /* translators: %d: number of errors */
-                _n('%d error occurred.', '%d errors occurred.', $errors, 'wash'),
+                _n('%d error occurred.', '%d errors occurred.', $errors, 'wash-blog-manager'),
                 $errors
             );
         }
@@ -2470,17 +2557,17 @@ JS;
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('edit_posts')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $postId = absint($_POST['post_id'] ?? 0);
         if (!$postId) {
-            wp_send_json_error(__('Invalid post ID', 'wash'));
+            wp_send_json_error(__('Invalid post ID', 'wash-blog-manager'));
         }
 
         $post = get_post($postId);
         if (!$post) {
-            wp_send_json_error(__('Post not found', 'wash'));
+            wp_send_json_error(__('Post not found', 'wash-blog-manager'));
         }
 
         // Trigger manual sync (bypasses auto-sync option check)
@@ -2502,10 +2589,10 @@ JS;
             wp_send_json_success([
                 'status' => 'queued',
                 'jobId' => $jobId,
-                'message' => __('Sync job queued. The article will be synced shortly.', 'wash'),
+                'message' => __('Sync job queued. The article will be synced shortly.', 'wash-blog-manager'),
             ]);
         } else {
-            wp_send_json_error(__('Sync failed', 'wash'));
+            wp_send_json_error(__('Sync failed', 'wash-blog-manager'));
         }
     }
 
@@ -2517,12 +2604,12 @@ JS;
         check_ajax_referer('wash_sync_status', 'nonce');
 
         if (!current_user_can('edit_posts')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $postIds = isset($_POST['post_ids']) ? array_map('absint', (array) $_POST['post_ids']) : [];
         if (empty($postIds)) {
-            wp_send_json_error(__('No posts to check', 'wash'));
+            wp_send_json_error(__('No posts to check', 'wash-blog-manager'));
         }
 
         $results = [];
@@ -2569,9 +2656,9 @@ JS;
             return $bulkActions;
         }
 
-        $bulkActions['wash_publish'] = __('Publish to Shopify', 'wash');
-        $bulkActions['wash_republish'] = __('Re-publish to Shopify', 'wash');
-        $bulkActions['wash_unpublish'] = __('Unpublish from Shopify', 'wash');
+        $bulkActions['wash_publish'] = __('Publish to Shopify', 'wash-blog-manager');
+        $bulkActions['wash_republish'] = __('Re-publish to Shopify', 'wash-blog-manager');
+        $bulkActions['wash_unpublish'] = __('Unpublish from Shopify', 'wash-blog-manager');
 
         return $bulkActions;
     }
@@ -2707,6 +2794,7 @@ JS;
      * @param int $postId Post ID.
      */
     public function asyncSyncPost($postId) {
+        // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- async post-sync fires on save_post for a single post; the API round-trip + image download can exceed default max_execution_time on slow networks. Suppressed (@) because some hosts disable set_time_limit.
         @set_time_limit(0);
         $post = get_post((int) $postId);
         if (!$post || $post->post_status !== 'publish') {
@@ -2735,6 +2823,7 @@ JS;
         wp_remote_post($cronUrl, [
             'timeout'   => 1.0,
             'blocking'  => false,
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- `https_local_ssl_verify` is WordPress core's documented filter for local SSL verification (https://developer.wordpress.org/reference/hooks/https_local_ssl_verify/); we apply the same filter that wp-cron.php applies, by design.
             'sslverify' => apply_filters('https_local_ssl_verify', false),
         ]);
     }
@@ -2756,6 +2845,7 @@ JS;
             'wpSiteId' => get_current_blog_id(),
         ]);
 
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r -- routed through washLog() which is gated by the WASH_DEBUG constant (off in production); the result array is helpful in debug output.
         washLog("[wash] unpublishFromShopify result: " . print_r($result, true));
 
         if (is_wp_error($result)) {

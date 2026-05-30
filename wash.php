@@ -3,14 +3,14 @@
  * Plugin Name:       Wash: Blog Manager
  * Plugin URI:        https://github.com/tradik/wash
  * Description:       Synchronize WordPress content, images, and metafields to Shopify blogs.
- * Version:           1.24.1
- * Requires at least: 6.0
+ * Version:           1.26.5
+ * Requires at least: 6.3
  * Requires PHP:      8.0
  * Author:            Tradik
  * Author URI:        https://github.com/tradik
- * License:           MIT
- * License URI:       https://opensource.org/licenses/MIT
- * Text Domain:       wash
+ * License:           GPLv2 or later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       wash-blog-manager
  * Domain Path:       /languages
  * Network:           true
  */
@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WASH_VERSION', '1.24.1');
+define('WASH_VERSION', '1.26.5');
 define('WASH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WASH_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
@@ -38,6 +38,7 @@ function washPluginUrl() {
  */
 function washLog($message) {
     if (defined('WASH_DEBUG') && WASH_DEBUG) {
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated by the WASH_DEBUG constant (off in production); this is the plugin's intentional debug helper.
         error_log($message);
     }
 }
@@ -55,7 +56,6 @@ require_once WASH_PLUGIN_DIR . 'includes/class-wash-callback.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-media-endpoint.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-blocks.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-page-builders.php';
-require_once WASH_PLUGIN_DIR . 'includes/class-wash-updater.php';
 
 register_activation_hook(__FILE__, ['WashActivator', 'activate']);
 register_deactivation_hook(__FILE__, ['WashActivator', 'deactivate']);
@@ -97,10 +97,6 @@ function washInit() {
         $multisite = new WashMultisite();
         $multisite->init();
     }
-
-    // Initialize plugin updater
-    $updater = new WashUpdater();
-    $updater->init();
 
     // Self-heal: schedule daily stale-error cleanup for installs that activated
     // before this hook existed (deactivate/reactivate is the alternative).

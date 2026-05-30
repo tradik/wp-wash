@@ -3,6 +3,10 @@
  * Files & Media handler.
  * Manages media library integration and sync buttons for WordPress attachments.
  */
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct file access.
+}
+
 class WashFilesMedia {
 
     /** @var WashApiClient */
@@ -57,7 +61,7 @@ class WashFilesMedia {
      * @return array Modified columns.
      */
     public function addSyncColumn($columns) {
-        $columns['wash_sync'] = '<span class="dashicons dashicons-store" title="' . esc_attr__('Shopify Sync', 'wash') . '" style="color: #96bf48;"></span>';
+        $columns['wash_sync'] = '<span class="dashicons dashicons-store" title="' . esc_attr__('Shopify Sync', 'wash-blog-manager') . '" style="color: #96bf48;"></span>';
         return $columns;
     }
 
@@ -74,7 +78,7 @@ class WashFilesMedia {
 
         // Only show for images
         if (!wp_attachment_is_image($attachmentId)) {
-            echo '<span class="dashicons dashicons-minus" style="color: #ddd;" title="' . esc_attr__('Not an image', 'wash') . '"></span>';
+            echo '<span class="dashicons dashicons-minus" style="color: #ddd;" title="' . esc_attr__('Not an image', 'wash-blog-manager') . '"></span>';
             return;
         }
 
@@ -82,11 +86,11 @@ class WashFilesMedia {
         $cdnUrl = get_post_meta($attachmentId, '_wash_cdn_url', true);
 
         if (!empty($shopifyFileId) && !empty($cdnUrl)) {
-            echo '<a href="' . esc_url($cdnUrl) . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr__('Synced to Shopify CDN', 'wash') . '">';
+            echo '<a href="' . esc_url($cdnUrl) . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr__('Synced to Shopify CDN', 'wash-blog-manager') . '">';
             echo '<span class="dashicons dashicons-yes-alt" style="color: #46b450;"></span>';
             echo '</a>';
         } else {
-            echo '<span class="dashicons dashicons-upload" style="color: #ccc;" title="' . esc_attr__('Not synced to Shopify', 'wash') . '"></span>';
+            echo '<span class="dashicons dashicons-upload" style="color: #ccc;" title="' . esc_attr__('Not synced to Shopify', 'wash-blog-manager') . '"></span>';
         }
     }
 
@@ -115,7 +119,7 @@ class WashFilesMedia {
             'wash_sync_media_' . $post->ID
         );
 
-        $label = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wash') : __('Sync to Shopify', 'wash');
+        $label = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wash-blog-manager') : __('Sync to Shopify', 'wash-blog-manager');
         $actions['wash_sync'] = sprintf(
             '<a href="%s" style="color: #96bf48;">%s</a>',
             esc_url($syncUrl),
@@ -129,7 +133,7 @@ class WashFilesMedia {
                 $actions['wash_view'] = sprintf(
                     '<a href="%s" target="_blank" rel="noopener noreferrer" style="color: #5c6ac4;">%s</a>',
                     esc_url($cdnUrl),
-                    __('View on Shopify CDN', 'wash')
+                    __('View on Shopify CDN', 'wash-blog-manager')
                 );
             }
         }
@@ -149,19 +153,19 @@ class WashFilesMedia {
         }
 
         $attachmentId = absint($_GET['attachment_id']);
-        if (!wp_verify_nonce($_GET['_wpnonce'] ?? '', 'wash_sync_media_' . $attachmentId)) {
-            wp_die(__('Security check failed', 'wash'));
+        if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'] ?? '')), 'wash_sync_media_' . $attachmentId)) {
+            wp_die(esc_html__('Security check failed', 'wash-blog-manager'));
         }
 
         if (!current_user_can('upload_files')) {
-            wp_die(__('You do not have permission to sync media', 'wash'));
+            wp_die(esc_html__('You do not have permission to sync media', 'wash-blog-manager'));
         }
 
         // Trigger sync
         $result = $this->syncAttachment($attachmentId);
 
         $queryArg = $result ? 'wash_media_synced' : 'wash_media_error';
-        wp_redirect(add_query_arg($queryArg, '1', admin_url('upload.php')));
+        wp_safe_redirect(add_query_arg($queryArg, '1', admin_url('upload.php')));
         exit;
     }
 
@@ -172,12 +176,12 @@ class WashFilesMedia {
         check_ajax_referer('wash_nonce', 'nonce');
 
         if (!current_user_can('upload_files')) {
-            wp_send_json_error(__('Unauthorized', 'wash'));
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
         $attachmentId = absint($_POST['attachment_id'] ?? 0);
         if (!$attachmentId) {
-            wp_send_json_error(__('Invalid attachment ID', 'wash'));
+            wp_send_json_error(__('Invalid attachment ID', 'wash-blog-manager'));
         }
 
         $result = $this->syncAttachment($attachmentId);
@@ -189,7 +193,7 @@ class WashFilesMedia {
                 'fileId' => get_post_meta($attachmentId, '_wash_file_id', true),
             ]);
         } else {
-            wp_send_json_error(__('Sync failed', 'wash'));
+            wp_send_json_error(__('Sync failed', 'wash-blog-manager'));
         }
     }
 
@@ -216,7 +220,7 @@ class WashFilesMedia {
      */
     public function addBulkSyncAction($actions) {
         if ($this->apiClient->isConfigured()) {
-            $actions['wash_bulk_sync'] = __('Sync to Shopify', 'wash');
+            $actions['wash_bulk_sync'] = __('Sync to Shopify', 'wash-blog-manager');
         }
         return $actions;
     }
@@ -255,7 +259,12 @@ class WashFilesMedia {
 
     /**
      * Show admin notices for sync results.
+     *
+     * Read-only admin notice renderer triggered by post-redirect query args
+     * (the redirect itself is generated by nonced handlers earlier in the
+     * request cycle). No state mutation here, so a WP nonce is not applicable.
      */
+    // phpcs:disable WordPress.Security.NonceVerification.Recommended -- see method docblock; read-only notice rendering on the media library screen.
     public function showAdminNotices() {
         $screen = get_current_screen();
         if (!$screen || $screen->id !== 'upload') {
@@ -264,28 +273,30 @@ class WashFilesMedia {
 
         if (isset($_GET['wash_media_synced'])) {
             echo '<div class="notice notice-success is-dismissible"><p>';
-            esc_html_e('Image synced to Shopify successfully!', 'wash');
+            esc_html_e('Image synced to Shopify successfully!', 'wash-blog-manager');
             echo '</p></div>';
         }
 
         if (isset($_GET['wash_media_error'])) {
             echo '<div class="notice notice-error is-dismissible"><p>';
-            esc_html_e('Failed to sync image to Shopify.', 'wash');
+            esc_html_e('Failed to sync image to Shopify.', 'wash-blog-manager');
             echo '</p></div>';
         }
 
         if (isset($_GET['wash_bulk_synced'])) {
             $synced = absint($_GET['wash_bulk_synced']);
-            $failed = absint($_GET['wash_bulk_failed'] ?? 0);
+            $failed = isset($_GET['wash_bulk_failed']) ? absint($_GET['wash_bulk_failed']) : 0;
             echo '<div class="notice notice-success is-dismissible"><p>';
             printf(
-                esc_html__('Bulk sync completed: %d images synced, %d failed.', 'wash'),
-                $synced,
-                $failed
+                // translators: 1: number of images synced, 2: number of images that failed.
+                esc_html__('Bulk sync completed: %1$d images synced, %2$d failed.', 'wash-blog-manager'),
+                absint($synced),
+                absint($failed)
             );
             echo '</p></div>';
         }
     }
+    // phpcs:enable WordPress.Security.NonceVerification.Recommended
 
     /**
      * Add sync field to attachment detail view in media modal.
@@ -306,21 +317,21 @@ class WashFilesMedia {
         $shopifyFileId = get_post_meta($post->ID, '_wash_file_id', true);
         $cdnUrl = get_post_meta($post->ID, '_wash_cdn_url', true);
 
-        $buttonLabel = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wash') : __('Sync to Shopify', 'wash');
+        $buttonLabel = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wash-blog-manager') : __('Sync to Shopify', 'wash-blog-manager');
         $statusHtml = '';
 
         if (!empty($shopifyFileId) && !empty($cdnUrl)) {
             $statusHtml = sprintf(
                 '<span class="wash-sync-status synced"><span class="dashicons dashicons-yes-alt"></span> %s</span>
                 <a href="%s" target="_blank" rel="noopener noreferrer" class="wash-cdn-link">%s</a>',
-                esc_html__('Synced', 'wash'),
+                esc_html__('Synced', 'wash-blog-manager'),
                 esc_url($cdnUrl),
-                esc_html__('View on CDN', 'wash')
+                esc_html__('View on CDN', 'wash-blog-manager')
             );
         } else {
             $statusHtml = sprintf(
                 '<span class="wash-sync-status not-synced"><span class="dashicons dashicons-upload"></span> %s</span>',
-                esc_html__('Not synced', 'wash')
+                esc_html__('Not synced', 'wash-blog-manager')
             );
         }
 
@@ -339,7 +350,7 @@ class WashFilesMedia {
         );
 
         $formFields['wash_sync'] = [
-            'label' => __('Shopify', 'wash'),
+            'label' => __('Shopify', 'wash-blog-manager'),
             'input' => 'html',
             'html'  => $html,
         ];
@@ -372,20 +383,20 @@ class WashFilesMedia {
             'wash_sync_media_' . $post->ID
         );
 
-        $buttonLabel = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wash') : __('Sync to Shopify', 'wash');
+        $buttonLabel = !empty($shopifyFileId) ? __('Re-sync to Shopify', 'wash-blog-manager') : __('Sync to Shopify', 'wash-blog-manager');
         ?>
         <div class="misc-pub-section wash-attachment-sync-section">
             <span class="dashicons dashicons-store" style="color: #96bf48;"></span>
-            <strong><?php esc_html_e('Shopify:', 'wash'); ?></strong>
+            <strong><?php esc_html_e('Shopify:', 'wash-blog-manager'); ?></strong>
             <?php if (!empty($shopifyFileId) && !empty($cdnUrl)) : ?>
-                <span style="color: #46b450;"><?php esc_html_e('Synced', 'wash'); ?></span>
+                <span style="color: #46b450;"><?php esc_html_e('Synced', 'wash-blog-manager'); ?></span>
                 <br>
                 <a href="<?php echo esc_url($cdnUrl); ?>" target="_blank" rel="noopener noreferrer" style="color: #5c6ac4;">
-                    <?php esc_html_e('View on Shopify CDN', 'wash'); ?>
+                    <?php esc_html_e('View on Shopify CDN', 'wash-blog-manager'); ?>
                     <span class="dashicons dashicons-external" style="font-size: 14px; vertical-align: text-bottom;"></span>
                 </a>
             <?php else : ?>
-                <span style="color: #ddd;"><?php esc_html_e('Not synced', 'wash'); ?></span>
+                <span style="color: #ddd;"><?php esc_html_e('Not synced', 'wash-blog-manager'); ?></span>
             <?php endif; ?>
             <br>
             <a href="<?php echo esc_url($syncUrl); ?>" class="button button-small" style="margin-top: 5px;">
@@ -430,13 +441,13 @@ class WashFilesMedia {
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce'   => wp_create_nonce('wash_nonce'),
             'i18n'    => [
-                'syncing'     => __('Syncing...', 'wash'),
-                'synced'      => __('Synced', 'wash'),
-                'syncError'   => __('Sync failed', 'wash'),
-                'syncBtn'     => __('Sync to Shopify', 'wash'),
-                'resyncBtn'   => __('Re-sync to Shopify', 'wash'),
-                'viewOnCdn'   => __('View on CDN', 'wash'),
-                'notSynced'   => __('Not synced', 'wash'),
+                'syncing'     => __('Syncing...', 'wash-blog-manager'),
+                'synced'      => __('Synced', 'wash-blog-manager'),
+                'syncError'   => __('Sync failed', 'wash-blog-manager'),
+                'syncBtn'     => __('Sync to Shopify', 'wash-blog-manager'),
+                'resyncBtn'   => __('Re-sync to Shopify', 'wash-blog-manager'),
+                'viewOnCdn'   => __('View on CDN', 'wash-blog-manager'),
+                'notSynced'   => __('Not synced', 'wash-blog-manager'),
             ],
         ]);
     }

@@ -140,6 +140,7 @@ class WashMediaEndpoint {
             header('X-Wash-Attachment-Id: ' . (string) $id);
             header('Cache-Control: private, max-age=300');
         }
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- streaming attachment bytes to the client; readfile() streams without loading the whole file into memory, unlike WP_Filesystem::get_contents().
         readfile($path);
         exit;
     }
@@ -200,6 +201,8 @@ class WashMediaEndpoint {
     protected function clientIpForRateLimit() {
         // NOSONAR: REMOTE_ADDR used only as a rate-limit bucket key, never
         // as an auth or authorization signal. HMAC signature is the auth gate.
-        return isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown'; // NOSONAR
+        return isset($_SERVER['REMOTE_ADDR'])
+            ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR']))
+            : 'unknown'; // NOSONAR
     }
 }

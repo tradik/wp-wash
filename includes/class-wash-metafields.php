@@ -5,6 +5,10 @@
  * to Shopify as metafields on the corresponding article/page.
  * Supports automatic metafield definition creation.
  */
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct file access.
+}
+
 class WashMetafields {
 
     /** @var WashApiClient */
@@ -710,7 +714,7 @@ class WashMetafields {
             case 'date_time_picker':
                 // Convert to ISO 8601 format
                 $timestamp = strtotime($value);
-                return $timestamp ? date('Y-m-d\TH:i:s', $timestamp) : null;
+                return $timestamp ? gmdate('Y-m-d\TH:i:s', $timestamp) : null;
 
             case 'google_map':
                 if (is_array($value)) {

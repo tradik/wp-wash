@@ -3,6 +3,10 @@
  * REST API client for communicating with the Shopify App.
  * Handles authentication, request signing, and error handling.
  */
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct file access.
+}
+
 class WashApiClient {
 
     /** @var string Shopify App base URL */
@@ -36,7 +40,7 @@ class WashApiClient {
      */
     private function resolveAppUrl() {
         $siteUrl = get_site_url();
-        $host = parse_url($siteUrl, PHP_URL_HOST);
+        $host = wp_parse_url($siteUrl, PHP_URL_HOST);
 
         // Hilo domains: force secondary app instance regardless of stored option
         // (override needed because legacy installs may have wash_app_url set to primary)
@@ -114,7 +118,7 @@ class WashApiClient {
      */
     public function get($endpoint) {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash-blog-manager'));
         }
 
         $url = $this->appUrl . $endpoint;
@@ -140,7 +144,7 @@ class WashApiClient {
         }
 
         if ($responseBody === null && !empty($body)) {
-            return new \WP_Error('wash_invalid_response', __('Invalid JSON response from API', 'wash'));
+            return new \WP_Error('wash_invalid_response', __('Invalid JSON response from API', 'wash-blog-manager'));
         }
 
         return $responseBody;
@@ -158,7 +162,7 @@ class WashApiClient {
 
         if (empty($this->apiKey)) {
             washLog("[wash API] ERROR: API key is empty - not configured");
-            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash-blog-manager'));
         }
 
         $url = $this->appUrl . $endpoint;
@@ -190,7 +194,7 @@ class WashApiClient {
      */
     public function delete($endpoint) {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash-blog-manager'));
         }
 
         $url = $this->appUrl . $endpoint;
@@ -243,7 +247,8 @@ class WashApiClient {
 
         $code = wp_remote_retrieve_response_code($response);
         if ($code !== 200) {
-            return new \WP_Error('wash_health_fail', sprintf(__('Health check failed with status %d', 'wash'), $code));
+            // translators: %d is the HTTP status code returned by the health check.
+            return new \WP_Error('wash_health_fail', sprintf(__('Health check failed with status %d', 'wash-blog-manager'), $code));
         }
 
         return json_decode(wp_remote_retrieve_body($response), true);
@@ -257,7 +262,7 @@ class WashApiClient {
      */
     public function ping() {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash-blog-manager'));
         }
 
         $url = $this->appUrl . '/api/ping';
@@ -295,7 +300,7 @@ class WashApiClient {
      */
     public function diagnose() {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash-blog-manager'));
         }
 
         $url = $this->appUrl . '/api/diagnose';
@@ -320,7 +325,8 @@ class WashApiClient {
             return $responseBody;
         }
 
-        return new \WP_Error('wash_diagnose_error', sprintf(__('Diagnosis failed (HTTP %d)', 'wash'), $code));
+        // translators: %d is the HTTP status code.
+        return new \WP_Error('wash_diagnose_error', sprintf(__('Diagnosis failed (HTTP %d)', 'wash-blog-manager'), $code));
     }
 
     /**
@@ -429,7 +435,7 @@ class WashApiClient {
      */
     public function debugSession() {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash-blog-manager'));
         }
 
         $url = $this->appUrl . '/api/debug-session';
@@ -453,7 +459,8 @@ class WashApiClient {
         }
 
         $code = wp_remote_retrieve_response_code($response);
-        return new \WP_Error('wash_debug_error', sprintf(__('Debug failed (HTTP %d)', 'wash'), $code));
+        // translators: %d is the HTTP status code.
+        return new \WP_Error('wash_debug_error', sprintf(__('Debug failed (HTTP %d)', 'wash-blog-manager'), $code));
     }
 
     /**
@@ -463,7 +470,7 @@ class WashApiClient {
      */
     public function resetSession() {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash-blog-manager'));
         }
 
         $url = $this->appUrl . '/api/debug-session';
@@ -488,7 +495,8 @@ class WashApiClient {
         }
 
         $code = wp_remote_retrieve_response_code($response);
-        return new \WP_Error('wash_reset_error', sprintf(__('Reset failed (HTTP %d)', 'wash'), $code));
+        // translators: %d is the HTTP status code.
+        return new \WP_Error('wash_reset_error', sprintf(__('Reset failed (HTTP %d)', 'wash-blog-manager'), $code));
     }
 
     /**
@@ -499,7 +507,7 @@ class WashApiClient {
      */
     public function fixSession() {
         if (empty($this->apiKey)) {
-            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash'));
+            return new \WP_Error('wash_not_configured', __('Wash is not configured.', 'wash-blog-manager'));
         }
 
         $url = $this->appUrl . '/api/fix-session';
@@ -525,7 +533,8 @@ class WashApiClient {
         }
 
         $code = wp_remote_retrieve_response_code($response);
-        return new \WP_Error('wash_fix_error', sprintf(__('Fix session failed (HTTP %d)', 'wash'), $code));
+        // translators: %d is the HTTP status code.
+        return new \WP_Error('wash_fix_error', sprintf(__('Fix session failed (HTTP %d)', 'wash-blog-manager'), $code));
     }
 
     /**
@@ -591,12 +600,12 @@ class WashApiClient {
 
         // Check for common HTTP errors
         $httpErrors = [
-            401 => __('Unauthorized - check your API credentials', 'wash'),
-            403 => __('Forbidden - access denied', 'wash'),
-            404 => __('API endpoint not found', 'wash'),
-            500 => __('Server error - please try again later', 'wash'),
-            502 => __('Bad gateway - API server unavailable', 'wash'),
-            503 => __('Service unavailable - API server down', 'wash'),
+            401 => __('Unauthorized - check your API credentials', 'wash-blog-manager'),
+            403 => __('Forbidden - access denied', 'wash-blog-manager'),
+            404 => __('API endpoint not found', 'wash-blog-manager'),
+            500 => __('Server error - please try again later', 'wash-blog-manager'),
+            502 => __('Bad gateway - API server unavailable', 'wash-blog-manager'),
+            503 => __('Service unavailable - API server down', 'wash-blog-manager'),
         ];
 
         if (isset($httpErrors[$statusCode])) {
@@ -605,10 +614,12 @@ class WashApiClient {
 
         // If we have a raw body, include a snippet for debugging
         if (!empty($rawBody) && strlen($rawBody) < 200) {
-            return sprintf(__('API error (HTTP %d): %s', 'wash'), $statusCode, substr($rawBody, 0, 100));
+            // translators: 1: HTTP status code, 2: response body snippet.
+            return sprintf(__('API error (HTTP %1$d): %2$s', 'wash-blog-manager'), $statusCode, substr($rawBody, 0, 100));
         }
 
-        return sprintf(__('API error (HTTP %d)', 'wash'), $statusCode);
+        // translators: %d is the HTTP status code.
+        return sprintf(__('API error (HTTP %d)', 'wash-blog-manager'), $statusCode);
     }
 
     /**

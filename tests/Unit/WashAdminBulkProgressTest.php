@@ -29,6 +29,9 @@ class WashAdminBulkProgressTest extends TestCase
         parent::setUp();
         Monkey\setUp();
 
+        Functions\when('wp_unslash')->returnArg(1);
+        Functions\when('sanitize_text_field')->returnArg(1);
+
         if (!defined('HOUR_IN_SECONDS')) {
             define('HOUR_IN_SECONDS', 3600);
         }

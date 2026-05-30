@@ -1,19 +1,19 @@
-# Finnish translation for wash
+# Japanese translation for wash
 # Copyright (C) 2026 Tradik
 # This file is distributed under the MIT license.
 msgid ""
 msgstr ""
-"Project-Id-Version: wash 1.12.13\n"
+"Project-Id-Version: wash-blog-manager 1.12.13\n"
 "Report-Msgid-Bugs-To: https://github.com/tradik/wash/issues\n"
 "POT-Creation-Date: 2026-03-29 00:00+0000\n"
 "PO-Revision-Date: 2026-03-29 00:00+0000\n"
 "Last-Translator: Tradik Team <hello@tradik.com>\n"
-"Language-Team: Finnish <fi@li.org>\n"
-"Language: fi\n"
+"Language-Team: Japanese <ja@li.org>\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
 #: blocks/shopify-collection/index.js:52
 msgid "Failed to load collections"
@@ -105,7 +105,7 @@ msgstr ""
 
 #: blocks/sync-status/index.js:112 includes/class-wash-admin.php:392
 msgid "Loading..."
-msgstr "Ladataan..."
+msgstr "読み込み中..."
 
 #: blocks/sync-status/index.js:129
 msgid "Shopify ID:"
@@ -121,7 +121,7 @@ msgstr ""
 
 #: blocks/sync-status/index.js:144
 msgid "Error:"
-msgstr "Virhe:"
+msgstr "エラー:"
 
 #: blocks/sync-status/index.js:152
 msgid "Not yet synced to Shopify"
@@ -190,7 +190,7 @@ msgstr ""
 #: admin/views/settings-page.php:142
 #, php-format
 msgid "Requires %s plan"
-msgstr "Vaatii %s-tilauksen"
+msgstr "%sプランが必要"
 
 #: admin/views/settings-page.php:144
 msgid "Locked by Shopify Admin"
@@ -237,47 +237,47 @@ msgstr ""
 
 #: admin/views/settings-page.php:265 admin/views/settings-page.php:277
 msgid "(unlimited)"
-msgstr "(rajoittamaton)"
+msgstr "(無制限)"
 
 #: admin/views/settings-page.php:260
 msgid "Articles:"
-msgstr "Artikkelit:"
+msgstr "記事:"
 
 #: admin/views/settings-page.php:272
 msgid "Edits:"
-msgstr "Muokkaukset:"
+msgstr "編集:"
 
 #: admin/views/settings-page.php:286
 msgid "Upgrade Plan"
-msgstr "Päivitä tilaus"
+msgstr "プランをアップグレード"
 
 #: admin/views/settings-page.php:294
 msgid "Connection"
-msgstr "Yhteys"
+msgstr "接続"
 
 #: admin/views/settings-page.php:295
 msgid "Blogs"
-msgstr "Blogit"
+msgstr "ブログ"
 
 #: admin/views/settings-page.php:296
 msgid "Redirections"
-msgstr "Uudelleenohjaukset"
+msgstr "リダイレクト"
 
 #: admin/views/settings-page.php:297
 msgid "Hreflangs"
-msgstr "Hreflangs"
+msgstr "Hreflang"
 
 #: admin/views/settings-page.php:298
 msgid "Meta Fields"
-msgstr "Metakentät"
+msgstr "メタフィールド"
 
 #: admin/views/settings-page.php:299
 msgid "Authors"
-msgstr "Kirjoittajat"
+msgstr "著者"
 
 #: admin/views/settings-page.php:300
 msgid "Files & Media"
-msgstr "Tiedostot ja media"
+msgstr "ファイルとメディア"
 
 #: admin/views/settings-page.php:301
 msgid "Content Processing"
@@ -285,19 +285,19 @@ msgstr ""
 
 #: admin/views/settings-page.php:302
 msgid "Sync Settings"
-msgstr "Synkronointiasetukset"
+msgstr "同期設定"
 
 #: admin/views/settings-page.php:303
 msgid "Advanced"
-msgstr "Lisäasetukset"
+msgstr "高度な設定"
 
 #: admin/views/settings-page.php:312
 msgid "Shopify Store Connection"
-msgstr "Shopify-kauppayhteys"
+msgstr "Shopifyストア接続"
 
 #: admin/views/settings-page.php:320
 msgid "Connected"
-msgstr "Yhdistetty"
+msgstr "接続済み"
 
 #: admin/views/settings-page.php:323
 msgid "to"
@@ -305,300 +305,290 @@ msgstr ""
 
 #: admin/views/settings-page.php:332
 msgid "Disconnect"
-msgstr "Katkaise yhteys"
+msgstr "切断"
 
 #: admin/views/settings-page.php:345
 msgid "Shopify Store"
-msgstr "Shopify-kauppa"
+msgstr "Shopifyストア"
 
 #: admin/views/settings-page.php:355
 msgid ""
 "Your Shopify store handle (e.g., \"my-store\" from my-store.myshopify.com)"
-msgstr ""
-"Shopify-kauppasi tunniste (esim. \"oma-kauppa\" osoitteesta oma-kauppa.myshopify.com)"
+msgstr "Shopifyストアハンドル（例：my-store.myshopify.comの「my-store」）"
 
 #: admin/views/settings-page.php:363
 msgid "Connect to Shopify"
-msgstr "Yhdistä Shopifyyn"
+msgstr "Shopifyに接続"
 
 #: admin/views/settings-page.php:370
 msgid "Manual Configuration"
-msgstr "Manuaalinen määritys"
+msgstr "手動設定"
 
 #: admin/views/settings-page.php:371
 msgid "If automatic connection fails, you can enter credentials manually."
-msgstr ""
-"Jos automaattinen yhteys epäonnistuu, voit syöttää tunnistetiedot manuaalisesti."
+msgstr "自動接続に失敗した場合、認証情報を手動で入力できます。"
 
 #: admin/views/settings-page.php:376
 msgid "API Key"
-msgstr "API-avain"
+msgstr "APIキー"
 
 #: admin/views/settings-page.php:386
 msgid "API Secret"
-msgstr "API-salaisuus"
+msgstr "APIシークレット"
 
 #: admin/views/settings-page.php:397
 msgid "Hide manual configuration"
-msgstr "Piilota manuaalinen määritys"
+msgstr "手動設定を非表示"
 
 #: admin/views/settings-page.php:402
 msgid "Enter credentials manually"
-msgstr "Syötä tunnistetiedot manuaalisesti"
+msgstr "認証情報を手動で入力"
 
 #: admin/views/settings-page.php:415
 msgid "Blog Routing Rules"
-msgstr "Blogin reitityssäännöt"
+msgstr "ブログルーティングルール"
 
 #: admin/views/settings-page.php:417
 msgid ""
 "Route WordPress posts to different Shopify blogs based on language or category."
-msgstr ""
-"Ohjaa WordPress-julkaisut eri Shopify-blogeihin kielen tai kategorian perusteella."
+msgstr "言語またはカテゴリに基づいてWordPress投稿を異なるShopifyブログにルーティングします。"
 
 #: admin/views/settings-page.php:418
 msgid ""
 "Higher priority rules are matched first. Default rule is used when no other rule matches."
-msgstr ""
-"Korkeamman prioriteetin säännöt täsmätään ensin. Oletussääntöä käytetään, kun mikään muu sääntö ei täsmää."
+msgstr "優先度の高いルールが最初にマッチします。他のルールがマッチしない場合、デフォルトルールが使用されます。"
 
 #: admin/views/settings-page.php:423
 msgid "Connect to Shopify first to configure blog mappings."
-msgstr "Yhdistä ensin Shopifyyn määrittääksesi blogikartoitukset."
+msgstr "ブログマッピングを設定するには、まずShopifyに接続してください。"
 
 #: admin/views/settings-page.php:429
 msgid "Loading mappings..."
-msgstr "Ladataan kartoituksia..."
+msgstr "マッピングを読み込み中..."
 
 #: admin/views/settings-page.php:435 admin/views/settings-page.php:441
 msgid "Add Mapping Rule"
-msgstr "Lisää kartoitussääntö"
+msgstr "マッピングルールを追加"
 
 #: admin/views/settings-page.php:447
 msgid "Rule Type"
-msgstr "Sääntötyyppi"
+msgstr "ルールタイプ"
 
 #: admin/views/settings-page.php:451
 msgid "Default (catch-all)"
-msgstr "Oletus (catch-all)"
+msgstr "デフォルト（キャッチオール）"
 
 #: admin/views/settings-page.php:452
 msgid "By Language"
-msgstr "Kielen mukaan"
+msgstr "言語別"
 
 #: admin/views/settings-page.php:453
 msgid "By Category"
-msgstr "Kategorian mukaan"
+msgstr "カテゴリ別"
 
 #: admin/views/settings-page.php:459
 msgid "Value"
-msgstr "Arvo"
+msgstr "値"
 
 #: admin/views/settings-page.php:464
 msgid "Language code (en, de, pl) or category slug"
-msgstr "Kielikoodi (en, de, pl) tai kategoria-slug"
+msgstr "言語コード（en、de、pl）またはカテゴリスラッグ"
 
 #: admin/views/settings-page.php:470
 msgid "Target Shopify Blog"
-msgstr "Kohde Shopify-blogi"
+msgstr "ターゲットShopifyブログ"
 
 #: admin/views/settings-page.php:474
 msgid "Select a blog..."
-msgstr "Valitse blogi..."
+msgstr "ブログを選択..."
 
 #: admin/views/settings-page.php:475
 msgid "Create new blog"
-msgstr "Luo uusi blogi"
+msgstr "新しいブログを作成"
 
 #: admin/views/settings-page.php:478
 msgid "New blog name (e.g., blog-en)"
-msgstr "Uuden blogin nimi (esim. blogi-fi)"
+msgstr "新しいブログ名（例：blog-ja）"
 
 #: admin/views/settings-page.php:484
 msgid "Priority"
-msgstr "Prioriteetti"
+msgstr "優先度"
 
 #: admin/views/settings-page.php:488
 msgid "Higher priority rules are matched first (0-100)"
-msgstr "Korkeamman prioriteetin säännöt täsmätään ensin (0-100)"
+msgstr "優先度の高いルールが最初にマッチします（0-100）"
 
 #: admin/views/settings-page.php:495
 msgid "Save Mapping"
-msgstr "Tallenna kartoitus"
+msgstr "マッピングを保存"
 
 #: admin/views/settings-page.php:498
 msgid "Cancel"
-msgstr "Peruuta"
+msgstr "キャンセル"
 
 #: admin/views/settings-page.php:512
 msgid "URL Redirections Management"
-msgstr "URL-uudelleenohjaushallinta"
+msgstr "URLリダイレクト管理"
 
 #: admin/views/settings-page.php:513
 msgid ""
 "Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration."
-msgstr ""
-"Hallitse 301-uudelleenohjauksia WordPress-URL-osoitteista Shopify-URL-osoitteisiin SEO:n säilyttämiseksi migraation aikana."
+msgstr "移行中のSEO保持のため、WordPress URLからShopify URLへの301リダイレクトを管理します。"
 
 #: admin/views/settings-page.php:520
 msgid "Redirections Manager"
-msgstr "Uudelleenohjaushallinta"
+msgstr "リダイレクトマネージャー"
 
 #: admin/views/settings-page.php:526
 msgid "Loading redirect stats..."
-msgstr "Ladataan uudelleenohjauksen tilastoja..."
+msgstr "リダイレクト統計を読み込み中..."
 
 #: admin/views/settings-page.php:533 includes/class-wash-admin.php:403
 msgid "Sync from Old Website"
-msgstr "Synkronoi vanhalta sivustolta"
+msgstr "古いウェブサイトから同期"
 
 #: admin/views/settings-page.php:537 includes/class-wash-admin.php:408
 msgid "Generate from Synced Posts"
-msgstr "Luo synkronoiduista julkaisuista"
+msgstr "同期した投稿から生成"
 
 #: admin/views/settings-page.php:541 includes/class-wash-admin.php:410
 msgid "Load from Shopify"
-msgstr "Lataa Shopifysta"
+msgstr "Shopifyから読み込み"
 
 #: admin/views/settings-page.php:545 includes/class-wash-admin.php:419
 msgid "Fix Session Scopes"
-msgstr "Korjaa istunnon laajuudet"
+msgstr "セッションスコープを修正"
 
 #: admin/views/settings-page.php:552
 msgid "Redirections List"
-msgstr "Uudelleenohjaluettelo"
+msgstr "リダイレクトリスト"
 
 #: admin/views/settings-page.php:554
 msgid "format: /old-path -> /new-path"
-msgstr "muoto: /vanha-polku -> /uusi-polku"
+msgstr "形式：/古いパス -> /新しいパス"
 
 #: admin/views/settings-page.php:563
 msgid ""
 "Enter one redirection per line. You can use ->, =>, or → as separator. Lines starting with # are ignored."
-msgstr ""
-"Syötä yksi uudelleenohjaus per rivi. Voit käyttää ->, => tai → erottimena. #-merkillä alkavat rivit ohitetaan."
+msgstr "1行に1つのリダイレクトを入力します。->、=>、または→を区切り文字として使用できます。#で始まる行は無視されます。"
 
 #: admin/views/settings-page.php:571
 msgid "Sync Redirections to Shopify"
-msgstr "Synkronoi uudelleenohjaukset Shopifyyn"
+msgstr "リダイレクトをShopifyに同期"
 
 #: admin/views/settings-page.php:580
 msgid "Sync Complete"
-msgstr "Synkronointi valmis"
+msgstr "同期完了"
 
 #: admin/views/settings-page.php:587
 msgid "Connect to Shopify first to manage redirections."
-msgstr "Yhdistä ensin Shopifyyn hallitaksesi uudelleenohjauksia."
+msgstr "リダイレクトを管理するには、まずShopifyに接続してください。"
 
 #: admin/views/settings-page.php:595
 msgid "URL Structure Guide"
-msgstr "URL-rakenneopas"
+msgstr "URL構造ガイド"
 
 #: admin/views/settings-page.php:603
 msgid "WordPress URL Structure (Current)"
-msgstr "WordPress URL-rakenne (Nykyinen)"
+msgstr "WordPress URL構造（現在）"
 
 #: admin/views/settings-page.php:605
 msgid "Your WordPress site currently serves content with these URL patterns:"
-msgstr "WordPress-sivustosi tarjoilee sisältöä näillä URL-malleilla:"
+msgstr "WordPressサイトは現在、これらのURLパターンでコンテンツを提供しています："
 
 #: admin/views/settings-page.php:609 admin/views/settings-page.php:650
 msgid "Blog Posts"
-msgstr "Blogikirjoitukset"
+msgstr "ブログ投稿"
 
 #: admin/views/settings-page.php:612
 msgid "Permalink structure depends on Settings → Permalinks"
-msgstr "Permalink-rakenne riippuu kohdasta Asetukset → Osoiterakenteet"
+msgstr "パーマリンク構造は設定→パーマリンクに依存します"
 
 #: admin/views/settings-page.php:616 admin/views/settings-page.php:666
 msgid "Pages"
-msgstr "Sivut"
+msgstr "ページ"
 
 #: admin/views/settings-page.php:619
 msgid "Page slug becomes the URL"
-msgstr "Sivun slug tulee URL-osoitteeksi"
+msgstr "ページスラッグがURLになります"
 
 #: admin/views/settings-page.php:623
 msgid "Categories"
-msgstr "Kategoriat"
+msgstr "カテゴリ"
 
 #: admin/views/settings-page.php:626
 msgid "Category archives with pagination"
-msgstr "Kategoria-arkistot sivutuksella"
+msgstr "ページネーション付きカテゴリアーカイブ"
 
 #: admin/views/settings-page.php:630 admin/views/settings-page.php:673 admin/views/settings-page.php:1504
 msgid "Images"
-msgstr "Kuvat"
+msgstr "画像"
 
 #: admin/views/settings-page.php:633
 msgid "Served from your WordPress server"
-msgstr "Tarjoillaan WordPress-palvelimeltasi"
+msgstr "WordPressサーバーから提供"
 
 #: admin/views/settings-page.php:644
 msgid "Shopify URL Structure (After Sync)"
-msgstr "Shopify URL-rakenne (Synkronoinnin jälkeen)"
+msgstr "Shopify URL構造（同期後）"
 
 #: admin/views/settings-page.php:646
 msgid ""
 "After syncing, your content will be available on Shopify with these URL patterns:"
-msgstr ""
-"Synkronoinnin jälkeen sisältösi on saatavilla Shopifyssa näillä URL-malleilla:"
+msgstr "同期後、コンテンツはこれらのURLパターンでShopifyで利用可能になります："
 
 #: admin/views/settings-page.php:653
 msgid "Blog handle is required in Shopify URLs. Configure in Blogs tab."
-msgstr ""
-"Blogin tunniste vaaditaan Shopify-URL-osoitteissa. Määritä Blogit-välilehdessä."
+msgstr "Shopify URLにはブログハンドルが必要です。ブログタブで設定してください。"
 
 #: admin/views/settings-page.php:657
 msgid "Multi-language Posts"
-msgstr "Monikieliset julkaisut"
+msgstr "多言語投稿"
 
 #: admin/views/settings-page.php:659
 msgid "English"
-msgstr "Englanti"
+msgstr "英語"
 
 #: admin/views/settings-page.php:660
 msgid "German"
-msgstr "Saksa"
+msgstr "ドイツ語"
 
 #: admin/views/settings-page.php:661
 msgid "Polish"
-msgstr "Puola"
+msgstr "ポーランド語"
 
 #: admin/views/settings-page.php:662
 msgid "Each language gets its own blog with routing rules."
-msgstr "Jokainen kieli saa oman bloginsa reitityssäännöillä."
+msgstr "各言語はルーティングルール付きの独自のブログを持ちます。"
 
 #: admin/views/settings-page.php:669
 msgid "Pages are prefixed with /pages/ in Shopify."
-msgstr "Sivuilla on etuliite /pages/ Shopifyssa."
+msgstr "ページはShopifyで/pages/プレフィックスが付きます。"
 
 #: admin/views/settings-page.php:676
 msgid "Images are uploaded to Shopify CDN for faster global delivery."
-msgstr ""
-"Kuvat ladataan Shopify CDN:ään nopeampaa maailmanlaajuista toimitusta varten."
+msgstr "画像はより速いグローバル配信のためにShopify CDNにアップロードされます。"
 
 #: admin/views/settings-page.php:687
 msgid "Image Handling"
-msgstr "Kuvankäsittely"
+msgstr "画像処理"
 
 #: admin/views/settings-page.php:692
 msgid "Image Type"
-msgstr "Kuvatyyppi"
+msgstr "画像タイプ"
 
 #: admin/views/settings-page.php:693
 msgid "What Happens"
-msgstr "Mitä tapahtuu"
+msgstr "何が起こるか"
 
 #: admin/views/settings-page.php:698
 msgid "Featured Image"
-msgstr "Artikkelikuva"
+msgstr "アイキャッチ画像"
 
 #: admin/views/settings-page.php:699
 msgid ""
 "Uploaded to Shopify and set as article image. Displayed in blog listings and article headers."
-msgstr ""
-"Ladataan Shopifyyn ja asetetaan artikkelikuvaksi. Näytetään blogilistoissa ja artikkeliotsikoissa."
+msgstr "Shopifyにアップロードされ、記事画像として設定されます。ブログ一覧と記事ヘッダーに表示されます。"
 
 #: admin/views/settings-page.php:702
 msgid "Content Images"
@@ -1102,7 +1092,7 @@ msgstr ""
 
 #: admin/views/settings-page.php:1259
 msgid "Author Mapping"
-msgstr "Kirjoittajakartoitus"
+msgstr "著者マッピング"
 
 #: admin/views/settings-page.php:1260
 msgid ""
@@ -1617,11 +1607,11 @@ msgstr ""
 
 #: admin/views/settings-page.php:1977 includes/class-wash-admin.php:377
 msgid "Are you sure you want to disconnect from Shopify?"
-msgstr "Haluatko varmasti katkaista yhteyden Shopifyyn?"
+msgstr "Shopifyから切断してもよろしいですか？"
 
 #: admin/views/settings-page.php:2025 includes/class-wash-admin.php:436
 msgid "Failed to load mappings"
-msgstr "Kartoitusten lataus epäonnistui"
+msgstr "マッピングの読み込みに失敗しました"
 
 #: admin/views/settings-page.php:2060
 msgid ""
@@ -1654,11 +1644,11 @@ msgstr ""
 
 #: admin/views/settings-page.php:2081 includes/class-wash-admin.php:437
 msgid "Edit"
-msgstr "Muokkaa"
+msgstr "編集"
 
 #: admin/views/settings-page.php:2082 includes/class-wash-admin.php:438
 msgid "Delete"
-msgstr "Poista"
+msgstr "削除"
 
 #: admin/views/settings-page.php:2154
 msgid "Saving..."
@@ -1718,7 +1708,7 @@ msgstr ""
 
 #: includes/class-wash-files-media.php:192 includes/class-wash-admin.php:1325 includes/class-wash-files-media.php:435
 msgid "Sync failed"
-msgstr "Synkronointi epäonnistui"
+msgstr "同期に失敗しました"
 
 #: includes/class-wash-files-media.php:267
 msgid "Image synced to Shopify successfully!"
@@ -1871,7 +1861,7 @@ msgstr ""
 
 #: includes/class-wash-hreflangs.php:640
 msgid "None detected"
-msgstr "Ei havaittu"
+msgstr "検出なし"
 
 #: includes/class-wash-multisite.php:23
 msgid "Wash Network"
@@ -1911,7 +1901,7 @@ msgstr ""
 
 #: includes/class-wash-admin.php:344
 msgid "Sync in progress..."
-msgstr "Synkronointi käynnissä..."
+msgstr "同期中..."
 
 #: includes/class-wash-admin.php:346 includes/class-wash-admin.php:1245
 msgid "Post synced to Shopify successfully."
@@ -1919,210 +1909,206 @@ msgstr ""
 
 #: includes/class-wash-admin.php:372
 msgid "Testing connection..."
-msgstr "Testataan yhteyttä..."
+msgstr "接続をテスト中..."
 
 #: includes/class-wash-admin.php:373
 msgid "Connection successful!"
-msgstr "Yhteys onnistui!"
+msgstr "接続成功！"
 
 #: includes/class-wash-admin.php:374
 msgid "Connection failed: "
-msgstr "Yhteys epäonnistui: "
+msgstr "接続失敗: "
 
 #: includes/class-wash-admin.php:375
 msgid "Test Connection"
-msgstr "Testaa yhteys"
+msgstr "接続をテスト"
 
 #: includes/class-wash-admin.php:378
 msgid "Failed to disconnect. Please try again."
-msgstr "Yhteyden katkaisu epäonnistui. Yritä uudelleen."
+msgstr "切断に失敗しました。もう一度お試しください。"
 
 #: includes/class-wash-admin.php:380
 msgid "Debug Session"
-msgstr "Virheenkorjausistunto"
+msgstr "デバッグセッション"
 
 #: includes/class-wash-admin.php:381
 msgid "Checking..."
-msgstr "Tarkistetaan..."
+msgstr "確認中..."
 
 #: includes/class-wash-admin.php:382
 msgid "Network error - could not reach debug endpoint"
-msgstr "Verkkovirhe - virheenkorjauspäätepistettä ei voitu saavuttaa"
+msgstr "ネットワークエラー - デバッグエンドポイントに到達できませんでした"
 
 #: includes/class-wash-admin.php:384
 msgid "Reset Session"
-msgstr "Nollaa istunto"
+msgstr "セッションをリセット"
 
 #: includes/class-wash-admin.php:385
 msgid "Resetting..."
-msgstr "Nollataan..."
+msgstr "リセット中..."
 
 #: includes/class-wash-admin.php:386
 msgid ""
 "This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?"
-msgstr ""
-"Tämä poistaa Shopify-istunnon. Sinun täytyy avata sovellus uudelleen Shopify Administa todentaaksesi uudelleen. Jatketaanko?"
+msgstr "これによりShopifyセッションが削除されます。再認証するにはShopify Adminからアプリを再度開く必要があります。続行しますか？"
 
 #: includes/class-wash-admin.php:387
 msgid "Session reset. Now open the app from Shopify Admin to re-authenticate."
-msgstr ""
-"Istunto nollattu. Avaa nyt sovellus Shopify Administa todentaaksesi uudelleen."
+msgstr "セッションがリセットされました。Shopify Adminからアプリを開いて再認証してください。"
 
 #: includes/class-wash-admin.php:388
 msgid "Failed to reset session: "
-msgstr "Istunnon nollaus epäonnistui: "
+msgstr "セッションのリセットに失敗しました: "
 
 #: includes/class-wash-admin.php:389
 msgid "Network error - could not reach reset endpoint"
-msgstr "Verkkovirhe - nollauspäätepistettä ei voitu saavuttaa"
+msgstr "ネットワークエラー - リセットエンドポイントに到達できませんでした"
 
 #: includes/class-wash-admin.php:390
 msgid "Network error while resetting session"
-msgstr "Verkkovirhe istuntoa nollatessa"
+msgstr "セッションリセット中のネットワークエラー"
 
 #: includes/class-wash-admin.php:393
 msgid "Syncing redirections..."
-msgstr "Synkronoidaan uudelleenohjauksia..."
+msgstr "リダイレクトを同期中..."
 
 #: includes/class-wash-admin.php:394
 msgid "Generating redirections..."
-msgstr "Luodaan uudelleenohjauksia..."
+msgstr "リダイレクトを生成中..."
 
 #: includes/class-wash-admin.php:395
 msgid "Fetching WordPress redirections..."
-msgstr "Haetaan WordPress-uudelleenohjauksia..."
+msgstr "WordPressリダイレクトを取得中..."
 
 #: includes/class-wash-admin.php:396
 msgid "Redirections synced successfully!"
-msgstr "Uudelleenohjaukset synkronoitu onnistuneesti!"
+msgstr "リダイレクトが正常に同期されました！"
 
 #: includes/class-wash-admin.php:397
 msgid "Failed to sync redirections: "
-msgstr "Uudelleenohjausten synkronointi epäonnistui: "
+msgstr "リダイレクトの同期に失敗しました: "
 
 #: includes/class-wash-admin.php:398
 msgid "Failed to load stats"
-msgstr "Tilastojen lataus epäonnistui"
+msgstr "統計の読み込みに失敗しました"
 
 #: includes/class-wash-admin.php:399
 msgid ""
 "No redirections found in WordPress plugins (Redirection, RankMath, Yoast)."
-msgstr ""
-"Uudelleenohjauksia ei löytynyt WordPress-lisäosista (Redirection, RankMath, Yoast)."
+msgstr "WordPressプラグイン（Redirection、RankMath、Yoast）にリダイレクトが見つかりませんでした。"
 
 #: includes/class-wash-admin.php:400
 msgid "# Imported from WordPress plugins"
-msgstr "# Tuotu WordPress-lisäosista"
+msgstr "# WordPressプラグインからインポート"
 
 #: includes/class-wash-admin.php:401
 msgid "Failed to fetch redirections: "
-msgstr "Uudelleenohjausten haku epäonnistui: "
+msgstr "リダイレクトの取得に失敗しました: "
 
 #: includes/class-wash-admin.php:402
 msgid "Network error while fetching WordPress redirections"
-msgstr "Verkkovirhe haettaessa WordPress-uudelleenohjauksia"
+msgstr "WordPressリダイレクト取得中のネットワークエラー"
 
 #: includes/class-wash-admin.php:404
 msgid "No synced posts found. Sync some posts first to generate redirections."
-msgstr ""
-"Synkronoituja julkaisuja ei löytynyt. Synkronoi ensin julkaisuja luodaksesi uudelleenohjauksia."
+msgstr "同期された投稿が見つかりません。リダイレクトを生成するには、まず投稿を同期してください。"
 
 #: includes/class-wash-admin.php:405
 msgid "# Generated from synced posts"
-msgstr "# Luotu synkronoiduista julkaisuista"
+msgstr "# 同期した投稿から生成"
 
 #: includes/class-wash-admin.php:406
 msgid "Failed to generate redirections: "
-msgstr "Uudelleenohjausten luonti epäonnistui: "
+msgstr "リダイレクトの生成に失敗しました: "
 
 #: includes/class-wash-admin.php:407
 msgid "Network error while generating redirections"
-msgstr "Verkkovirhe luotaessa uudelleenohjauksia"
+msgstr "リダイレクト生成中のネットワークエラー"
 
 #: includes/class-wash-admin.php:409
 msgid "Failed to load Shopify redirections: "
-msgstr "Shopify-uudelleenohjausten lataus epäonnistui: "
+msgstr "Shopifyリダイレクトの読み込みに失敗しました: "
 
 #: includes/class-wash-admin.php:411
 msgid "No redirections found in Shopify."
-msgstr "Uudelleenohjauksia ei löytynyt Shopifysta."
+msgstr "Shopifyにリダイレクトが見つかりませんでした。"
 
 #: includes/class-wash-admin.php:412
 msgid "# Existing Shopify redirections"
-msgstr "# Olemassa olevat Shopify-uudelleenohjaukset"
+msgstr "# 既存のShopifyリダイレクト"
 
 #: includes/class-wash-admin.php:413
 msgid "Network error while loading Shopify redirections"
-msgstr "Verkkovirhe ladattaessa Shopify-uudelleenohjauksia"
+msgstr "Shopifyリダイレクト読み込み中のネットワークエラー"
 
 #: includes/class-wash-admin.php:415
 msgid "Fixing..."
-msgstr "Korjataan..."
+msgstr "修正中..."
 
 #: includes/class-wash-admin.php:416
 msgid "Session fixed!"
-msgstr "Istunto korjattu!"
+msgstr "セッションが修正されました！"
 
 #: includes/class-wash-admin.php:417
 msgid "No sessions needed fixing."
-msgstr "Yksikään istunto ei tarvinnut korjausta."
+msgstr "修正が必要なセッションはありませんでした。"
 
 #: includes/class-wash-admin.php:418
 msgid "Network error while fixing session"
-msgstr "Verkkovirhe korjatessa istuntoa"
+msgstr "セッション修正中のネットワークエラー"
 
 #: includes/class-wash-admin.php:420
 msgid "Failed to fix session: "
-msgstr "Istunnon korjaus epäonnistui: "
+msgstr "セッションの修正に失敗しました: "
 
 #: includes/class-wash-admin.php:422
 msgid "Please enter redirections to sync."
-msgstr "Syötä synkronoitavat uudelleenohjaukset."
+msgstr "同期するリダイレクトを入力してください。"
 
 #: includes/class-wash-admin.php:423
 msgid "Network error while syncing redirections"
-msgstr "Verkkovirhe synkronoidessa uudelleenohjauksia"
+msgstr "リダイレクト同期中のネットワークエラー"
 
 #: includes/class-wash-admin.php:424
 msgid "Unknown error"
-msgstr "Tuntematon virhe"
+msgstr "不明なエラー"
 
 #: includes/class-wash-admin.php:425
 msgid "Network error"
-msgstr "Verkkovirhe"
+msgstr "ネットワークエラー"
 
 #: includes/class-wash-admin.php:427
 msgid "Created"
-msgstr "Luotu"
+msgstr "作成済み"
 
 #: includes/class-wash-admin.php:428
 msgid "Skipped (already exist)"
-msgstr "Ohitettu (jo olemassa)"
+msgstr "スキップ（既に存在）"
 
 #: includes/class-wash-admin.php:429
 msgid "Failed"
-msgstr "Epäonnistui"
+msgstr "失敗"
 
 #: includes/class-wash-admin.php:430
 msgid "Total in Shopify"
-msgstr "Yhteensä Shopifyssa"
+msgstr "Shopify内の合計"
 
 #: includes/class-wash-admin.php:431
 msgid "Remaining"
-msgstr "Jäljellä"
+msgstr "残り"
 
 #: includes/class-wash-admin.php:432
 msgid "Errors"
-msgstr "Virheet"
+msgstr "エラー"
 
 #: includes/class-wash-admin.php:433
 #, php-format
 msgid "... and %d more"
-msgstr "... ja %d lisää"
+msgstr "... 他%d件"
 
 #: includes/class-wash-admin.php:434
 msgid "Try loading redirections again."
-msgstr "Yritä ladata uudelleenohjaukset uudelleen."
+msgstr "リダイレクトを再度読み込んでみてください。"
 
 #: includes/class-wash-admin.php:626 includes/class-wash-admin.php:657
 msgid "Mapping ID is required"

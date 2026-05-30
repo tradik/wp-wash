@@ -3,80 +3,81 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$isConnected = !empty(get_option('wash_api_key'));
-$shopifyStore = get_option('wash_shopify_store', '');
-$shopifyAppSlug = (new WashApiClient())->getShopifyAppSlug();
+$wash_isConnected = !empty(get_option('wash_api_key'));
+$wash_shopifyStore = get_option('wash_shopify_store', '');
+$wash_shopifyAppSlug = (new WashApiClient())->getShopifyAppSlug();
 
 // Get WordPress permalink structure for URL examples
-$permalinkStructure = get_option('permalink_structure', '/%postname%/');
-$permalinkExample = str_replace(
+$wash_permalinkStructure = get_option('permalink_structure', '/%postname%/');
+$wash_permalinkExample = str_replace(
     ['%year%', '%monthnum%', '%day%', '%postname%', '%post_id%', '%category%', '%author%'],
-    [date('Y'), date('m'), date('d'), '{slug}', '{id}', '{category}', '{author}'],
-    $permalinkStructure ?: '/{slug}/'
+    [gmdate('Y'), gmdate('m'), gmdate('d'), '{slug}', '{id}', '{category}', '{author}'],
+    $wash_permalinkStructure ?: '/{slug}/'
 );
-$permalinkExample = home_url($permalinkExample);
+$wash_permalinkExample = home_url($wash_permalinkExample);
 
 // Multi-language permalink (with {lang} prefix)
-$multiLangPermalink = home_url('/{lang}' . str_replace(home_url(''), '', $permalinkExample));
+$wash_multiLangPermalink = home_url('/{lang}' . str_replace(home_url(''), '', $wash_permalinkExample));
 
 // Category base from WordPress settings
-$categoryBase = get_option('category_base', 'category') ?: 'category';
-$categoryExample = home_url('/' . $categoryBase . '/{category}/');
+$wash_categoryBase = get_option('category_base', 'category') ?: 'category';
+$wash_categoryExample = home_url('/' . $wash_categoryBase . '/{category}/');
 
 // Fetch plan info for feature gating
-$planInfo = null;
-$features = [];
-$upgradeUrl = '';
-$planName = 'FREE';
-$permissions = [];
+$wash_planInfo = null;
+$wash_features = [];
+$wash_upgradeUrl = '';
+$wash_planName = 'FREE';
+$wash_permissions = [];
 
-// Check if plan refresh was requested
-$forceRefreshPlan = isset($_GET['refresh_plan']) && $_GET['refresh_plan'] === '1';
+// Check if plan refresh was requested. Read-only UI toggle on an admin page that's already capability-gated by the WP menu system; a nonce isn't applicable for a self-link refresh.
+// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only UI toggle, value is only compared to '1' and never stored/echoed.
+$wash_forceRefreshPlan = isset($_GET['refresh_plan']) && $_GET['refresh_plan'] === '1';
 
-$connectionError = '';
+$wash_connectionError = '';
 
-if ($isConnected) {
-    $apiClient = new WashApiClient();
+if ($wash_isConnected) {
+    $wash_apiClient = new WashApiClient();
 
     // Force refresh plan info and permissions if requested via query parameter
-    if ($forceRefreshPlan) {
-        $apiClient->clearPlanInfoCache();
-        $apiClient->clearPermissionsCache();
+    if ($wash_forceRefreshPlan) {
+        $wash_apiClient->clearPlanInfoCache();
+        $wash_apiClient->clearPermissionsCache();
     }
 
-    $planInfo = $apiClient->getPlanInfo($forceRefreshPlan);
-    if (is_wp_error($planInfo)) {
-        $connectionError = $planInfo->get_error_message();
-    } elseif (!empty($planInfo['features'])) {
-        $features = $planInfo['features'];
-        $upgradeUrl = $planInfo['upgradeUrl'] ?? '';
-        $planName = $planInfo['plan'] ?? 'FREE';
+    $wash_planInfo = $wash_apiClient->getPlanInfo($wash_forceRefreshPlan);
+    if (is_wp_error($wash_planInfo)) {
+        $wash_connectionError = $wash_planInfo->get_error_message();
+    } elseif (!empty($wash_planInfo['features'])) {
+        $wash_features = $wash_planInfo['features'];
+        $wash_upgradeUrl = $wash_planInfo['upgradeUrl'] ?? '';
+        $wash_planName = $wash_planInfo['plan'] ?? 'FREE';
     }
 
     // Local feature overrides for features not yet returned by API
-    if (in_array($planName, ['BUSINESS', 'ENTERPRISE'], true)) {
-        $features['searchReplace'] = true;
+    if (in_array($wash_planName, ['BUSINESS', 'ENTERPRISE'], true)) {
+        $wash_features['searchReplace'] = true;
     }
 
     // Fetch permissions from Shopify App
-    $permissions = $apiClient->getPermissions();
-    if (is_wp_error($permissions)) {
-        $permissions = []; // Default to empty = all allowed
+    $wash_permissions = $wash_apiClient->getPermissions();
+    if (is_wp_error($wash_permissions)) {
+        $wash_permissions = []; // Default to empty = all allowed
     }
 
     // Check if user can modify settings based on admin-only permissions
-    $userCanModifySettings = $apiClient->canUserModifySettings($permissions);
+    $wash_userCanModifySettings = $wash_apiClient->canUserModifySettings($wash_permissions);
 } else {
-    $userCanModifySettings = true; // Not connected, allow access
+    $wash_userCanModifySettings = true; // Not connected, allow access
 }
 
 // If not defined above (e.g., not connected), default to true
-if (!isset($userCanModifySettings)) {
-    $userCanModifySettings = true;
+if (!isset($wash_userCanModifySettings)) {
+    $wash_userCanModifySettings = true;
 }
 
 // Tab to permission field mapping
-$tabPermissions = [
+$wash_tabPermissions = [
     'sync' => 'canEditSync',
     'blogs' => 'canEditBlogs',
     'hreflangs' => 'canEditHreflangs',
@@ -89,46 +90,21 @@ $tabPermissions = [
     'advanced' => 'canEditAdvanced',
 ];
 
-// Check if update refresh was requested
-$forceRefreshUpdates = isset($_GET['refresh_updates']) && $_GET['refresh_updates'] === '1';
-
 // Check if settings sync was requested
-$forceRefreshSettings = isset($_GET['refresh_settings']) && $_GET['refresh_settings'] === '1';
+// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only UI toggle (see refresh_plan above); value only compared to '1', never stored/echoed.
+$wash_forceRefreshSettings = isset($_GET['refresh_settings']) && $_GET['refresh_settings'] === '1';
 
 // Sync settings from Shopify if requested
-if ($forceRefreshSettings && $isConnected) {
-    $apiClient = $apiClient ?? new WashApiClient();
-    $settingsResponse = $apiClient->getBackedUpSettings();
-    if (!is_wp_error($settingsResponse) && !empty($settingsResponse['settings'])) {
-        $apiClient->restoreSettings($settingsResponse['settings']);
-    }
-}
-
-// Check for plugin update
-$updateAvailable = false;
-$latestVersion = WASH_VERSION;
-if ($isConnected) {
-    $updater = new WashUpdater();
-
-    // Force refresh if requested
-    if ($forceRefreshUpdates) {
-        $updater->clearCache();
-        // Also clear WordPress plugin update transient
-        delete_site_transient('update_plugins');
-    }
-
-    $versionInfo = $updater->getVersionInfo($forceRefreshUpdates);
-    if (!is_wp_error($versionInfo) && !empty($versionInfo['plugin']['latestVersion'])) {
-        $latestVersion = $versionInfo['plugin']['latestVersion'];
-        // Only show update if latestVersion is actually newer than current
-        if (version_compare($latestVersion, WASH_VERSION, '>')) {
-            $updateAvailable = true;
-        }
+if ($wash_forceRefreshSettings && $wash_isConnected) {
+    $wash_apiClient = $wash_apiClient ?? new WashApiClient();
+    $wash_settingsResponse = $wash_apiClient->getBackedUpSettings();
+    if (!is_wp_error($wash_settingsResponse) && !empty($wash_settingsResponse['settings'])) {
+        $wash_apiClient->restoreSettings($wash_settingsResponse['settings']);
     }
 }
 
 // Feature to tab mapping
-$tabFeatures = [
+$wash_tabFeatures = [
     'blogs' => 'blogMapping',
     'redirections' => 'smartRedirections',
     'hreflangs' => 'hreflang',
@@ -138,7 +114,7 @@ $tabFeatures = [
 ];
 
 // Required plans for locked features
-$featurePlans = [
+$wash_featurePlans = [
     'blogMapping' => 'PRO',
     'smartRedirections' => 'BUSINESS',
     'hreflang' => 'PRO',
@@ -152,122 +128,128 @@ $featurePlans = [
 /**
  * Check if a tab/feature is locked (plan-based).
  */
-function wash_is_feature_locked($featureName, $features) {
-    if (empty($features)) {
+function wash_is_feature_locked($wash_featureName, $wash_features) {
+    if (empty($wash_features)) {
         return false; // No plan info, don't lock
     }
-    return empty($features[$featureName]);
+    return empty($wash_features[$wash_featureName]);
 }
 
 /**
  * Check if a tab is locked by Shopify permissions.
  */
-function wash_is_permission_locked($tab, $tabPermissions, $permissions) {
-    if (empty($permissions)) {
+function wash_is_permission_locked($wash_tab, $wash_tabPermissions, $wash_permissions) {
+    if (empty($wash_permissions)) {
         return false; // No permissions info, don't lock
     }
-    $permissionField = $tabPermissions[$tab] ?? null;
-    if (!$permissionField) {
+    $wash_permissionField = $wash_tabPermissions[$wash_tab] ?? null;
+    if (!$wash_permissionField) {
         return false; // Tab has no permission field
     }
-    return isset($permissions[$permissionField]) && $permissions[$permissionField] === false;
+    return isset($wash_permissions[$wash_permissionField]) && $wash_permissions[$wash_permissionField] === false;
 }
 
 /**
  * Render a tab link with optional locked state (plan or permission).
  */
-function wash_render_tab($tab, $label, $features, $tabFeatures, $featurePlans, $upgradeUrl, $isActive = false, $permissions = [], $tabPermissions = [], $isConnected = true) {
-    $featureName = $tabFeatures[$tab] ?? null;
-    $isPlanLocked = $featureName && wash_is_feature_locked($featureName, $features);
-    $isPermissionLocked = wash_is_permission_locked($tab, $tabPermissions, $permissions);
+function wash_render_tab($wash_tab, $wash_label, $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_isActive = false, $wash_permissions = [], $wash_tabPermissions = [], $wash_isConnected = true) {
+    $wash_featureName = $wash_tabFeatures[$wash_tab] ?? null;
+    $wash_isPlanLocked = $wash_featureName && wash_is_feature_locked($wash_featureName, $wash_features);
+    $wash_isPermissionLocked = wash_is_permission_locked($wash_tab, $wash_tabPermissions, $wash_permissions);
 
     // Disable all tabs except 'connection' when not connected
-    $isDisconnected = !$isConnected && $tab !== 'connection';
+    $wash_isDisconnected = !$wash_isConnected && $wash_tab !== 'connection';
 
-    $isLocked = $isPlanLocked || $isPermissionLocked;
-    $requiredPlan = $featurePlans[$featureName] ?? 'PRO';
+    $wash_isLocked = $wash_isPlanLocked || $wash_isPermissionLocked;
+    $wash_requiredPlan = $wash_featurePlans[$wash_featureName] ?? 'PRO';
 
-    $classes = 'nav-tab';
-    if ($isActive) {
-        $classes .= ' nav-tab-active';
+    $wash_classes = 'nav-tab';
+    if ($wash_isActive) {
+        $wash_classes .= ' nav-tab-active';
     }
-    if ($isLocked) {
-        $classes .= ' nav-tab-locked';
+    if ($wash_isLocked) {
+        $wash_classes .= ' nav-tab-locked';
     }
-    if ($isDisconnected) {
-        $classes .= ' nav-tab-disabled';
-    }
-
-    $lockIcon = '';
-    if ($isLocked) {
-        $lockIcon = ' <span class="dashicons dashicons-lock" style="font-size: 14px; opacity: 0.6;"></span>';
+    if ($wash_isDisconnected) {
+        $wash_classes .= ' nav-tab-disabled';
     }
 
-    if ($isDisconnected) {
-        $title = esc_attr__('Connect to Shopify first', 'wash');
-    } elseif ($isPlanLocked) {
-        $title = sprintf(esc_attr__('Requires %s plan', 'wash'), $requiredPlan);
-    } elseif ($isPermissionLocked) {
-        $title = esc_attr__('Locked by Shopify Admin', 'wash');
+    $wash_lockIcon = '';
+    if ($wash_isLocked) {
+        $wash_lockIcon = ' <span class="dashicons dashicons-lock" style="font-size: 14px; opacity: 0.6;"></span>';
+    }
+
+    if ($wash_isDisconnected) {
+        $wash_title = esc_attr__('Connect to Shopify first', 'wash-blog-manager');
+    } elseif ($wash_isPlanLocked) {
+        // translators: %s is the name of the Shopify plan required to use this feature.
+        $wash_title = sprintf(esc_attr__('Requires %s plan', 'wash-blog-manager'), $wash_requiredPlan);
+    } elseif ($wash_isPermissionLocked) {
+        $wash_title = esc_attr__('Locked by Shopify Admin', 'wash-blog-manager');
     } else {
-        $title = '';
+        $wash_title = '';
     }
 
     printf(
         '<a href="#%s" class="%s" data-tab="%s" data-locked="%s" data-disabled="%s" data-required-plan="%s" data-upgrade-url="%s" title="%s">%s%s</a>',
-        esc_attr($tab),
-        esc_attr($classes),
-        esc_attr($tab),
-        $isLocked ? '1' : '0',
-        $isDisconnected ? '1' : '0',
-        esc_attr($requiredPlan),
-        esc_url($upgradeUrl),
-        esc_attr($title),
-        esc_html($label),
-        $lockIcon
+        esc_attr($wash_tab),
+        esc_attr($wash_classes),
+        esc_attr($wash_tab),
+        $wash_isLocked ? '1' : '0',
+        $wash_isDisconnected ? '1' : '0',
+        esc_attr($wash_requiredPlan),
+        esc_url($wash_upgradeUrl),
+        esc_attr($wash_title),
+        esc_html($wash_label),
+        wp_kses_post($wash_lockIcon)
     );
 }
 
 /**
  * Get tab content attributes for locked state (plan or permission).
  */
-function wash_get_tab_content_class($tab, $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions = [], $tabPermissions = []) {
-    $featureName = $tabFeatures[$tab] ?? null;
-    $isPlanLocked = $featureName && wash_is_feature_locked($featureName, $features);
-    $isPermissionLocked = wash_is_permission_locked($tab, $tabPermissions, $permissions);
-    $requiredPlan = $featurePlans[$featureName] ?? 'PRO';
-    $isLocked = $isPlanLocked || $isPermissionLocked;
+function wash_get_tab_content_class($wash_tab, $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions = [], $wash_tabPermissions = []) {
+    $wash_featureName = $wash_tabFeatures[$wash_tab] ?? null;
+    $wash_isPlanLocked = $wash_featureName && wash_is_feature_locked($wash_featureName, $wash_features);
+    $wash_isPermissionLocked = wash_is_permission_locked($wash_tab, $wash_tabPermissions, $wash_permissions);
+    $wash_requiredPlan = $wash_featurePlans[$wash_featureName] ?? 'PRO';
+    $wash_isLocked = $wash_isPlanLocked || $wash_isPermissionLocked;
 
-    $class = 'wash-tab-content';
-    if ($isPlanLocked) {
-        $class .= ' wash-tab-content--locked';
+    $wash_class = 'wash-tab-content';
+    if ($wash_isPlanLocked) {
+        $wash_class .= ' wash-tab-content--locked';
     }
-    if ($isPermissionLocked) {
-        $class .= ' wash-tab-content--permission-locked';
+    if ($wash_isPermissionLocked) {
+        $wash_class .= ' wash-tab-content--permission-locked';
     }
 
     return [
-        'class' => $class,
-        'isLocked' => $isLocked,
-        'isPlanLocked' => $isPlanLocked,
-        'isPermissionLocked' => $isPermissionLocked,
-        'requiredPlan' => $requiredPlan,
-        'upgradeUrl' => $upgradeUrl,
+        'class' => $wash_class,
+        'isLocked' => $wash_isLocked,
+        'isPlanLocked' => $wash_isPlanLocked,
+        'isPermissionLocked' => $wash_isPermissionLocked,
+        'requiredPlan' => $wash_requiredPlan,
+        'upgradeUrl' => $wash_upgradeUrl,
     ];
 }
 
 /**
  * Render a plan-locked banner.
  */
-function wash_render_locked_banner($requiredPlan, $upgradeUrl) {
+function wash_render_locked_banner($wash_requiredPlan, $wash_upgradeUrl) {
     ?>
     <div class="wash-locked-banner">
         <div class="wash-locked-banner__text">
             <span class="dashicons dashicons-lock"></span>
-            <span><?php printf(esc_html__('This feature requires %s plan', 'wash'), esc_html($requiredPlan)); ?></span>
+            <span>
+                <?php
+                // translators: %s is the name of the Shopify plan required to use this feature.
+                printf(esc_html__('This feature requires %s plan', 'wash-blog-manager'), esc_html($wash_requiredPlan));
+                ?>
+            </span>
         </div>
         <div class="wash-locked-banner__actions">
-            <a href="<?php echo esc_url($upgradeUrl); ?>" class="button" target="_blank"><?php esc_html_e('Upgrade Now', 'wash'); ?></a>
+            <a href="<?php echo esc_url($wash_upgradeUrl); ?>" class="button" target="_blank"><?php esc_html_e('Upgrade Now', 'wash-blog-manager'); ?></a>
         </div>
     </div>
     <?php
@@ -281,9 +263,9 @@ function wash_render_permission_locked_banner() {
     <div class="wash-permission-locked-banner" style="background: #fff8e6; border: 1px solid #ffc96b; border-radius: 4px; padding: 12px 15px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
         <span class="dashicons dashicons-lock" style="color: #856404; font-size: 20px;"></span>
         <div>
-            <strong style="color: #856404;"><?php esc_html_e('Settings Locked by Shopify Admin', 'wash'); ?></strong>
+            <strong style="color: #856404;"><?php esc_html_e('Settings Locked by Shopify Admin', 'wash-blog-manager'); ?></strong>
             <p style="margin: 4px 0 0; color: #856404; font-size: 13px;">
-                <?php esc_html_e('This section is controlled from the Shopify App. Changes made here will not be saved.', 'wash'); ?>
+                <?php esc_html_e('This section is controlled from the Shopify App. Changes made here will not be saved.', 'wash-blog-manager'); ?>
             </p>
         </div>
     </div>
@@ -291,170 +273,202 @@ function wash_render_permission_locked_banner() {
 }
 ?>
 <div class="wrap wash-settings">
-    <?php if ($forceRefreshPlan && empty($connectionError)) : ?>
+    <?php if ($wash_forceRefreshPlan && empty($wash_connectionError)) : ?>
     <div class="notice notice-success is-dismissible" style="margin: 15px 0;">
-        <p><?php esc_html_e('Plan information refreshed successfully.', 'wash'); ?></p>
+        <p><?php esc_html_e('Plan information refreshed successfully.', 'wash-blog-manager'); ?></p>
     </div>
     <?php endif; ?>
-    <?php if ($isConnected && !empty($connectionError)) : ?>
+    <?php if ($wash_isConnected && !empty($wash_connectionError)) : ?>
     <div class="notice notice-error" style="margin: 15px 0;">
         <p>
             <strong>Wash:</strong>
             <?php
             printf(
                 /* translators: %s = error message */
-                esc_html__('Cannot connect to Shopify App: %s', 'wash'),
-                '<code>' . esc_html($connectionError) . '</code>'
+                esc_html__('Cannot connect to Shopify App: %s', 'wash-blog-manager'),
+                '<code>' . esc_html($wash_connectionError) . '</code>'
             );
             ?>
         </p>
         <p style="margin-top: 4px; font-size: 12px; color: #646970;">
-            <?php esc_html_e('Check that your API key is valid, the Shopify App is running, and your server\'s IP is not blocked by a firewall. If you use HTTP Basic Auth, verify the credentials in the Connection tab.', 'wash'); ?>
+            <?php esc_html_e('Check that your API key is valid, the Shopify App is running, and your server\'s IP is not blocked by a firewall. If you use HTTP Basic Auth, verify the credentials in the Connection tab.', 'wash-blog-manager'); ?>
         </p>
     </div>
     <?php endif; ?>
     <h1>
         <img src="<?php echo esc_url(washPluginUrl() . 'admin/assets/logo.png'); ?>" alt="Wash" style="height: 28px; width: auto; margin-right: 8px; vertical-align: middle;" />
-        <?php esc_html_e('Wash Settings', 'wash'); ?>
+        <?php esc_html_e('Wash Settings', 'wash-blog-manager'); ?>
         <span style="font-size: 12px; font-weight: normal; color: #646970; margin-left: 8px; vertical-align: middle;">
             v<?php echo esc_html(WASH_VERSION); ?>
         </span>
-        <?php if ($isConnected && $planName) : ?>
-            <span class="wash-plan-badge" style="font-size: 12px; font-weight: 600; background: <?php echo $planName === 'FREE' ? '#f0f0f1' : '#d4edda'; ?>; color: <?php echo $planName === 'FREE' ? '#666' : '#155724'; ?>; padding: 4px 10px; border-radius: 12px; margin-left: 10px; vertical-align: middle;">
-                <?php echo esc_html($planName); ?>
+        <?php if ($wash_isConnected && $wash_planName) : ?>
+            <span class="wash-plan-badge" style="font-size: 12px; font-weight: 600; background: <?php echo $wash_planName === 'FREE' ? '#f0f0f1' : '#d4edda'; ?>; color: <?php echo $wash_planName === 'FREE' ? '#666' : '#155724'; ?>; padding: 4px 10px; border-radius: 12px; margin-left: 10px; vertical-align: middle;">
+                <?php echo esc_html($wash_planName); ?>
             </span>
         <?php endif; ?>
-        <?php if ($isConnected) : ?>
-            <a href="<?php echo esc_url(add_query_arg(['refresh_plan' => '1', 'refresh_updates' => '1', 'refresh_settings' => '1'])); ?>" title="<?php esc_attr_e('Sync all: settings, plan info, and check for updates', 'wash'); ?>" style="color: #646970; margin-left: 8px; vertical-align: middle; text-decoration: none;">
+        <?php if ($wash_isConnected) : ?>
+            <a href="<?php echo esc_url(add_query_arg(['refresh_plan' => '1', 'refresh_settings' => '1'])); ?>" title="<?php esc_attr_e('Sync all: settings and plan info', 'wash-blog-manager'); ?>" style="color: #646970; margin-left: 8px; vertical-align: middle; text-decoration: none;">
                 <span class="dashicons dashicons-update" style="font-size: 18px; width: 18px; height: 18px; vertical-align: middle;"></span>
-            </a>
-        <?php endif; ?>
-        <?php if ($updateAvailable) : ?>
-            <a href="<?php echo esc_url(admin_url('plugins.php')); ?>" style="font-size: 12px; font-weight: 600; background: #fff3cd; color: #856404; padding: 4px 10px; border-radius: 12px; margin-left: 8px; vertical-align: middle; text-decoration: none;">
-                <?php printf(esc_html__('Update available: v%s', 'wash'), esc_html($latestVersion)); ?>
             </a>
         <?php endif; ?>
     </h1>
 
-    <?php if ($isConnected && !is_wp_error($planInfo) && !empty($planInfo['usage'])) : ?>
+    <?php if ($wash_isConnected && !is_wp_error($wash_planInfo) && !empty($wash_planInfo['usage'])) : ?>
     <div class="wash-usage-summary" style="background: #f8f9fa; border: 1px solid #e2e4e7; border-radius: 4px; padding: 12px 15px; margin: 15px 0; display: flex; gap: 30px; font-size: 13px;">
         <div>
-            <strong><?php esc_html_e('Articles:', 'wash'); ?></strong>
+            <strong><?php esc_html_e('Articles:', 'wash-blog-manager'); ?></strong>
             <?php
-            $articlesUsed = $planInfo['usage']['articlesUsed'] ?? 0;
-            $articlesLimit = $planInfo['usage']['articlesLimit'] ?? -1;
-            if ($articlesLimit === -1) {
-                echo esc_html($articlesUsed) . ' ' . esc_html__('(unlimited)', 'wash');
+            $wash_articlesUsed = $wash_planInfo['usage']['articlesUsed'] ?? 0;
+            $wash_articlesLimit = $wash_planInfo['usage']['articlesLimit'] ?? -1;
+            if ($wash_articlesLimit === -1) {
+                echo esc_html($wash_articlesUsed) . ' ' . esc_html__('(unlimited)', 'wash-blog-manager');
             } else {
-                echo esc_html($articlesUsed) . ' / ' . esc_html($articlesLimit);
+                echo esc_html($wash_articlesUsed) . ' / ' . esc_html($wash_articlesLimit);
             }
             ?>
         </div>
         <div>
-            <strong><?php esc_html_e('Edits:', 'wash'); ?></strong>
+            <strong><?php esc_html_e('Edits:', 'wash-blog-manager'); ?></strong>
             <?php
-            $editsUsed = $planInfo['usage']['editsUsed'] ?? 0;
-            $editsLimit = $planInfo['usage']['editsLimit'] ?? -1;
-            if ($editsLimit === -1) {
-                echo esc_html($editsUsed) . ' ' . esc_html__('(unlimited)', 'wash');
+            $wash_editsUsed = $wash_planInfo['usage']['editsUsed'] ?? 0;
+            $wash_editsLimit = $wash_planInfo['usage']['editsLimit'] ?? -1;
+            if ($wash_editsLimit === -1) {
+                echo esc_html($wash_editsUsed) . ' ' . esc_html__('(unlimited)', 'wash-blog-manager');
             } else {
-                echo esc_html($editsUsed) . ' / ' . esc_html($editsLimit);
+                echo esc_html($wash_editsUsed) . ' / ' . esc_html($wash_editsLimit);
             }
             ?>
         </div>
-        <?php if ($planName === 'FREE' && !empty($upgradeUrl)) : ?>
+        <?php if ($wash_planName === 'FREE' && !empty($wash_upgradeUrl)) : ?>
         <div style="margin-left: auto;">
-            <a href="<?php echo esc_url($upgradeUrl); ?>" target="_blank" style="color: #0073aa; text-decoration: none;">
-                <?php esc_html_e('Upgrade Plan', 'wash'); ?> →
+            <a href="<?php echo esc_url($wash_upgradeUrl); ?>" target="_blank" style="color: #0073aa; text-decoration: none;">
+                <?php esc_html_e('Upgrade Plan', 'wash-blog-manager'); ?> →
             </a>
         </div>
         <?php endif; ?>
     </div>
     <?php endif; ?>
 
-    <?php if ($isConnected && !$userCanModifySettings) : ?>
+    <?php if ($wash_isConnected && !$wash_userCanModifySettings) : ?>
     <div class="notice notice-warning" style="margin: 15px 0;">
         <p>
             <span class="dashicons dashicons-visibility" style="color: #856404; vertical-align: text-bottom; margin-right: 5px;"></span>
-            <strong><?php esc_html_e('View Only Mode', 'wash'); ?></strong> —
-            <?php esc_html_e('Your account does not have permission to modify Wash settings. Settings are displayed in read-only mode. Contact your administrator for access.', 'wash'); ?>
+            <strong><?php esc_html_e('View Only Mode', 'wash-blog-manager'); ?></strong> —
+            <?php esc_html_e('Your account does not have permission to modify Wash settings. Settings are displayed in read-only mode. Contact your administrator for access.', 'wash-blog-manager'); ?>
         </p>
     </div>
     <?php endif; ?>
 
     <nav class="nav-tab-wrapper wash-tabs">
-        <?php wash_render_tab('connection', __('Connection', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, true, $permissions, $tabPermissions, $isConnected); ?>
-        <?php wash_render_tab('blogs', __('Blogs', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
-        <?php wash_render_tab('redirections', __('Redirections', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
-        <?php wash_render_tab('hreflangs', __('Hreflangs', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
-        <?php wash_render_tab('metafields', __('Meta Fields', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
-        <?php wash_render_tab('authors', __('Authors', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
-        <?php wash_render_tab('files', __('Files & Media', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
-        <?php wash_render_tab('content', __('Content Processing', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
-        <?php wash_render_tab('searchreplace', __('Search & Replace', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
-        <?php wash_render_tab('sync', __('Sync Settings', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
-        <?php wash_render_tab('advanced', __('Advanced', 'wash'), $features, $tabFeatures, $featurePlans, $upgradeUrl, false, $permissions, $tabPermissions, $isConnected); ?>
+        <?php wash_render_tab('connection', __('Connection', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, true, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
+        <?php wash_render_tab('blogs', __('Blogs', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
+        <?php wash_render_tab('redirections', __('Redirections', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
+        <?php wash_render_tab('hreflangs', __('Hreflangs', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
+        <?php wash_render_tab('metafields', __('Meta Fields', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
+        <?php wash_render_tab('authors', __('Authors', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
+        <?php wash_render_tab('files', __('Files & Media', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
+        <?php wash_render_tab('content', __('Content Processing', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
+        <?php wash_render_tab('searchreplace', __('Search & Replace', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
+        <?php wash_render_tab('sync', __('Sync Settings', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
+        <?php wash_render_tab('advanced', __('Advanced', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
     </nav>
 
-    <form method="post" action="options.php" id="wash-settings-form"<?php echo $userCanModifySettings ? '' : ' class="wash-readonly-mode"'; ?>>
+    <form method="post" action="options.php" id="wash-settings-form"<?php echo $wash_userCanModifySettings ? '' : ' class="wash-readonly-mode"'; ?>>
         <?php settings_fields('wash_settings'); ?>
         <input type="hidden" name="_wp_http_referer_tab" id="wash-current-tab" value="connection" />
-        <input type="hidden" id="wash-user-can-modify" value="<?php echo $userCanModifySettings ? '1' : '0'; ?>" />
+        <input type="hidden" id="wash-user-can-modify" value="<?php echo $wash_userCanModifySettings ? '1' : '0'; ?>" />
 
         <!-- Connection Tab -->
         <div class="wash-tab-content" id="tab-connection">
-            <h2 class="title"><?php esc_html_e('Shopify Store Connection', 'wash'); ?></h2>
+            <h2 class="title"><?php esc_html_e('Shopify Store Connection', 'wash-blog-manager'); ?></h2>
 
-            <?php if ($isConnected) : ?>
+            <?php if ($wash_isConnected) : ?>
                 <!-- Connected state - simple view -->
                 <div class="wash-connected-box" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 20px; margin: 15px 0;">
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <span style="width: 12px; height: 12px; background: #28a745; border-radius: 50%; display: inline-block;"></span>
-                            <strong style="color: #155724;"><?php esc_html_e('Connected', 'wash'); ?></strong>
-                            <?php if ($shopifyStore) : ?>
+                            <strong style="color: #155724;"><?php esc_html_e('Connected', 'wash-blog-manager'); ?></strong>
+                            <?php if ($wash_shopifyStore) : ?>
                                 <span style="color: #155724;">
-                                    <?php esc_html_e('to', 'wash'); ?>
-                                    <a href="https://<?php echo esc_attr($shopifyStore); ?>.myshopify.com/admin" target="_blank" rel="noopener noreferrer" style="color: #155724; font-weight: 600;">
-                                        <?php echo esc_html($shopifyStore); ?>.myshopify.com
+                                    <?php esc_html_e('to', 'wash-blog-manager'); ?>
+                                    <a href="https://<?php echo esc_attr($wash_shopifyStore); ?>.myshopify.com/admin" target="_blank" rel="noopener noreferrer" style="color: #155724; font-weight: 600;">
+                                        <?php echo esc_html($wash_shopifyStore); ?>.myshopify.com
                                     </a>
                                 </span>
                             <?php endif; ?>
                         </div>
                         <button type="button" id="wash-disconnect-btn" class="button" style="color: #dc3545; border-color: #dc3545;">
                             <span class="dashicons dashicons-dismiss" style="vertical-align: text-bottom;"></span>
-                            <?php esc_html_e('Disconnect', 'wash'); ?>
+                            <?php esc_html_e('Disconnect', 'wash-blog-manager'); ?>
                         </button>
                     </div>
                 </div>
                 <!-- Hidden fields for connected state -->
-                <input type="hidden" name="wash_shopify_store" value="<?php echo esc_attr($shopifyStore); ?>" />
+                <input type="hidden" name="wash_shopify_store" value="<?php echo esc_attr($wash_shopifyStore); ?>" />
                 <input type="hidden" name="wash_api_key" value="<?php echo esc_attr(get_option('wash_api_key')); ?>" />
             <?php else : ?>
                 <!-- Not connected - show connection form -->
                 <table class="form-table" role="presentation">
                     <tr>
                         <th scope="row">
-                            <label for="wash_shopify_store"><?php esc_html_e('Shopify Store', 'wash'); ?></label>
+                            <label for="wash_shopify_store"><?php esc_html_e('Shopify Store', 'wash-blog-manager'); ?></label>
                         </th>
                         <td>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <input type="text" id="wash_shopify_store" name="wash_shopify_store"
-                                       value="<?php echo esc_attr($shopifyStore); ?>"
+                                       value="<?php echo esc_attr($wash_shopifyStore); ?>"
                                        class="regular-text" placeholder="your-store"
                                        style="max-width: 200px;" />
                                 <span style="color: #666;">.myshopify.com</span>
                             </div>
-                            <p class="description"><?php esc_html_e('Your Shopify store handle (e.g., "my-store" from my-store.myshopify.com)', 'wash'); ?></p>
+                            <p class="description"><?php esc_html_e('Your Shopify store handle (e.g., "my-store" from my-store.myshopify.com)', 'wash-blog-manager'); ?></p>
+                        </td>
+                    </tr>
+                    <?php $wash_consentAccepted = get_option('wash_consent_accepted', '0') === '1'; ?>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Data processing consent', 'wash-blog-manager'); ?></th>
+                        <td>
+                            <label for="wash-consent-checkbox" style="display: flex; gap: 8px; align-items: flex-start; max-width: 720px;">
+                                <input type="checkbox" id="wash-consent-checkbox" <?php checked($wash_consentAccepted); ?> <?php disabled($wash_consentAccepted); ?> />
+                                <span>
+                                    <?php
+                                    printf(
+                                        /* translators: 1: opening anchor tag to the Privacy Policy, 2: closing anchor tag, 3: opening anchor to the External services section of readme.txt rendered on wordpress.org, 4: closing anchor tag */
+                                        esc_html__('I understand that connecting this plugin will send my WordPress post content, images, custom fields, and site URL to the Tradik Wash service at app-wash.tradik.com (the broker that talks to Shopify). I have read the %1$sPrivacy Policy%2$s and the %3$sfull list of external services%4$s.', 'wash-blog-manager'),
+                                        '<a href="https://wash.tradik.com/privacy-policy.html" target="_blank" rel="noopener noreferrer">',
+                                        '</a>',
+                                        '<a href="https://wordpress.org/plugins/wash-blog-manager/#description" target="_blank" rel="noopener noreferrer">',
+                                        '</a>'
+                                    );
+                                    ?>
+                                </span>
+                            </label>
+                            <?php if ($wash_consentAccepted) : ?>
+                                <p class="description" style="margin-top: 6px;">
+                                    <?php
+                                    printf(
+                                        /* translators: %s: human-readable date when consent was recorded */
+                                        esc_html__('Consent recorded on %s.', 'wash-blog-manager'),
+                                        esc_html(wp_date(get_option('date_format', 'Y-m-d') . ' ' . get_option('time_format', 'H:i'), (int) get_option('wash_consent_accepted_at', 0)))
+                                    );
+                                    ?>
+                                </p>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row"></th>
                         <td>
-                            <button type="button" id="wash-connect-btn" class="button button-primary" style="display: none;">
+                            <button type="button" id="wash-connect-btn" class="button button-primary" style="display: none;" <?php disabled(!$wash_consentAccepted); ?>>
                                 <span class="dashicons dashicons-admin-links" style="vertical-align: text-bottom;"></span>
-                                <?php esc_html_e('Connect to Shopify', 'wash'); ?>
+                                <?php esc_html_e('Connect to Shopify', 'wash-blog-manager'); ?>
                             </button>
+                            <?php if (!$wash_consentAccepted) : ?>
+                                <p class="description" style="margin-top: 6px;">
+                                    <?php esc_html_e('Tick the consent box above to enable the Connect button.', 'wash-blog-manager'); ?>
+                                </p>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 </table>
@@ -462,34 +476,34 @@ function wash_render_permission_locked_banner() {
         </div>
 
         <!-- Blogs Tab -->
-        <?php $blogsTabAttrs = wash_get_tab_content_class('blogs', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
-        <div class="<?php echo esc_attr($blogsTabAttrs['class']); ?>" id="tab-blogs" style="display: none;" data-locked="<?php echo $blogsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($blogsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($blogsTabAttrs['upgradeUrl']); ?>">
-            <?php if (!empty($blogsTabAttrs['isPermissionLocked'])) : ?>
+        <?php $wash_blogsTabAttrs = wash_get_tab_content_class('blogs', $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions, $wash_tabPermissions); ?>
+        <div class="<?php echo esc_attr($wash_blogsTabAttrs['class']); ?>" id="tab-blogs" style="display: none;" data-locked="<?php echo $wash_blogsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($wash_blogsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($wash_blogsTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($wash_blogsTabAttrs['isPermissionLocked'])) : ?>
                 <?php wash_render_permission_locked_banner(); ?>
-            <?php elseif (!empty($blogsTabAttrs['isPlanLocked'])) : ?>
-                <?php wash_render_locked_banner($blogsTabAttrs['requiredPlan'], $blogsTabAttrs['upgradeUrl']); ?>
+            <?php elseif (!empty($wash_blogsTabAttrs['isPlanLocked'])) : ?>
+                <?php wash_render_locked_banner($wash_blogsTabAttrs['requiredPlan'], $wash_blogsTabAttrs['upgradeUrl']); ?>
             <?php endif; ?>
-            <h2 class="title"><?php esc_html_e('Blog Routing Rules', 'wash'); ?></h2>
+            <h2 class="title"><?php esc_html_e('Blog Routing Rules', 'wash-blog-manager'); ?></h2>
             <p class="description">
-                <?php esc_html_e('Route WordPress posts to different Shopify blogs based on language or category.', 'wash'); ?>
-                <?php esc_html_e('Higher priority rules are matched first. Default rule is used when no other rule matches.', 'wash'); ?>
+                <?php esc_html_e('Route WordPress posts to different Shopify blogs based on language or category.', 'wash-blog-manager'); ?>
+                <?php esc_html_e('Higher priority rules are matched first. Default rule is used when no other rule matches.', 'wash-blog-manager'); ?>
             </p>
 
-            <?php if ($isConnected) : ?>
+            <?php if ($wash_isConnected) : ?>
                 <div id="wash-blog-mappings">
                     <div class="wash-mappings-toolbar">
                         <div class="wash-mappings-toolbar-left">
                             <button type="button" id="wash-add-mapping" class="button button-primary">
                                 <span class="dashicons dashicons-plus-alt2" style="vertical-align: text-bottom;"></span>
-                                <?php esc_html_e('Add Mapping Rule', 'wash'); ?>
+                                <?php esc_html_e('Add Mapping Rule', 'wash-blog-manager'); ?>
                             </button>
-                            <button type="button" id="wash-export-mappings" class="button" title="<?php esc_attr_e('Export rules as JSON', 'wash'); ?>">
+                            <button type="button" id="wash-export-mappings" class="button" title="<?php esc_attr_e('Export rules as JSON', 'wash-blog-manager'); ?>">
                                 <span class="dashicons dashicons-download" style="vertical-align: text-bottom;"></span>
-                                <?php esc_html_e('Export', 'wash'); ?>
+                                <?php esc_html_e('Export', 'wash-blog-manager'); ?>
                             </button>
-                            <button type="button" id="wash-import-mappings" class="button" title="<?php esc_attr_e('Import rules from JSON', 'wash'); ?>">
+                            <button type="button" id="wash-import-mappings" class="button" title="<?php esc_attr_e('Import rules from JSON', 'wash-blog-manager'); ?>">
                                 <span class="dashicons dashicons-upload" style="vertical-align: text-bottom;"></span>
-                                <?php esc_html_e('Import', 'wash'); ?>
+                                <?php esc_html_e('Import', 'wash-blog-manager'); ?>
                             </button>
                             <input type="file" id="wash-import-mappings-file" accept=".json" style="display:none;" />
                         </div>
@@ -498,33 +512,35 @@ function wash_render_permission_locked_banner() {
 
                     <div class="wash-mappings-list" id="wash-mappings-list">
                         <!-- Mappings loaded via JavaScript -->
-                        <p class="wash-loading"><?php esc_html_e('Loading mappings...', 'wash'); ?></p>
+                        <p class="wash-loading"><?php esc_html_e('Loading mappings...', 'wash-blog-manager'); ?></p>
                     </div>
 
                     <!-- Add/Edit Mapping Form (hidden by default) -->
                     <div id="wash-mapping-form" style="display: none; margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
-                        <h3 id="wash-mapping-form-title"><?php esc_html_e('Add Mapping Rule', 'wash'); ?></h3>
+                        <h3 id="wash-mapping-form-title"><?php esc_html_e('Add Mapping Rule', 'wash-blog-manager'); ?></h3>
                         <input type="hidden" id="wash-mapping-id" value="" />
 
                         <?php
-                        $hreflangsHandler = new WashHreflangs();
-                        $translationPlugin = $hreflangsHandler->detectActivePlugin();
-                        $availableLanguages = $translationPlugin ? $hreflangsHandler->getAvailableLanguages() : [];
+                        $wash_hreflangsHandler = new WashHreflangs();
+                        $wash_translationPlugin = $wash_hreflangsHandler->detectActivePlugin();
+                        $wash_availableLanguages = $wash_translationPlugin ? $wash_hreflangsHandler->getAvailableLanguages() : [];
                         // Fetch categories across all languages (WPML per-language context returns 0)
-                        $currentLang = null;
-                        if ($translationPlugin === 'wpml' && function_exists('wpml_get_current_language')) {
-                            $currentLang = wpml_get_current_language();
+                        $wash_currentLang = null;
+                        if ($wash_translationPlugin === 'wpml' && function_exists('wpml_get_current_language')) {
+                            $wash_currentLang = wpml_get_current_language();
+                            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML plugin action.
                             do_action('wpml_switch_language', 'all');
-                        } elseif ($translationPlugin === 'polylang' && function_exists('pll_current_language')) {
-                            $currentLang = pll_current_language();
+                        } elseif ($wash_translationPlugin === 'polylang' && function_exists('pll_current_language')) {
+                            $wash_currentLang = pll_current_language();
                             PLL()->curlang = null;
                         }
-                        $categories = get_categories(['hide_empty' => false, 'orderby' => 'name']);
-                        if ($currentLang !== null) {
-                            if ($translationPlugin === 'wpml') {
-                                do_action('wpml_switch_language', $currentLang);
-                            } elseif ($translationPlugin === 'polylang') {
-                                PLL()->curlang = PLL()->model->get_language($currentLang);
+                        $wash_categories = get_categories(['hide_empty' => false, 'orderby' => 'name']);
+                        if ($wash_currentLang !== null) {
+                            if ($wash_translationPlugin === 'wpml') {
+                                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML plugin action.
+                                do_action('wpml_switch_language', $wash_currentLang);
+                            } elseif ($wash_translationPlugin === 'polylang') {
+                                PLL()->curlang = PLL()->model->get_language($wash_currentLang);
                             }
                         }
                         ?>
@@ -534,71 +550,74 @@ function wash_render_permission_locked_banner() {
                         <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;">
                             <h4 style="margin: 0 0 10px; display: flex; align-items: center; gap: 8px; color: #0073aa;">
                                 <span class="dashicons dashicons-wordpress"></span>
-                                <?php esc_html_e('WordPress Source', 'wash'); ?>
-                                <span style="font-weight: normal; color: #6b7280; font-size: 12px;">— <?php esc_html_e('which posts match this rule', 'wash'); ?></span>
+                                <?php esc_html_e('WordPress Source', 'wash-blog-manager'); ?>
+                                <span style="font-weight: normal; color: #6b7280; font-size: 12px;">— <?php esc_html_e('which posts match this rule', 'wash-blog-manager'); ?></span>
                             </h4>
                             <table class="form-table" role="presentation" style="margin-top: 0;">
                                 <tr>
                                     <th scope="row">
-                                        <label><?php esc_html_e('WP Post Types', 'wash'); ?></label>
+                                        <label><?php esc_html_e('WP Post Types', 'wash-blog-manager'); ?></label>
                                     </th>
                                     <td>
                                         <fieldset id="wash-wp-post-types-fieldset">
                                             <?php
-                                            $allPostTypes = get_post_types(['public' => true], 'objects');
-                                            foreach ($allPostTypes as $pt) :
-                                                if ($pt->name === 'attachment') continue;
+                                            $wash_allPostTypes = get_post_types(['public' => true], 'objects');
+                                            foreach ($wash_allPostTypes as $wash_pt) :
+                                                if ($wash_pt->name === 'attachment') continue;
                                             ?>
                                                 <label style="display: inline-block; margin-right: 14px; margin-bottom: 6px;">
-                                                    <input type="checkbox" class="wash-pt-checkbox" value="<?php echo esc_attr($pt->name); ?>"
-                                                        <?php echo in_array($pt->name, ['post'], true) ? 'checked' : ''; ?> />
-                                                    <?php echo esc_html($pt->label); ?>
-                                                    <code style="font-size: 11px; color: #666;">(<?php echo esc_html($pt->name); ?>)</code>
+                                                    <input type="checkbox" class="wash-pt-checkbox" value="<?php echo esc_attr($wash_pt->name); ?>"
+                                                        <?php echo in_array($wash_pt->name, ['post'], true) ? 'checked' : ''; ?> />
+                                                    <?php echo esc_html($wash_pt->label); ?>
+                                                    <code style="font-size: 11px; color: #666;">(<?php echo esc_html($wash_pt->name); ?>)</code>
                                                 </label>
                                             <?php endforeach; ?>
                                         </fieldset>
                                         <input type="hidden" id="wash-wp-post-types" value="post" />
-                                        <p class="description"><?php esc_html_e('Select which WordPress post types this rule applies to.', 'wash'); ?></p>
+                                        <p class="description"><?php esc_html_e('Select which WordPress post types this rule applies to.', 'wash-blog-manager'); ?></p>
                                     </td>
                                 </tr>
                                 <tr id="wash-category-row">
                                     <th scope="row">
-                                        <label for="wash-rule-value-cat"><?php esc_html_e('Category', 'wash'); ?></label>
+                                        <label for="wash-rule-value-cat"><?php esc_html_e('Category', 'wash-blog-manager'); ?></label>
                                     </th>
                                     <td>
                                         <select id="wash-rule-value-cat" class="regular-text">
-                                            <option value=""><?php esc_html_e('All categories (catch-all)', 'wash'); ?></option>
+                                            <option value=""><?php esc_html_e('All categories (catch-all)', 'wash-blog-manager'); ?></option>
                                             <?php
                                             // Deduplicate categories by slug — WPML/Polylang return one entry per language
-                                            $seenSlugs = [];
-                                            foreach ($categories as $cat) :
-                                                if (isset($seenSlugs[$cat->slug])) continue;
-                                                $seenSlugs[$cat->slug] = true;
+                                            $wash_seenSlugs = [];
+                                            foreach ($wash_categories as $wash_cat) :
+                                                if (isset($wash_seenSlugs[$wash_cat->slug])) continue;
+                                                $wash_seenSlugs[$wash_cat->slug] = true;
                                             ?>
-                                                <option value="<?php echo esc_attr($cat->slug); ?>">
-                                                    <?php echo esc_html($cat->name . ' (' . $cat->slug . ')'); ?>
+                                                <option value="<?php echo esc_attr($wash_cat->slug); ?>">
+                                                    <?php echo esc_html($wash_cat->name . ' (' . $wash_cat->slug . ')'); ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
-                                        <p class="description"><?php esc_html_e('Filter by WordPress category slug. Combine with Language below for per-market routing (e.g. art + de-ch → Swiss German articles).', 'wash'); ?></p>
+                                        <p class="description"><?php esc_html_e('Filter by WordPress category slug. Combine with Language below for per-market routing (e.g. art + de-ch → Swiss German articles).', 'wash-blog-manager'); ?></p>
                                     </td>
                                 </tr>
-                                <?php if ($translationPlugin) : ?>
+                                <?php if ($wash_translationPlugin) : ?>
                                 <tr>
                                     <th scope="row">
-                                        <label for="wash-rule-value-lang"><?php esc_html_e('Language', 'wash'); ?></label>
+                                        <label for="wash-rule-value-lang"><?php esc_html_e('Language', 'wash-blog-manager'); ?></label>
                                     </th>
                                     <td>
                                         <select id="wash-rule-value-lang" class="regular-text">
-                                            <option value=""><?php esc_html_e('All languages', 'wash'); ?></option>
-                                            <?php foreach ($availableLanguages as $lang) : ?>
-                                                <option value="<?php echo esc_attr($lang['code']); ?>">
-                                                    <?php echo esc_html($lang['name'] . ' (' . $lang['code'] . ')'); ?>
+                                            <option value=""><?php esc_html_e('All languages', 'wash-blog-manager'); ?></option>
+                                            <?php foreach ($wash_availableLanguages as $wash_lang) : ?>
+                                                <option value="<?php echo esc_attr($wash_lang['code']); ?>">
+                                                    <?php echo esc_html($wash_lang['name'] . ' (' . $wash_lang['code'] . ')'); ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
                                         <p class="description">
-                                            <?php printf(esc_html__('Detected plugin: %s', 'wash'), '<strong>' . esc_html($translationPlugin) . '</strong>'); ?>
+                                            <?php
+                                            // translators: %s is the name of the detected translation plugin.
+                                            printf(esc_html__('Detected plugin: %s', 'wash-blog-manager'), '<strong>' . esc_html($wash_translationPlugin) . '</strong>');
+                                            ?>
                                         </p>
                                     </td>
                                 </tr>
@@ -610,68 +629,68 @@ function wash_render_permission_locked_banner() {
                         <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;">
                             <h4 style="margin: 0 0 10px; display: flex; align-items: center; gap: 8px; color: #065f46;">
                                 <span class="dashicons dashicons-cart"></span>
-                                <?php esc_html_e('Shopify Destination', 'wash'); ?>
-                                <span style="font-weight: normal; color: #6b7280; font-size: 12px;">— <?php esc_html_e('where matched posts are synced', 'wash'); ?></span>
+                                <?php esc_html_e('Shopify Destination', 'wash-blog-manager'); ?>
+                                <span style="font-weight: normal; color: #6b7280; font-size: 12px;">— <?php esc_html_e('where matched posts are synced', 'wash-blog-manager'); ?></span>
                             </h4>
                             <table class="form-table" role="presentation" style="margin-top: 0;">
                                 <tr>
                                     <th scope="row">
-                                        <label for="wash-destination"><?php esc_html_e('Type', 'wash'); ?></label>
+                                        <label for="wash-destination"><?php esc_html_e('Type', 'wash-blog-manager'); ?></label>
                                     </th>
                                     <td>
                                         <select id="wash-destination" class="regular-text">
-                                            <option value="article"><?php esc_html_e('Blog Article (/blogs/...)', 'wash'); ?></option>
-                                            <option value="page"><?php esc_html_e('Page (/pages/...)', 'wash'); ?></option>
+                                            <option value="article"><?php esc_html_e('Blog Article (/blogs/...)', 'wash-blog-manager'); ?></option>
+                                            <option value="page"><?php esc_html_e('Page (/pages/...)', 'wash-blog-manager'); ?></option>
                                         </select>
                                     </td>
                                 </tr>
                                 <tr id="wash-blog-row">
                                     <th scope="row">
-                                        <label for="wash-shopify-blog"><?php esc_html_e('Target Blog', 'wash'); ?></label>
+                                        <label for="wash-shopify-blog"><?php esc_html_e('Target Blog', 'wash-blog-manager'); ?></label>
                                     </th>
                                     <td>
                                         <select id="wash-shopify-blog" class="regular-text" style="margin-bottom: 10px;">
-                                            <option value=""><?php esc_html_e('Select a blog...', 'wash'); ?></option>
-                                            <option value="_new"><?php esc_html_e('➕ Create new blog', 'wash'); ?></option>
+                                            <option value=""><?php esc_html_e('Select a blog...', 'wash-blog-manager'); ?></option>
+                                            <option value="_new"><?php esc_html_e('➕ Create new blog', 'wash-blog-manager'); ?></option>
                                         </select>
                                         <div id="wash-new-blog-row" style="display: none; margin-bottom: 10px;">
-                                            <input type="text" id="wash-new-blog-name" class="regular-text" placeholder="<?php esc_attr_e('New blog name (e.g., blog-en)', 'wash'); ?>" />
+                                            <input type="text" id="wash-new-blog-name" class="regular-text" placeholder="<?php esc_attr_e('New blog name (e.g., blog-en)', 'wash-blog-manager'); ?>" />
                                         </div>
                                     </td>
                                 </tr>
                                 <tr id="wash-domain-row">
                                     <th scope="row">
-                                        <label for="wash-destination-domain"><?php esc_html_e('Destination Domain', 'wash'); ?></label>
+                                        <label for="wash-destination-domain"><?php esc_html_e('Destination Domain', 'wash-blog-manager'); ?></label>
                                     </th>
                                     <td>
                                         <select id="wash-destination-domain" class="regular-text">
-                                            <option value=""><?php esc_html_e('Default (primary domain)', 'wash'); ?></option>
+                                            <option value=""><?php esc_html_e('Default (primary domain)', 'wash-blog-manager'); ?></option>
                                             <!-- Options loaded via JavaScript from /api/shop-domains -->
                                         </select>
-                                        <p class="description"><?php esc_html_e('Custom domain for preview URLs (e.g., shopifydev.domain.com)', 'wash'); ?></p>
+                                        <p class="description"><?php esc_html_e('Custom domain for preview URLs (e.g., shopifydev.domain.com)', 'wash-blog-manager'); ?></p>
                                     </td>
                                 </tr>
                                 <tr id="wash-market-locale-row">
                                     <th scope="row">
-                                        <label for="wash-market-locale"><?php esc_html_e('Market & Locale', 'wash'); ?></label>
+                                        <label for="wash-market-locale"><?php esc_html_e('Market & Locale', 'wash-blog-manager'); ?></label>
                                     </th>
                                     <td>
                                         <select id="wash-market-locale" class="regular-text">
-                                            <option value=""><?php esc_html_e('Default (primary market)', 'wash'); ?></option>
+                                            <option value=""><?php esc_html_e('Default (primary market)', 'wash-blog-manager'); ?></option>
                                             <!-- Options loaded via JavaScript from Shopify Markets / Locales API -->
                                         </select>
                                         <p class="description">
-                                            <?php esc_html_e('🌍 Global = one shop-wide translation (Shopify Translate & Adapt). 📍 Market = override applied only when the buyer is in that market.', 'wash'); ?>
+                                            <?php esc_html_e('🌍 Global = one shop-wide translation (Shopify Translate & Adapt). 📍 Market = override applied only when the buyer is in that market.', 'wash-blog-manager'); ?>
                                         </p>
                                     </td>
                                 </tr>
                                 <tr style="display:none;">
                                     <th scope="row">
-                                        <label for="wash-priority"><?php esc_html_e('Priority', 'wash'); ?></label>
+                                        <label for="wash-priority"><?php esc_html_e('Priority', 'wash-blog-manager'); ?></label>
                                     </th>
                                     <td>
                                         <input type="number" id="wash-priority" class="small-text" value="0" min="0" max="100" />
-                                        <p class="description"><?php esc_html_e('Managed by drag-and-drop order', 'wash'); ?></p>
+                                        <p class="description"><?php esc_html_e('Managed by drag-and-drop order', 'wash-blog-manager'); ?></p>
                                     </td>
                                 </tr>
                             </table>
@@ -679,10 +698,10 @@ function wash_render_permission_locked_banner() {
 
                         <p class="submit">
                             <button type="button" id="wash-save-mapping" class="button button-primary">
-                                <?php esc_html_e('Save Mapping', 'wash'); ?>
+                                <?php esc_html_e('Save Mapping', 'wash-blog-manager'); ?>
                             </button>
                             <button type="button" id="wash-cancel-mapping" class="button">
-                                <?php esc_html_e('Cancel', 'wash'); ?>
+                                <?php esc_html_e('Cancel', 'wash-blog-manager'); ?>
                             </button>
                         </p>
                     </div>
@@ -693,123 +712,123 @@ function wash_render_permission_locked_banner() {
             <details id="wash-url-structure-guide" style="margin-top: 30px; border: 1px solid #c3c4c7; border-radius: 4px;">
                 <summary style="padding: 12px 15px; background: #f6f7f7; cursor: pointer; font-weight: 600; border-radius: 4px;">
                     <span class="dashicons dashicons-info" style="vertical-align: text-bottom;"></span>
-                    <?php esc_html_e('URL Structure Guide', 'wash'); ?>
+                    <?php esc_html_e('URL Structure Guide', 'wash-blog-manager'); ?>
                 </summary>
                 <div style="padding: 15px;">
-                    <p><?php esc_html_e('How your URLs transform from WordPress to Shopify:', 'wash'); ?></p>
+                    <p><?php esc_html_e('How your URLs transform from WordPress to Shopify:', 'wash-blog-manager'); ?></p>
                     <table class="widefat striped" style="margin-top: 10px;">
                         <thead>
                             <tr>
-                                <th style="width: 15%;"><?php esc_html_e('Type', 'wash'); ?></th>
+                                <th style="width: 15%;"><?php esc_html_e('Type', 'wash-blog-manager'); ?></th>
                                 <th style="width: 42.5%; background: #fef7f1;">
                                     <span class="dashicons dashicons-wordpress" style="color: #21759b; vertical-align: text-bottom;"></span>
-                                    <?php esc_html_e('WordPress (Current)', 'wash'); ?>
+                                    <?php esc_html_e('WordPress (Current)', 'wash-blog-manager'); ?>
                                 </th>
                                 <th style="width: 42.5%; background: #f0fff4;">
                                     <span class="dashicons dashicons-store" style="color: #96bf48; vertical-align: text-bottom;"></span>
-                                    <?php esc_html_e('Shopify (After Sync)', 'wash'); ?>
+                                    <?php esc_html_e('Shopify (After Sync)', 'wash-blog-manager'); ?>
                                 </th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td><strong><?php esc_html_e('Blog Posts', 'wash'); ?></strong></td>
+                                <td><strong><?php esc_html_e('Blog Posts', 'wash-blog-manager'); ?></strong></td>
                                 <td style="background: #fef7f1;">
-                                    <code><?php echo esc_html($permalinkExample); ?></code><br>
+                                    <code><?php echo esc_html($wash_permalinkExample); ?></code><br>
                                     <span style="color: #666; font-size: 11px;">
-                                        <?php esc_html_e('Current setting:', 'wash'); ?>
+                                        <?php esc_html_e('Current setting:', 'wash-blog-manager'); ?>
                                         <a href="<?php echo esc_url(admin_url('options-permalink.php')); ?>" style="text-decoration: none;">
-                                            <code style="font-size: 10px;"><?php echo esc_html($permalinkStructure ?: __('Plain', 'wash')); ?></code>
+                                            <code style="font-size: 10px;"><?php echo esc_html($wash_permalinkStructure ?: __('Plain', 'wash-blog-manager')); ?></code>
                                         </a>
                                     </span>
                                 </td>
                                 <td style="background: #f0fff4;">
-                                    <code>https://<?php echo esc_html($shopifyStore ?: '{store}'); ?>.myshopify.com/blogs/{blog}/{slug}</code><br>
-                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Blog handle configured above', 'wash'); ?></span>
+                                    <code>https://<?php echo esc_html($wash_shopifyStore ?: '{store}'); ?>.myshopify.com/blogs/{blog}/{slug}</code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Blog handle configured above', 'wash-blog-manager'); ?></span>
                                 </td>
                             </tr>
                             <tr>
-                                <td><strong><?php esc_html_e('Multi-language', 'wash'); ?></strong></td>
+                                <td><strong><?php esc_html_e('Multi-language', 'wash-blog-manager'); ?></strong></td>
                                 <td style="background: #fef7f1;">
-                                    <code><?php echo esc_html($multiLangPermalink); ?></code><br>
-                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Language prefix + permalink structure', 'wash'); ?></span>
+                                    <code><?php echo esc_html($wash_multiLangPermalink); ?></code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Language prefix + permalink structure', 'wash-blog-manager'); ?></span>
                                 </td>
                                 <td style="background: #f0fff4;">
-                                    <code>https://<?php echo esc_html($shopifyStore ?: '{store}'); ?>.myshopify.com/blogs/{blog}-{lang}/{slug}</code><br>
-                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Option A: Language in blog handle', 'wash'); ?></span><br>
-                                    <code style="margin-top: 4px; display: inline-block;">https://<?php echo esc_html($shopifyStore ?: '{store}'); ?>.myshopify.com/{lang}/blogs/{blog}/{slug}</code><br>
-                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Option B: Shopify Markets subfolders', 'wash'); ?></span>
+                                    <code>https://<?php echo esc_html($wash_shopifyStore ?: '{store}'); ?>.myshopify.com/blogs/{blog}-{lang}/{slug}</code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Option A: Language in blog handle', 'wash-blog-manager'); ?></span><br>
+                                    <code style="margin-top: 4px; display: inline-block;">https://<?php echo esc_html($wash_shopifyStore ?: '{store}'); ?>.myshopify.com/{lang}/blogs/{blog}/{slug}</code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Option B: Shopify Markets subfolders', 'wash-blog-manager'); ?></span>
                                 </td>
                             </tr>
                             <tr>
-                                <td><strong><?php esc_html_e('Pages', 'wash'); ?></strong></td>
+                                <td><strong><?php esc_html_e('Pages', 'wash-blog-manager'); ?></strong></td>
                                 <td style="background: #fef7f1;">
                                     <code><?php echo esc_html(home_url('/{slug}/')); ?></code><br>
-                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Page slug becomes URL', 'wash'); ?></span>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Page slug becomes URL', 'wash-blog-manager'); ?></span>
                                 </td>
                                 <td style="background: #f0fff4;">
-                                    <code>https://<?php echo esc_html($shopifyStore ?: '{store}'); ?>.myshopify.com/pages/{slug}</code><br>
-                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Prefixed with /pages/', 'wash'); ?></span>
+                                    <code>https://<?php echo esc_html($wash_shopifyStore ?: '{store}'); ?>.myshopify.com/pages/{slug}</code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Prefixed with /pages/', 'wash-blog-manager'); ?></span>
                                 </td>
                             </tr>
                             <tr>
-                                <td><strong><?php esc_html_e('Categories', 'wash'); ?></strong></td>
+                                <td><strong><?php esc_html_e('Categories', 'wash-blog-manager'); ?></strong></td>
                                 <td style="background: #fef7f1;">
-                                    <code><?php echo esc_html($categoryExample); ?></code><br>
+                                    <code><?php echo esc_html($wash_categoryExample); ?></code><br>
                                     <span style="color: #666; font-size: 11px;">
-                                        <?php esc_html_e('Category base:', 'wash'); ?>
+                                        <?php esc_html_e('Category base:', 'wash-blog-manager'); ?>
                                         <a href="<?php echo esc_url(admin_url('options-permalink.php')); ?>" style="text-decoration: none;">
-                                            <code style="font-size: 10px;">/<?php echo esc_html($categoryBase); ?>/</code>
+                                            <code style="font-size: 10px;">/<?php echo esc_html($wash_categoryBase); ?>/</code>
                                         </a>
                                     </span>
                                 </td>
                                 <td style="background: #f0fff4;">
-                                    <code>https://<?php echo esc_html($shopifyStore ?: '{store}'); ?>.myshopify.com/blogs/{blog}</code><br>
-                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Categories become blogs', 'wash'); ?></span>
+                                    <code>https://<?php echo esc_html($wash_shopifyStore ?: '{store}'); ?>.myshopify.com/blogs/{blog}</code><br>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Categories become blogs', 'wash-blog-manager'); ?></span>
                                 </td>
                             </tr>
                             <tr>
-                                <td><strong><?php esc_html_e('Images', 'wash'); ?></strong></td>
+                                <td><strong><?php esc_html_e('Images', 'wash-blog-manager'); ?></strong></td>
                                 <td style="background: #fef7f1;">
                                     <code><?php echo esc_html(content_url('/uploads/{year}/{month}/{file}')); ?></code><br>
-                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Served from WordPress', 'wash'); ?></span>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Served from WordPress', 'wash-blog-manager'); ?></span>
                                 </td>
                                 <td style="background: #f0fff4;">
                                     <code>https://cdn.shopify.com/s/files/1/{id}/{file}</code><br>
-                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Shopify CDN delivery', 'wash'); ?></span>
+                                    <span style="color: #666; font-size: 11px;"><?php esc_html_e('Shopify CDN delivery', 'wash-blog-manager'); ?></span>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                     <p style="margin-top: 10px; font-size: 12px; color: #666;">
                         <span class="dashicons dashicons-info-outline" style="font-size: 14px; vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Variables: {slug} = post/page slug, {blog} = Shopify blog handle, {lang} = language code (en, de, pl), {store} = Shopify store name', 'wash'); ?>
+                        <?php esc_html_e('Variables: {slug} = post/page slug, {blog} = Shopify blog handle, {lang} = language code (en, de, pl), {store} = Shopify store name', 'wash-blog-manager'); ?>
                     </p>
                 </div>
             </details>
         </div>
 
         <!-- Redirections Tab -->
-        <?php $redirectionsTabAttrs = wash_get_tab_content_class('redirections', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
-        <div class="<?php echo esc_attr($redirectionsTabAttrs['class']); ?>" id="tab-redirections" style="display: none;" data-locked="<?php echo $redirectionsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($redirectionsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($redirectionsTabAttrs['upgradeUrl']); ?>">
-            <?php if (!empty($redirectionsTabAttrs['isPermissionLocked'])) : ?>
+        <?php $wash_redirectionsTabAttrs = wash_get_tab_content_class('redirections', $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions, $wash_tabPermissions); ?>
+        <div class="<?php echo esc_attr($wash_redirectionsTabAttrs['class']); ?>" id="tab-redirections" style="display: none;" data-locked="<?php echo $wash_redirectionsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($wash_redirectionsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($wash_redirectionsTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($wash_redirectionsTabAttrs['isPermissionLocked'])) : ?>
                 <?php wash_render_permission_locked_banner(); ?>
             <?php endif; ?>
-            <h2 class="title"><?php esc_html_e('URL Redirections Management', 'wash'); ?></h2>
-            <p class="description"><?php esc_html_e('Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration.', 'wash'); ?></p>
+            <h2 class="title"><?php esc_html_e('URL Redirections Management', 'wash-blog-manager'); ?></h2>
+            <p class="description"><?php esc_html_e('Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration.', 'wash-blog-manager'); ?></p>
 
             <table class="form-table" role="presentation">
                 <tbody>
                     <tr>
-                        <th scope="row"><?php esc_html_e('Enable Smart Redirections', 'wash'); ?></th>
+                        <th scope="row"><?php esc_html_e('Enable Smart Redirections', 'wash-blog-manager'); ?></th>
                         <td>
                             <label>
                                 <input type="hidden" name="wash_redirections_enabled" value="0" />
                                 <input type="checkbox" name="wash_redirections_enabled" id="wash_redirections_enabled" value="1" <?php checked(get_option('wash_redirections_enabled', '0'), '1'); ?>>
-                                <?php esc_html_e('Automatically create redirects when posts are synced to Shopify', 'wash'); ?>
+                                <?php esc_html_e('Automatically create redirects when posts are synced to Shopify', 'wash-blog-manager'); ?>
                             </label>
                             <p class="description">
-                                <?php esc_html_e('When enabled, Wash will create 301 redirects from your WordPress URLs to the corresponding Shopify URLs automatically during sync.', 'wash'); ?>
+                                <?php esc_html_e('When enabled, Wash will create 301 redirects from your WordPress URLs to the corresponding Shopify URLs automatically during sync.', 'wash-blog-manager'); ?>
                             </p>
                         </td>
                     </tr>
@@ -818,48 +837,48 @@ function wash_render_permission_locked_banner() {
 
             <p class="submit">
                 <button type="button" id="wash-save-redirections-settings" class="button button-primary">
-                    <?php esc_html_e('Save Settings', 'wash'); ?>
+                    <?php esc_html_e('Save Settings', 'wash-blog-manager'); ?>
                 </button>
                 <span id="wash-redirections-save-status" style="margin-left: 10px;"></span>
             </p>
 
-            <?php if ($isConnected) : ?>
+            <?php if ($wash_isConnected) : ?>
             <!-- Redirections Management Section -->
             <div class="wash-redirections-manager" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; margin: 20px 0;">
                 <h3 style="margin-top: 0; display: flex; justify-content: space-between; align-items: center;">
                     <span>
                         <span class="dashicons dashicons-randomize" style="color: #2271b1;"></span>
-                        <?php esc_html_e('Redirections Manager', 'wash'); ?>
+                        <?php esc_html_e('Redirections Manager', 'wash-blog-manager'); ?>
                     </span>
                     <a href="https://wash.tradik.com/docs/smart-redirections/" target="_blank" style="font-size: 12px; font-weight: normal; color: #2271b1; text-decoration: none;">
                         <span class="dashicons dashicons-book-alt" style="font-size: 14px; vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Documentation', 'wash'); ?>
+                        <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                     </a>
                 </h3>
 
                 <!-- Stats Bar -->
                 <div id="wash-redirect-stats" style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 12px 15px; margin-bottom: 20px;">
                     <span class="dashicons dashicons-chart-bar" style="color: #2271b1; vertical-align: middle;"></span>
-                    <span id="wash-stats-text"><?php esc_html_e('Loading redirect stats...', 'wash'); ?></span>
+                    <span id="wash-stats-text"><?php esc_html_e('Loading redirect stats...', 'wash-blog-manager'); ?></span>
                 </div>
 
                 <!-- Action Buttons -->
                 <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
                     <button type="button" id="wash-fetch-wp-redirections" class="button button-secondary">
                         <span class="dashicons dashicons-download" style="vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Sync from Old Website', 'wash'); ?>
+                        <?php esc_html_e('Sync from Old Website', 'wash-blog-manager'); ?>
                     </button>
                     <button type="button" id="wash-generate-redirections" class="button button-secondary">
                         <span class="dashicons dashicons-admin-page" style="vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Generate from Synced Posts', 'wash'); ?>
+                        <?php esc_html_e('Generate from Synced Posts', 'wash-blog-manager'); ?>
                     </button>
                     <button type="button" id="wash-load-shopify-redirections" class="button button-secondary">
                         <span class="dashicons dashicons-cloud" style="vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Load from Shopify', 'wash'); ?>
+                        <?php esc_html_e('Load from Shopify', 'wash-blog-manager'); ?>
                     </button>
                     <button type="button" id="wash-fix-session" class="button" style="display: none; background: #d63638; border-color: #d63638; color: #fff;">
                         <span class="dashicons dashicons-admin-tools" style="vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Fix Session Scopes', 'wash'); ?>
+                        <?php esc_html_e('Fix Session Scopes', 'wash-blog-manager'); ?>
                     </button>
                 </div>
 
@@ -867,19 +886,19 @@ function wash_render_permission_locked_banner() {
                 <div style="margin-bottom: 15px;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                         <label for="wash-redirections-textarea" style="font-weight: 600;">
-                            <?php esc_html_e('Redirections List', 'wash'); ?>
+                            <?php esc_html_e('Redirections List', 'wash-blog-manager'); ?>
                             <span style="font-weight: normal; color: #666;">
-                                (<?php esc_html_e('format: /old-path → /new-path', 'wash'); ?>)
+                                (<?php esc_html_e('format: /old-path → /new-path', 'wash-blog-manager'); ?>)
                             </span>
                         </label>
                         <div style="display: flex; gap: 8px;">
-                            <button type="button" id="wash-verify-redirections" class="button button-secondary" title="<?php esc_attr_e('Verify syntax', 'wash'); ?>">
+                            <button type="button" id="wash-verify-redirections" class="button button-secondary" title="<?php esc_attr_e('Verify syntax', 'wash-blog-manager'); ?>">
                                 <span class="dashicons dashicons-yes-alt" style="vertical-align: text-bottom;"></span>
-                                <?php esc_html_e('Verify', 'wash'); ?>
+                                <?php esc_html_e('Verify', 'wash-blog-manager'); ?>
                             </button>
-                            <button type="button" id="wash-unlock-redirections" class="button" title="<?php esc_attr_e('Unlock to edit', 'wash'); ?>">
+                            <button type="button" id="wash-unlock-redirections" class="button" title="<?php esc_attr_e('Unlock to edit', 'wash-blog-manager'); ?>">
                                 <span class="dashicons dashicons-lock" style="vertical-align: text-bottom;"></span>
-                                <?php esc_html_e('Unlock', 'wash'); ?>
+                                <?php esc_html_e('Unlock', 'wash-blog-manager'); ?>
                             </button>
                         </div>
                     </div>
@@ -888,25 +907,25 @@ function wash_render_permission_locked_banner() {
 /about-us → /pages/about-us
 /category/news → /blogs/news
 
-# Lines starting with # are comments', 'wash'); ?>"></textarea>
+# Lines starting with # are comments', 'wash-blog-manager'); ?>"></textarea>
                         <div id="wash-redirections-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.02); cursor: pointer; display: flex; align-items: center; justify-content: center;">
                             <span style="background: #fff; padding: 8px 16px; border-radius: 4px; border: 1px solid #c3c4c7; color: #666; font-size: 13px;">
                                 <span class="dashicons dashicons-lock" style="vertical-align: text-bottom; color: #d63638;"></span>
-                                <?php esc_html_e('Click unlock button to edit', 'wash'); ?>
+                                <?php esc_html_e('Click unlock button to edit', 'wash-blog-manager'); ?>
                             </span>
                         </div>
                     </div>
                     <div id="wash-verify-results" style="display: none; margin-top: 10px; padding: 12px; border-radius: 4px;"></div>
                     <p class="description" style="margin-top: 8px;">
-                        <?php esc_html_e('One redirection per line. Separators: →, ->, =>. Lines starting with # are comments.', 'wash'); ?>
+                        <?php esc_html_e('One redirection per line. Separators: →, ->, =>. Lines starting with # are comments.', 'wash-blog-manager'); ?>
                     </p>
                 </div>
 
                 <!-- Action Buttons -->
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <button type="button" id="wash-sync-redirections" class="button button-primary button-large" disabled title="<?php esc_attr_e('Unlock to enable sync', 'wash'); ?>">
+                    <button type="button" id="wash-sync-redirections" class="button button-primary button-large" disabled title="<?php esc_attr_e('Unlock to enable sync', 'wash-blog-manager'); ?>">
                         <span class="dashicons dashicons-update" style="vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Sync Redirections to Shopify', 'wash'); ?>
+                        <?php esc_html_e('Sync Redirections to Shopify', 'wash-blog-manager'); ?>
                     </button>
                     <span id="wash-sync-status" style="display: none;"></span>
                 </div>
@@ -915,7 +934,7 @@ function wash_render_permission_locked_banner() {
                 <div id="wash-sync-results" style="display: none; margin-top: 20px; padding: 15px; background: #f0fff4; border: 1px solid #96bf48; border-radius: 4px;">
                     <h4 style="margin-top: 0; color: #155724;">
                         <span class="dashicons dashicons-yes-alt"></span>
-                        <?php esc_html_e('Sync Complete', 'wash'); ?>
+                        <?php esc_html_e('Sync Complete', 'wash-blog-manager'); ?>
                     </h4>
                     <ul id="wash-sync-results-list" style="margin: 0; padding-left: 20px;"></ul>
                 </div>
@@ -924,36 +943,37 @@ function wash_render_permission_locked_banner() {
         </div>
 
         <!-- Hreflangs Tab -->
-        <?php $hreflangsTabAttrs = wash_get_tab_content_class('hreflangs', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
-        <div class="<?php echo esc_attr($hreflangsTabAttrs['class']); ?>" id="tab-hreflangs" style="display: none;" data-locked="<?php echo $hreflangsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($hreflangsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($hreflangsTabAttrs['upgradeUrl']); ?>">
-            <?php if (!empty($hreflangsTabAttrs['isPermissionLocked'])) : ?>
+        <?php $wash_hreflangsTabAttrs = wash_get_tab_content_class('hreflangs', $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions, $wash_tabPermissions); ?>
+        <div class="<?php echo esc_attr($wash_hreflangsTabAttrs['class']); ?>" id="tab-hreflangs" style="display: none;" data-locked="<?php echo $wash_hreflangsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($wash_hreflangsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($wash_hreflangsTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($wash_hreflangsTabAttrs['isPermissionLocked'])) : ?>
                 <?php wash_render_permission_locked_banner(); ?>
             <?php endif; ?>
-            <h2 class="title"><?php esc_html_e('Hreflang Tags Configuration', 'wash'); ?></h2>
-            <p class="description"><?php esc_html_e('Configure hreflang tags for multi-language SEO on Shopify.', 'wash'); ?></p>
+            <h2 class="title"><?php esc_html_e('Hreflang Tags Configuration', 'wash-blog-manager'); ?></h2>
+            <p class="description"><?php esc_html_e('Configure hreflang tags for multi-language SEO on Shopify.', 'wash-blog-manager'); ?></p>
 
             <?php
-            $hreflangsHandler = new WashHreflangs();
-            $activePlugin = $hreflangsHandler->getActivePluginName();
-            $hasPlugin = $hreflangsHandler->isMultilingualPluginActive();
+            $wash_hreflangsHandler = new WashHreflangs();
+            $wash_activePlugin = $wash_hreflangsHandler->getActivePluginName();
+            $wash_hasPlugin = $wash_hreflangsHandler->isMultilingualPluginActive();
             ?>
 
             <!-- Detected Plugin Status -->
-            <div class="wash-info-section" style="background: <?php echo $hasPlugin ? '#f0fff4' : '#fef0f0'; ?>; border: 2px solid <?php echo $hasPlugin ? '#00a32a' : '#d63638'; ?>; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <div class="wash-info-section" style="background: <?php echo $wash_hasPlugin ? '#f0fff4' : '#fef0f0'; ?>; border: 2px solid <?php echo $wash_hasPlugin ? '#00a32a' : '#d63638'; ?>; border-radius: 8px; padding: 20px; margin: 20px 0;">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <span class="dashicons <?php echo $hasPlugin ? 'dashicons-yes-alt' : 'dashicons-warning'; ?>" style="font-size: 40px; width: 40px; height: 40px; color: <?php echo $hasPlugin ? '#00a32a' : '#d63638'; ?>;"></span>
+                    <span class="dashicons <?php echo $wash_hasPlugin ? 'dashicons-yes-alt' : 'dashicons-warning'; ?>" style="font-size: 40px; width: 40px; height: 40px; color: <?php echo $wash_hasPlugin ? '#00a32a' : '#d63638'; ?>;"></span>
                     <div>
-                        <h3 style="margin: 0 0 5px 0;"><?php esc_html_e('Multilingual Plugin Status', 'wash'); ?></h3>
+                        <h3 style="margin: 0 0 5px 0;"><?php esc_html_e('Multilingual Plugin Status', 'wash-blog-manager'); ?></h3>
                         <p style="margin: 0; font-size: 15px;">
-                            <?php if ($hasPlugin): ?>
+                            <?php if ($wash_hasPlugin): ?>
                                 <?php printf(
-                                    esc_html__('Detected: %s', 'wash'),
-                                    '<strong style="color: #00a32a;">' . esc_html($activePlugin) . '</strong>'
+                                    // translators: %s is the name of the detected plugin.
+                                    esc_html__('Detected: %s', 'wash-blog-manager'),
+                                    '<strong style="color: #00a32a;">' . esc_html($wash_activePlugin) . '</strong>'
                                 ); ?>
-                                <br><span style="color: #666;"><?php esc_html_e('Translations will be automatically detected and synced.', 'wash'); ?></span>
+                                <br><span style="color: #666;"><?php esc_html_e('Translations will be automatically detected and synced.', 'wash-blog-manager'); ?></span>
                             <?php else: ?>
-                                <strong style="color: #d63638;"><?php esc_html_e('No multilingual plugin detected', 'wash'); ?></strong>
-                                <br><span style="color: #666;"><?php esc_html_e('Install WPML, Polylang, TranslatePress, or Weglot to enable hreflang syncing.', 'wash'); ?></span>
+                                <strong style="color: #d63638;"><?php esc_html_e('No multilingual plugin detected', 'wash-blog-manager'); ?></strong>
+                                <br><span style="color: #666;"><?php esc_html_e('Install WPML, Polylang, TranslatePress, or Weglot to enable hreflang syncing.', 'wash-blog-manager'); ?></span>
                             <?php endif; ?>
                         </p>
                     </div>
@@ -962,16 +982,16 @@ function wash_render_permission_locked_banner() {
 
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><?php esc_html_e('Enable Hreflangs', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Enable Hreflangs', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_hreflangs_enabled" value="0" />
                             <input type="checkbox" name="wash_hreflangs_enabled" value="1"
                                 <?php checked(get_option('wash_hreflangs_enabled'), '1'); ?>
-                                <?php disabled(!$hasPlugin); ?> />
-                            <?php esc_html_e('Sync hreflang data to Shopify metafields', 'wash'); ?>
+                                <?php disabled(!$wash_hasPlugin); ?> />
+                            <?php esc_html_e('Sync hreflang data to Shopify metafields', 'wash-blog-manager'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('When enabled, language relationship data from your multilingual plugin will be synced as metafields.', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('When enabled, language relationship data from your multilingual plugin will be synced as metafields.', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
             </table>
@@ -981,18 +1001,18 @@ function wash_render_permission_locked_banner() {
                 <div class="wash-accordion__header" onclick="this.parentElement.classList.toggle('wash-accordion--open')">
                     <h3 class="wash-accordion__title">
                         <span class="dashicons dashicons-info"></span>
-                        <?php esc_html_e('How Hreflang Syncing Works', 'wash'); ?>
+                        <?php esc_html_e('How Hreflang Syncing Works', 'wash-blog-manager'); ?>
                     </h3>
                     <span class="dashicons dashicons-arrow-down-alt2 wash-accordion__toggle"></span>
                 </div>
                 <div class="wash-accordion__content">
-                    <p><?php esc_html_e('When enabled, wash will sync the following data as Shopify article metafields:', 'wash'); ?></p>
+                    <p><?php esc_html_e('When enabled, wash will sync the following data as Shopify article metafields:', 'wash-blog-manager'); ?></p>
                     <table class="widefat" style="margin-top: 10px;">
                         <thead>
                             <tr>
-                                <th><?php esc_html_e('Metafield Key', 'wash'); ?></th>
-                                <th><?php esc_html_e('Namespace', 'wash'); ?></th>
-                                <th><?php esc_html_e('Example Value', 'wash'); ?></th>
+                                <th><?php esc_html_e('Metafield Key', 'wash-blog-manager'); ?></th>
+                                <th><?php esc_html_e('Namespace', 'wash-blog-manager'); ?></th>
+                                <th><?php esc_html_e('Example Value', 'wash-blog-manager'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1020,7 +1040,7 @@ function wash_render_permission_locked_banner() {
                     </table>
                     <p style="margin-top: 15px; color: #666; font-size: 13px;">
                         <span class="dashicons dashicons-info-outline"></span>
-                        <?php esc_html_e('Each translation gets its own metafield. When a translation is removed in WordPress, the corresponding metafield is automatically cleared in Shopify.', 'wash'); ?>
+                        <?php esc_html_e('Each translation gets its own metafield. When a translation is removed in WordPress, the corresponding metafield is automatically cleared in Shopify.', 'wash-blog-manager'); ?>
                     </p>
                 </div>
             </div>
@@ -1030,12 +1050,12 @@ function wash_render_permission_locked_banner() {
                 <div class="wash-accordion__header" onclick="this.parentElement.classList.toggle('wash-accordion--open')">
                     <h3 class="wash-accordion__title">
                         <span class="dashicons dashicons-editor-code"></span>
-                        <?php esc_html_e('Liquid Code for theme.liquid', 'wash'); ?>
+                        <?php esc_html_e('Liquid Code for theme.liquid', 'wash-blog-manager'); ?>
                     </h3>
                     <span class="dashicons dashicons-arrow-down-alt2 wash-accordion__toggle"></span>
                 </div>
                 <div class="wash-accordion__content">
-                    <p style="color: #999; font-size: 13px;"><?php esc_html_e('Add this code inside the &lt;head&gt; section of your theme (layout/theme.liquid):', 'wash'); ?></p>
+                    <p style="color: #999; font-size: 13px;"><?php esc_html_e('Add this code inside the &lt;head&gt; section of your theme (layout/theme.liquid):', 'wash-blog-manager'); ?></p>
                     <pre style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;">&lt;!-- Wash Hreflang Tags --&gt;
 {% if article %}
   {% assign ns = 'wash_hreflang' %}
@@ -1049,7 +1069,7 @@ function wash_render_permission_locked_banner() {
 {% endif %}</pre>
                     <p style="color: #999; font-size: 12px; margin-top: 10px;">
                         <span class="dashicons dashicons-info-outline" style="color: #999;"></span>
-                        <?php esc_html_e('This code automatically outputs all hreflang tags including x-default.', 'wash'); ?>
+                        <?php esc_html_e('This code automatically outputs all hreflang tags including x-default.', 'wash-blog-manager'); ?>
                     </p>
                 </div>
             </div>
@@ -1059,26 +1079,26 @@ function wash_render_permission_locked_banner() {
                 <div class="wash-accordion__header" onclick="this.parentElement.classList.toggle('wash-accordion--open')">
                     <h3 class="wash-accordion__title">
                         <span class="dashicons dashicons-warning"></span>
-                        <?php esc_html_e('Important: Shopify Theme Configuration', 'wash'); ?>
+                        <?php esc_html_e('Important: Shopify Theme Configuration', 'wash-blog-manager'); ?>
                     </h3>
                     <span class="dashicons dashicons-arrow-down-alt2 wash-accordion__toggle"></span>
                 </div>
                 <div class="wash-accordion__content">
                     <p style="font-size: 14px; line-height: 1.6;">
-                        <?php esc_html_e('Shopify does NOT natively output hreflang tags for blog articles. You must manually add the Liquid code above to your theme.', 'wash'); ?>
+                        <?php esc_html_e('Shopify does NOT natively output hreflang tags for blog articles. You must manually add the Liquid code above to your theme.', 'wash-blog-manager'); ?>
                     </p>
                     <ol style="margin-left: 20px; line-height: 2;">
                         <li>
-                            <strong><?php esc_html_e('Edit Your Theme', 'wash'); ?></strong><br>
-                            <span style="color: #666;"><?php esc_html_e('Go to Online Store → Themes → Edit code → layout/theme.liquid', 'wash'); ?></span>
+                            <strong><?php esc_html_e('Edit Your Theme', 'wash-blog-manager'); ?></strong><br>
+                            <span style="color: #666;"><?php esc_html_e('Go to Online Store → Themes → Edit code → layout/theme.liquid', 'wash-blog-manager'); ?></span>
                         </li>
                         <li>
-                            <strong><?php esc_html_e('Add the Liquid Code', 'wash'); ?></strong><br>
-                            <span style="color: #666;"><?php esc_html_e('Paste the code above inside the &lt;head&gt; section, before &lt;/head&gt;', 'wash'); ?></span>
+                            <strong><?php esc_html_e('Add the Liquid Code', 'wash-blog-manager'); ?></strong><br>
+                            <span style="color: #666;"><?php esc_html_e('Paste the code above inside the &lt;head&gt; section, before &lt;/head&gt;', 'wash-blog-manager'); ?></span>
                         </li>
                         <li>
-                            <strong><?php esc_html_e('Save and Test', 'wash'); ?></strong><br>
-                            <span style="color: #666;"><?php esc_html_e('View page source on an article to verify hreflang tags are present', 'wash'); ?></span>
+                            <strong><?php esc_html_e('Save and Test', 'wash-blog-manager'); ?></strong><br>
+                            <span style="color: #666;"><?php esc_html_e('View page source on an article to verify hreflang tags are present', 'wash-blog-manager'); ?></span>
                         </li>
                     </ol>
                 </div>
@@ -1089,26 +1109,26 @@ function wash_render_permission_locked_banner() {
                 <div class="wash-accordion__header" onclick="this.parentElement.classList.toggle('wash-accordion--open')">
                     <h3 class="wash-accordion__title">
                         <span class="dashicons dashicons-lightbulb"></span>
-                        <?php esc_html_e('Alternative: Shopify Markets', 'wash'); ?>
+                        <?php esc_html_e('Alternative: Shopify Markets', 'wash-blog-manager'); ?>
                     </h3>
                     <span class="dashicons dashicons-arrow-down-alt2 wash-accordion__toggle"></span>
                 </div>
                 <div class="wash-accordion__content">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
                         <div>
-                            <p><?php esc_html_e('For stores with Shopify Plus or compatible plans, consider using Shopify Markets:', 'wash'); ?></p>
+                            <p><?php esc_html_e('For stores with Shopify Plus or compatible plans, consider using Shopify Markets:', 'wash-blog-manager'); ?></p>
                             <ul style="margin-left: 20px; line-height: 1.8;">
-                                <li><?php esc_html_e('Built-in multi-language support', 'wash'); ?></li>
-                                <li><?php esc_html_e('Automatic hreflang tag generation', 'wash'); ?></li>
-                                <li><?php esc_html_e('No theme customization required', 'wash'); ?></li>
+                                <li><?php esc_html_e('Built-in multi-language support', 'wash-blog-manager'); ?></li>
+                                <li><?php esc_html_e('Automatic hreflang tag generation', 'wash-blog-manager'); ?></li>
+                                <li><?php esc_html_e('No theme customization required', 'wash-blog-manager'); ?></li>
                             </ul>
                             <p style="margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
-                                <strong><?php esc_html_e('Note:', 'wash'); ?></strong> <?php esc_html_e('Shopify Markets works independently of this plugin. Use this feature when Markets is not available or you need custom hreflang handling.', 'wash'); ?>
+                                <strong><?php esc_html_e('Note:', 'wash-blog-manager'); ?></strong> <?php esc_html_e('Shopify Markets works independently of this plugin. Use this feature when Markets is not available or you need custom hreflang handling.', 'wash-blog-manager'); ?>
                             </p>
                         </div>
                         <a href="https://wash.tradik.com/docs/hreflangs.html" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0;">
                             <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
-                            <?php esc_html_e('Documentation', 'wash'); ?>
+                            <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                         </a>
                     </div>
                 </div>
@@ -1116,25 +1136,25 @@ function wash_render_permission_locked_banner() {
         </div>
 
         <!-- Meta Fields Tab -->
-        <?php $metafieldsTabAttrs = wash_get_tab_content_class('metafields', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
-        <div class="<?php echo esc_attr($metafieldsTabAttrs['class']); ?>" id="tab-metafields" style="display: none;" data-locked="<?php echo $metafieldsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($metafieldsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($metafieldsTabAttrs['upgradeUrl']); ?>">
-            <?php if (!empty($metafieldsTabAttrs['isPermissionLocked'])) : ?>
+        <?php $wash_metafieldsTabAttrs = wash_get_tab_content_class('metafields', $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions, $wash_tabPermissions); ?>
+        <div class="<?php echo esc_attr($wash_metafieldsTabAttrs['class']); ?>" id="tab-metafields" style="display: none;" data-locked="<?php echo $wash_metafieldsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($wash_metafieldsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($wash_metafieldsTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($wash_metafieldsTabAttrs['isPermissionLocked'])) : ?>
                 <?php wash_render_permission_locked_banner(); ?>
             <?php endif; ?>
-            <h2 class="title"><?php esc_html_e('Meta Fields Configuration', 'wash'); ?></h2>
-            <p class="description"><?php esc_html_e('WordPress detects available meta fields from your posts. Toggle sync per field.', 'wash'); ?></p>
+            <h2 class="title"><?php esc_html_e('Meta Fields Configuration', 'wash-blog-manager'); ?></h2>
+            <p class="description"><?php esc_html_e('WordPress detects available meta fields from your posts. Toggle sync per field.', 'wash-blog-manager'); ?></p>
 
             <?php if (get_option('wash_sync_metafields', '1') !== '1') : ?>
                 <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; color: #856404;">
-                    <?php esc_html_e('Metafield sync is disabled. Enable "Sync Metafields" in the Sync tab to use this configuration.', 'wash'); ?>
+                    <?php esc_html_e('Metafield sync is disabled. Enable "Sync Metafields" in the Sync tab to use this configuration.', 'wash-blog-manager'); ?>
                 </div>
             <?php endif; ?>
 
             <div id="wash-metafields-content" style="<?php echo get_option('wash_sync_metafields', '1') !== '1' ? 'opacity: 0.5; pointer-events: none;' : ''; ?>">
             <?php
-            $metafieldsHandler = new WashMetafields();
-            $fieldConfig = $metafieldsHandler->getFieldConfig();
-            $sourceBadges = [
+            $wash_metafieldsHandler = new WashMetafields();
+            $wash_fieldConfig = $wash_metafieldsHandler->getFieldConfig();
+            $wash_sourceBadges = [
                 'wordpress' => ['bg' => '#e8f4fd', 'color' => '#21759b'],
                 'yoast'     => ['bg' => '#f5e6f0', 'color' => '#a4286a'],
                 'rankmath'  => ['bg' => '#fde8e8', 'color' => '#e74c3c'],
@@ -1146,45 +1166,45 @@ function wash_render_permission_locked_banner() {
             <div style="margin: 16px 0 12px; display: flex; align-items: center; gap: 10px;">
                 <button type="button" id="wash-refresh-fields" class="button">
                     <span class="dashicons dashicons-update" style="vertical-align: text-bottom; margin-right: 4px;"></span>
-                    <?php esc_html_e('Refresh Fields', 'wash'); ?>
+                    <?php esc_html_e('Refresh Fields', 'wash-blog-manager'); ?>
                 </button>
                 <span id="wash-fields-status" style="font-size: 13px; color: #646970;"></span>
             </div>
 
-            <?php if (empty($fieldConfig)) : ?>
+            <?php if (empty($wash_fieldConfig)) : ?>
                 <div style="background: #f6f6f7; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
-                    <p style="margin: 0; color: #646970;"><?php esc_html_e('No fields detected. Click Refresh to scan your posts.', 'wash'); ?></p>
+                    <p style="margin: 0; color: #646970;"><?php esc_html_e('No fields detected. Click Refresh to scan your posts.', 'wash-blog-manager'); ?></p>
                 </div>
             <?php else : ?>
                 <table class="widefat striped" id="wash-meta-fields-table" style="margin-bottom: 20px;">
                     <thead>
                         <tr>
-                            <th style="width: 40px; text-align: center;"><?php esc_html_e('Sync', 'wash'); ?></th>
-                            <th><?php esc_html_e('Field', 'wash'); ?></th>
-                            <th><?php esc_html_e('Namespace', 'wash'); ?></th>
-                            <th><?php esc_html_e('Source', 'wash'); ?></th>
-                            <th><?php esc_html_e('Type', 'wash'); ?></th>
+                            <th style="width: 40px; text-align: center;"><?php esc_html_e('Sync', 'wash-blog-manager'); ?></th>
+                            <th><?php esc_html_e('Field', 'wash-blog-manager'); ?></th>
+                            <th><?php esc_html_e('Namespace', 'wash-blog-manager'); ?></th>
+                            <th><?php esc_html_e('Source', 'wash-blog-manager'); ?></th>
+                            <th><?php esc_html_e('Type', 'wash-blog-manager'); ?></th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($fieldConfig as $i => $field) :
-                            $badge = $sourceBadges[$field['source']] ?? $sourceBadges['custom'];
+                        <?php foreach ($wash_fieldConfig as $wash_i => $wash_field) :
+                            $wash_badge = $wash_sourceBadges[$wash_field['source']] ?? $wash_sourceBadges['custom'];
                         ?>
                             <tr>
                                 <td style="text-align: center;">
                                     <input type="checkbox" class="wash-field-toggle"
-                                        data-index="<?php echo (int)$i; ?>"
-                                        <?php checked(!empty($field['syncEnabled'])); ?>
+                                        data-index="<?php echo (int)$wash_i; ?>"
+                                        <?php checked(!empty($wash_field['syncEnabled'])); ?>
                                         style="width: 16px; height: 16px;" />
                                 </td>
-                                <td><strong><?php echo esc_html($field['label'] ?? $field['key']); ?></strong></td>
-                                <td><code style="font-size: 12px;"><?php echo esc_html($field['namespace']); ?></code></td>
+                                <td><strong><?php echo esc_html($wash_field['label'] ?? $wash_field['key']); ?></strong></td>
+                                <td><code style="font-size: 12px;"><?php echo esc_html($wash_field['namespace']); ?></code></td>
                                 <td>
-                                    <span style="background: <?php echo esc_attr($badge['bg']); ?>; color: <?php echo esc_attr($badge['color']); ?>; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
-                                        <?php echo esc_html($field['source']); ?>
+                                    <span style="background: <?php echo esc_attr($wash_badge['bg']); ?>; color: <?php echo esc_attr($wash_badge['color']); ?>; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                                        <?php echo esc_html($wash_field['source']); ?>
                                     </span>
                                 </td>
-                                <td style="font-size: 12px; color: #646970;"><?php echo esc_html($field['type']); ?></td>
+                                <td style="font-size: 12px; color: #646970;"><?php echo esc_html($wash_field['type']); ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -1193,14 +1213,14 @@ function wash_render_permission_locked_banner() {
 
             <script>
             (function() {
-                var fieldConfig = <?php echo wp_json_encode($fieldConfig); ?>;
+                var fieldConfig = <?php echo wp_json_encode($wash_fieldConfig); ?>;
                 var saveTimer = null;
                 var statusEl = document.getElementById('wash-fields-status');
 
                 function saveFieldConfig() {
                     clearTimeout(saveTimer);
                     saveTimer = setTimeout(function() {
-                        if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Saving...', 'wash')); ?>';
+                        if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Saving...', 'wash-blog-manager')); ?>';
                         fetch(washAdmin.ajaxUrl, {
                             method: 'POST',
                             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -1210,15 +1230,15 @@ function wash_render_permission_locked_banner() {
                         .then(function(data) {
                             if (!statusEl) return;
                             if (!data.success) {
-                                statusEl.textContent = '<?php echo esc_js(__('Error saving', 'wash')); ?>';
+                                statusEl.textContent = '<?php echo esc_js(__('Error saving', 'wash-blog-manager')); ?>';
                             } else if (data.data && data.data.synced) {
-                                statusEl.textContent = '<?php echo esc_js(__('Saved & synced to Shopify', 'wash')); ?>';
+                                statusEl.textContent = '<?php echo esc_js(__('Saved & synced to Shopify', 'wash-blog-manager')); ?>';
                             } else {
-                                statusEl.textContent = '<?php echo esc_js(__('Saved (Shopify sync pending)', 'wash')); ?>';
+                                statusEl.textContent = '<?php echo esc_js(__('Saved (Shopify sync pending)', 'wash-blog-manager')); ?>';
                             }
                         })
                         .catch(function() {
-                            if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Error saving', 'wash')); ?>';
+                            if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Error saving', 'wash-blog-manager')); ?>';
                         });
                     }, 300);
                 }
@@ -1234,7 +1254,7 @@ function wash_render_permission_locked_banner() {
                 document.getElementById('wash-refresh-fields')?.addEventListener('click', function() {
                     var btn = this;
                     btn.disabled = true;
-                    if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Scanning...', 'wash')); ?>';
+                    if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Scanning...', 'wash-blog-manager')); ?>';
 
                     fetch(washAdmin.ajaxUrl, {
                         method: 'POST',
@@ -1244,15 +1264,15 @@ function wash_render_permission_locked_banner() {
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
                         if (data.success) {
-                            statusEl.textContent = data.data.fields.length + ' <?php echo esc_js(__('fields detected', 'wash')); ?>';
+                            statusEl.textContent = data.data.fields.length + ' <?php echo esc_js(__('fields detected', 'wash-blog-manager')); ?>';
                             setTimeout(function() { location.reload(); }, 800);
                         } else {
-                            statusEl.textContent = '<?php echo esc_js(__('Error', 'wash')); ?>';
+                            statusEl.textContent = '<?php echo esc_js(__('Error', 'wash-blog-manager')); ?>';
                         }
                         btn.disabled = false;
                     })
                     .catch(function() {
-                        if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Error', 'wash')); ?>';
+                        if (statusEl) statusEl.textContent = '<?php echo esc_js(__('Error', 'wash-blog-manager')); ?>';
                         btn.disabled = false;
                     });
                 });
@@ -1262,81 +1282,81 @@ function wash_render_permission_locked_banner() {
             <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
                 <a href="https://wash.tradik.com/docs/custom-fields.html" target="_blank" rel="noopener noreferrer" class="button" style="margin-right: 10px;">
                     <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
-                    <?php esc_html_e('Documentation', 'wash'); ?>
+                    <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                 </a>
             </div>
             </div><!-- /wash-metafields-content -->
         </div>
 
         <!-- Authors Tab -->
-        <?php $authorsTabAttrs = wash_get_tab_content_class('authors', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
-        <div class="<?php echo esc_attr($authorsTabAttrs['class']); ?>" id="tab-authors" style="display: none;" data-locked="<?php echo $authorsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($authorsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($authorsTabAttrs['upgradeUrl']); ?>">
-            <?php if (!empty($authorsTabAttrs['isPermissionLocked'])) : ?>
+        <?php $wash_authorsTabAttrs = wash_get_tab_content_class('authors', $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions, $wash_tabPermissions); ?>
+        <div class="<?php echo esc_attr($wash_authorsTabAttrs['class']); ?>" id="tab-authors" style="display: none;" data-locked="<?php echo $wash_authorsTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($wash_authorsTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($wash_authorsTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($wash_authorsTabAttrs['isPermissionLocked'])) : ?>
                 <?php wash_render_permission_locked_banner(); ?>
             <?php endif; ?>
-            <h2 class="title"><?php esc_html_e('Author Mapping', 'wash'); ?></h2>
-            <p class="description"><?php esc_html_e('Map WordPress users to custom author names displayed on Shopify articles.', 'wash'); ?></p>
+            <h2 class="title"><?php esc_html_e('Author Mapping', 'wash-blog-manager'); ?></h2>
+            <p class="description"><?php esc_html_e('Map WordPress users to custom author names displayed on Shopify articles.', 'wash-blog-manager'); ?></p>
 
             <?php
-            $authorsEnabled = get_option('wash_authors_enabled', '0') === '1';
-            $authorMappings = get_option('wash_author_mappings', []);
-            if (!is_array($authorMappings)) {
-                $authorMappings = [];
+            $wash_authorsEnabled = get_option('wash_authors_enabled', '0') === '1';
+            $wash_authorMappings = get_option('wash_author_mappings', []);
+            if (!is_array($wash_authorMappings)) {
+                $wash_authorMappings = [];
             }
-            $wpUsers = get_users(['fields' => ['ID', 'display_name', 'user_login']]);
+            $wash_wpUsers = get_users(['fields' => ['ID', 'display_name', 'user_login']]);
             ?>
 
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><?php esc_html_e('Enable Author Mapping', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Enable Author Mapping', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_authors_enabled" value="0" />
                             <input type="checkbox" name="wash_authors_enabled" value="1" id="wash-authors-enabled"
-                                <?php checked($authorsEnabled); ?> />
-                            <?php esc_html_e('Override WordPress author names with custom values', 'wash'); ?>
+                                <?php checked($wash_authorsEnabled); ?> />
+                            <?php esc_html_e('Override WordPress author names with custom values', 'wash-blog-manager'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('When disabled, articles use the original WordPress author display name.', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('When disabled, articles use the original WordPress author display name.', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
             </table>
 
-            <div id="wash-author-mappings-section" style="<?php echo $authorsEnabled ? '' : 'opacity: 0.5; pointer-events: none;'; ?>">
+            <div id="wash-author-mappings-section" style="<?php echo $wash_authorsEnabled ? '' : 'opacity: 0.5; pointer-events: none;'; ?>">
                 <h3 style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #c3c4c7;">
-                    <?php esc_html_e('User → Author Name Mapping', 'wash'); ?>
+                    <?php esc_html_e('User → Author Name Mapping', 'wash-blog-manager'); ?>
                 </h3>
 
-                <?php if (empty($wpUsers)) : ?>
-                    <p style="color: #666;"><?php esc_html_e('No users found.', 'wash'); ?></p>
+                <?php if (empty($wash_wpUsers)) : ?>
+                    <p style="color: #666;"><?php esc_html_e('No users found.', 'wash-blog-manager'); ?></p>
                 <?php else : ?>
                     <table class="widefat striped" style="max-width: 800px;">
                         <thead>
                             <tr>
-                                <th style="width: 30%;"><?php esc_html_e('WordPress User', 'wash'); ?></th>
-                                <th style="width: 35%;"><?php esc_html_e('Current Display Name', 'wash'); ?></th>
-                                <th style="width: 35%;"><?php esc_html_e('Shopify Author Name', 'wash'); ?></th>
+                                <th style="width: 30%;"><?php esc_html_e('WordPress User', 'wash-blog-manager'); ?></th>
+                                <th style="width: 35%;"><?php esc_html_e('Current Display Name', 'wash-blog-manager'); ?></th>
+                                <th style="width: 35%;"><?php esc_html_e('Shopify Author Name', 'wash-blog-manager'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($wpUsers as $user) : ?>
+                            <?php foreach ($wash_wpUsers as $wash_user) : ?>
                                 <?php
-                                $userId = $user->ID;
-                                $currentMapping = isset($authorMappings[$userId]) ? $authorMappings[$userId] : '';
+                                $wash_userId = $wash_user->ID;
+                                $wash_currentMapping = isset($wash_authorMappings[$wash_userId]) ? $wash_authorMappings[$wash_userId] : '';
                                 ?>
                                 <tr>
                                     <td>
-                                        <code><?php echo esc_html($user->user_login); ?></code>
-                                        <span style="color: #666; font-size: 12px;">(ID: <?php echo esc_html($userId); ?>)</span>
+                                        <code><?php echo esc_html($wash_user->user_login); ?></code>
+                                        <span style="color: #666; font-size: 12px;">(ID: <?php echo esc_html($wash_userId); ?>)</span>
                                     </td>
                                     <td>
-                                        <?php echo esc_html($user->display_name); ?>
+                                        <?php echo esc_html($wash_user->display_name); ?>
                                     </td>
                                     <td>
                                         <input type="text"
-                                               name="wash_author_mappings[<?php echo esc_attr($userId); ?>]"
-                                               value="<?php echo esc_attr($currentMapping); ?>"
+                                               name="wash_author_mappings[<?php echo esc_attr($wash_userId); ?>]"
+                                               value="<?php echo esc_attr($wash_currentMapping); ?>"
                                                class="regular-text"
-                                               placeholder="<?php echo esc_attr($user->display_name); ?>"
+                                               placeholder="<?php echo esc_attr($wash_user->display_name); ?>"
                                                style="width: 100%;" />
                                     </td>
                                 </tr>
@@ -1346,7 +1366,7 @@ function wash_render_permission_locked_banner() {
 
                     <p class="description" style="margin-top: 15px;">
                         <span class="dashicons dashicons-info" style="color: #2271b1;"></span>
-                        <?php esc_html_e('Leave empty to use the original WordPress display name. Changes apply to newly synced articles.', 'wash'); ?>
+                        <?php esc_html_e('Leave empty to use the original WordPress display name. Changes apply to newly synced articles.', 'wash-blog-manager'); ?>
                     </p>
                 <?php endif; ?>
             </div>
@@ -1356,102 +1376,102 @@ function wash_render_permission_locked_banner() {
                     <div>
                         <h4 style="margin-top: 0;">
                             <span class="dashicons dashicons-lightbulb" style="color: #2271b1;"></span>
-                            <?php esc_html_e('How Author Mapping Works', 'wash'); ?>
+                            <?php esc_html_e('How Author Mapping Works', 'wash-blog-manager'); ?>
                         </h4>
                         <ul style="margin-left: 20px; line-height: 1.8; margin-bottom: 0;">
-                            <li><strong><?php esc_html_e('Disabled:', 'wash'); ?></strong> <?php esc_html_e('Articles show the WordPress author\'s display name (e.g., "admin" or "John Doe")', 'wash'); ?></li>
-                            <li><strong><?php esc_html_e('Enabled:', 'wash'); ?></strong> <?php esc_html_e('Articles show the custom name you specify in the mapping table', 'wash'); ?></li>
-                            <li><strong><?php esc_html_e('Use cases:', 'wash'); ?></strong> <?php esc_html_e('Pen names, company branding, consistent author attribution across sites', 'wash'); ?></li>
+                            <li><strong><?php esc_html_e('Disabled:', 'wash-blog-manager'); ?></strong> <?php esc_html_e('Articles show the WordPress author\'s display name (e.g., "admin" or "John Doe")', 'wash-blog-manager'); ?></li>
+                            <li><strong><?php esc_html_e('Enabled:', 'wash-blog-manager'); ?></strong> <?php esc_html_e('Articles show the custom name you specify in the mapping table', 'wash-blog-manager'); ?></li>
+                            <li><strong><?php esc_html_e('Use cases:', 'wash-blog-manager'); ?></strong> <?php esc_html_e('Pen names, company branding, consistent author attribution across sites', 'wash-blog-manager'); ?></li>
                         </ul>
                     </div>
                     <a href="https://wash.tradik.com/docs/author-mapping.html" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0;">
                         <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
-                        <?php esc_html_e('Documentation', 'wash'); ?>
+                        <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                     </a>
                 </div>
             </div>
         </div>
 
         <!-- Files & Media Tab -->
-        <?php $filesTabAttrs = wash_get_tab_content_class('files', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
-        <div class="<?php echo esc_attr($filesTabAttrs['class']); ?>" id="tab-files" style="display: none;">
-            <?php if (!empty($filesTabAttrs['isPermissionLocked'])) : ?>
+        <?php $wash_filesTabAttrs = wash_get_tab_content_class('files', $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions, $wash_tabPermissions); ?>
+        <div class="<?php echo esc_attr($wash_filesTabAttrs['class']); ?>" id="tab-files" style="display: none;">
+            <?php if (!empty($wash_filesTabAttrs['isPermissionLocked'])) : ?>
                 <?php wash_render_permission_locked_banner(); ?>
             <?php endif; ?>
-            <h2 class="title"><?php esc_html_e('Files & Media Configuration', 'wash'); ?></h2>
-            <p class="description"><?php esc_html_e('Configure how images and media files are handled when syncing to Shopify.', 'wash'); ?></p>
+            <h2 class="title"><?php esc_html_e('Files & Media Configuration', 'wash-blog-manager'); ?></h2>
+            <p class="description"><?php esc_html_e('Configure how images and media files are handled when syncing to Shopify.', 'wash-blog-manager'); ?></p>
 
             <?php
-            $filesEnabled = get_option('wash_files_enabled', '1') === '1';
-            $webpConvert = get_option('wash_webp_convert', '0') === '1';
-            $allowedFileTypes = get_option('wash_allowed_file_types', ['images']);
-            if (!is_array($allowedFileTypes)) {
-                $allowedFileTypes = ['images'];
+            $wash_filesEnabled = get_option('wash_files_enabled', '1') === '1';
+            $wash_webpConvert = get_option('wash_webp_convert', '0') === '1';
+            $wash_allowedFileTypes = get_option('wash_allowed_file_types', ['images']);
+            if (!is_array($wash_allowedFileTypes)) {
+                $wash_allowedFileTypes = ['images'];
             }
             ?>
 
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><?php esc_html_e('Upload Images', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Upload Images', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_files_enabled" value="0" />
                             <input type="checkbox" name="wash_files_enabled" value="1" id="wash-files-enabled"
-                                <?php checked($filesEnabled); ?> />
-                            <?php esc_html_e('Enable image uploads to Shopify Files', 'wash'); ?>
+                                <?php checked($wash_filesEnabled); ?> />
+                            <?php esc_html_e('Enable image uploads to Shopify Files', 'wash-blog-manager'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('When enabled, media attachments will be uploaded to Shopify CDN. Disable to skip image syncing.', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('When enabled, media attachments will be uploaded to Shopify CDN. Disable to skip image syncing.', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
-                <tr id="wash-webp-row" style="<?php echo $filesEnabled ? '' : 'opacity: 0.5; pointer-events: none;'; ?>">
-                    <th scope="row"><?php esc_html_e('Convert to WebP', 'wash'); ?></th>
+                <tr id="wash-webp-row" style="<?php echo $wash_filesEnabled ? '' : 'opacity: 0.5; pointer-events: none;'; ?>">
+                    <th scope="row"><?php esc_html_e('Convert to WebP', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_webp_convert" value="0" />
                             <input type="checkbox" name="wash_webp_convert" value="1" id="wash-webp-convert"
-                                <?php checked($webpConvert); ?> />
-                            <?php esc_html_e('Convert images to modern WebP format', 'wash'); ?>
+                                <?php checked($wash_webpConvert); ?> />
+                            <?php esc_html_e('Convert images to modern WebP format', 'wash-blog-manager'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('WebP provides better compression and faster load times. Original format preserved if conversion fails.', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('WebP provides better compression and faster load times. Original format preserved if conversion fails.', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
-                <tr id="wash-file-types-row" style="<?php echo $filesEnabled ? '' : 'opacity: 0.5; pointer-events: none;'; ?>">
-                    <th scope="row"><?php esc_html_e('Allowed File Types', 'wash'); ?></th>
+                <tr id="wash-file-types-row" style="<?php echo $wash_filesEnabled ? '' : 'opacity: 0.5; pointer-events: none;'; ?>">
+                    <th scope="row"><?php esc_html_e('Allowed File Types', 'wash-blog-manager'); ?></th>
                     <td>
                         <fieldset>
                             <label style="display: block; margin-bottom: 8px;">
                                 <input type="checkbox" name="wash_allowed_file_types[]" value="images"
-                                    <?php checked(in_array('images', $allowedFileTypes, true)); ?> />
-                                <?php esc_html_e('Images (JPEG, PNG, GIF, WebP, SVG)', 'wash'); ?>
-                                <span style="color: #666; font-size: 12px;">— <?php esc_html_e('max 20 MB each', 'wash'); ?></span>
+                                    <?php checked(in_array('images', $wash_allowedFileTypes, true)); ?> />
+                                <?php esc_html_e('Images (JPEG, PNG, GIF, WebP, SVG)', 'wash-blog-manager'); ?>
+                                <span style="color: #666; font-size: 12px;">— <?php esc_html_e('max 20 MB each', 'wash-blog-manager'); ?></span>
                             </label>
                             <label style="display: block; margin-bottom: 8px;">
                                 <input type="checkbox" name="wash_allowed_file_types[]" value="pdf"
-                                    <?php checked(in_array('pdf', $allowedFileTypes, true)); ?> />
-                                <?php esc_html_e('PDF Documents', 'wash'); ?>
-                                <span style="color: #666; font-size: 12px;">— <?php esc_html_e('max 20 MB each', 'wash'); ?></span>
+                                    <?php checked(in_array('pdf', $wash_allowedFileTypes, true)); ?> />
+                                <?php esc_html_e('PDF Documents', 'wash-blog-manager'); ?>
+                                <span style="color: #666; font-size: 12px;">— <?php esc_html_e('max 20 MB each', 'wash-blog-manager'); ?></span>
                             </label>
                             <label style="display: block; margin-bottom: 8px;">
                                 <input type="checkbox" name="wash_allowed_file_types[]" value="video"
-                                    <?php checked(in_array('video', $allowedFileTypes, true)); ?> />
-                                <?php esc_html_e('Videos (MP4, MOV, WebM)', 'wash'); ?>
-                                <span style="color: #666; font-size: 12px;">— <?php esc_html_e('max 1 GB each', 'wash'); ?></span>
+                                    <?php checked(in_array('video', $wash_allowedFileTypes, true)); ?> />
+                                <?php esc_html_e('Videos (MP4, MOV, WebM)', 'wash-blog-manager'); ?>
+                                <span style="color: #666; font-size: 12px;">— <?php esc_html_e('max 1 GB each', 'wash-blog-manager'); ?></span>
                             </label>
                             <label style="display: block; margin-bottom: 8px;">
                                 <input type="checkbox" name="wash_allowed_file_types[]" value="audio"
-                                    <?php checked(in_array('audio', $allowedFileTypes, true)); ?> />
-                                <?php esc_html_e('Audio (MP3, WAV, OGG)', 'wash'); ?>
-                                <span style="color: #666; font-size: 12px;">— <?php esc_html_e('max 20 MB each', 'wash'); ?></span>
+                                    <?php checked(in_array('audio', $wash_allowedFileTypes, true)); ?> />
+                                <?php esc_html_e('Audio (MP3, WAV, OGG)', 'wash-blog-manager'); ?>
+                                <span style="color: #666; font-size: 12px;">— <?php esc_html_e('max 20 MB each', 'wash-blog-manager'); ?></span>
                             </label>
                             <label style="display: block; margin-bottom: 8px;">
                                 <input type="checkbox" name="wash_allowed_file_types[]" value="documents"
-                                    <?php checked(in_array('documents', $allowedFileTypes, true)); ?> />
-                                <?php esc_html_e('Documents (DOC, XLS, PPT, TXT)', 'wash'); ?>
-                                <span style="color: #666; font-size: 12px;">— <?php esc_html_e('max 20 MB each', 'wash'); ?></span>
+                                    <?php checked(in_array('documents', $wash_allowedFileTypes, true)); ?> />
+                                <?php esc_html_e('Documents (DOC, XLS, PPT, TXT)', 'wash-blog-manager'); ?>
+                                <span style="color: #666; font-size: 12px;">— <?php esc_html_e('max 20 MB each', 'wash-blog-manager'); ?></span>
                             </label>
                         </fieldset>
                         <p class="description" style="margin-top: 10px;">
-                            <?php esc_html_e('Select which file types should be synced to Shopify Files.', 'wash'); ?>
+                            <?php esc_html_e('Select which file types should be synced to Shopify Files.', 'wash-blog-manager'); ?>
                         </p>
                     </td>
                 </tr>
@@ -1460,21 +1480,21 @@ function wash_render_permission_locked_banner() {
             <!-- FAQ Section -->
             <h3 style="margin-top: 30px; margin-bottom: 15px;">
                 <span class="dashicons dashicons-book" style="color: #2271b1;"></span>
-                <?php esc_html_e('FAQ', 'wash'); ?>
+                <?php esc_html_e('FAQ', 'wash-blog-manager'); ?>
             </h3>
 
             <!-- FAQ: How Image Syncing Works -->
             <details class="wash-faq" style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 15px; margin: 10px 0;">
                 <summary style="cursor: pointer; font-weight: 600; color: #2271b1; outline: none;">
                     <span class="dashicons dashicons-format-image" style="vertical-align: middle;"></span>
-                    <?php esc_html_e('How does image syncing work?', 'wash'); ?>
+                    <?php esc_html_e('How does image syncing work?', 'wash-blog-manager'); ?>
                 </summary>
                 <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #c5d9ed;">
                     <ul style="margin-left: 20px; line-height: 1.8;">
-                        <li><?php esc_html_e('Images are uploaded to Shopify CDN for faster global delivery', 'wash'); ?></li>
-                        <li><?php esc_html_e('Image URLs in post content are automatically rewritten to Shopify CDN URLs', 'wash'); ?></li>
-                        <li><?php esc_html_e('Featured images are synced as article images in Shopify', 'wash'); ?></li>
-                        <li><?php esc_html_e('Use the Media Library to manually sync individual images', 'wash'); ?></li>
+                        <li><?php esc_html_e('Images are uploaded to Shopify CDN for faster global delivery', 'wash-blog-manager'); ?></li>
+                        <li><?php esc_html_e('Image URLs in post content are automatically rewritten to Shopify CDN URLs', 'wash-blog-manager'); ?></li>
+                        <li><?php esc_html_e('Featured images are synced as article images in Shopify', 'wash-blog-manager'); ?></li>
+                        <li><?php esc_html_e('Use the Media Library to manually sync individual images', 'wash-blog-manager'); ?></li>
                     </ul>
                 </div>
             </details>
@@ -1483,22 +1503,22 @@ function wash_render_permission_locked_banner() {
             <details class="wash-faq" style="background: #f0fff4; border: 1px solid #96bf48; border-radius: 4px; padding: 15px; margin: 10px 0;">
                 <summary style="cursor: pointer; font-weight: 600; color: #00a32a; outline: none;">
                     <span class="dashicons dashicons-performance" style="vertical-align: middle;"></span>
-                    <?php esc_html_e('What are the benefits of WebP format?', 'wash'); ?>
+                    <?php esc_html_e('What are the benefits of WebP format?', 'wash-blog-manager'); ?>
                 </summary>
                 <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #96bf48;">
                     <table class="widefat" style="max-width: 600px;">
                         <tbody>
                             <tr>
-                                <td style="width: 30%;"><strong><?php esc_html_e('Compression', 'wash'); ?></strong></td>
-                                <td><?php esc_html_e('25-35% smaller than JPEG at same quality', 'wash'); ?></td>
+                                <td style="width: 30%;"><strong><?php esc_html_e('Compression', 'wash-blog-manager'); ?></strong></td>
+                                <td><?php esc_html_e('25-35% smaller than JPEG at same quality', 'wash-blog-manager'); ?></td>
                             </tr>
                             <tr>
-                                <td><strong><?php esc_html_e('Browser Support', 'wash'); ?></strong></td>
-                                <td><?php esc_html_e('All modern browsers (Chrome, Firefox, Safari, Edge)', 'wash'); ?></td>
+                                <td><strong><?php esc_html_e('Browser Support', 'wash-blog-manager'); ?></strong></td>
+                                <td><?php esc_html_e('All modern browsers (Chrome, Firefox, Safari, Edge)', 'wash-blog-manager'); ?></td>
                             </tr>
                             <tr>
-                                <td><strong><?php esc_html_e('Supported Inputs', 'wash'); ?></strong></td>
-                                <td><?php esc_html_e('JPEG, PNG, GIF, TIFF', 'wash'); ?></td>
+                                <td><strong><?php esc_html_e('Supported Inputs', 'wash-blog-manager'); ?></strong></td>
+                                <td><?php esc_html_e('JPEG, PNG, GIF, TIFF', 'wash-blog-manager'); ?></td>
                             </tr>
                         </tbody>
                     </table>
@@ -1509,15 +1529,15 @@ function wash_render_permission_locked_banner() {
             <details class="wash-faq" style="background: #f0f6fc; border: 1px solid #0969da; border-radius: 4px; padding: 15px; margin: 10px 0;">
                 <summary style="cursor: pointer; font-weight: 600; color: #0969da; outline: none;">
                     <span class="dashicons dashicons-info-outline" style="vertical-align: middle;"></span>
-                    <?php esc_html_e('What are Shopify Files limits?', 'wash'); ?>
+                    <?php esc_html_e('What are Shopify Files limits?', 'wash-blog-manager'); ?>
                 </summary>
                 <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #0969da;">
                     <p style="margin: 0 0 10px;">
-                        <?php esc_html_e('File size and storage limits are enforced by Shopify and vary by plan. Files exceeding these limits will be skipped during sync.', 'wash'); ?>
+                        <?php esc_html_e('File size and storage limits are enforced by Shopify and vary by plan. Files exceeding these limits will be skipped during sync.', 'wash-blog-manager'); ?>
                     </p>
                     <a href="https://help.shopify.com/en/manual/shopify-admin/productivity-tools/file-uploads" target="_blank" rel="noopener noreferrer" class="button button-secondary" style="margin-top: 5px;">
                         <span class="dashicons dashicons-external" style="vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('View Shopify Files Documentation', 'wash'); ?>
+                        <?php esc_html_e('View Shopify Files Documentation', 'wash-blog-manager'); ?>
                     </a>
                 </div>
             </details>
@@ -1526,16 +1546,16 @@ function wash_render_permission_locked_banner() {
             <details class="wash-troubleshooting" style="background: #fff8e5; border: 1px solid #dba617; border-radius: 4px; padding: 15px; margin: 20px 0;">
                 <summary style="cursor: pointer; font-weight: 600; color: #826200; outline: none;">
                     <span class="dashicons dashicons-editor-help" style="color: #dba617; vertical-align: middle;"></span>
-                    <?php esc_html_e('Featured image not showing on Shopify?', 'wash'); ?>
+                    <?php esc_html_e('Featured image not showing on Shopify?', 'wash-blog-manager'); ?>
                 </summary>
                 <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #dba617;">
                     <p style="margin-top: 0;">
-                        <?php esc_html_e('If the featured image is visible in Shopify Admin but not on the blog page, your Shopify theme template needs to be updated.', 'wash'); ?>
+                        <?php esc_html_e('If the featured image is visible in Shopify Admin but not on the blog page, your Shopify theme template needs to be updated.', 'wash-blog-manager'); ?>
                     </p>
 
-                    <h5 style="margin: 15px 0 10px;"><?php esc_html_e('Solution: Add this code to your Shopify theme', 'wash'); ?></h5>
-                    <p><?php esc_html_e('In Shopify Admin, go to:', 'wash'); ?> <strong>Online Store → Themes → Edit code</strong></p>
-                    <p><?php esc_html_e('Find your article template (e.g.', 'wash'); ?> <code>sections/main-article.liquid</code> <?php esc_html_e('or', 'wash'); ?> <code>templates/article.liquid</code><?php esc_html_e(') and add:', 'wash'); ?></p>
+                    <h5 style="margin: 15px 0 10px;"><?php esc_html_e('Solution: Add this code to your Shopify theme', 'wash-blog-manager'); ?></h5>
+                    <p><?php esc_html_e('In Shopify Admin, go to:', 'wash-blog-manager'); ?> <strong>Online Store → Themes → Edit code</strong></p>
+                    <p><?php esc_html_e('Find your article template (e.g.', 'wash-blog-manager'); ?> <code>sections/main-article.liquid</code> <?php esc_html_e('or', 'wash-blog-manager'); ?> <code>templates/article.liquid</code><?php esc_html_e(') and add:', 'wash-blog-manager'); ?></p>
 
                     <pre style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;">
 <span style="color: #6a9955;">{%- comment -%} Featured Image from WordPress {%- endcomment -%}</span>
@@ -1553,10 +1573,10 @@ function wash_render_permission_locked_banner() {
                     <div style="background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 12px; margin-top: 15px;">
                         <strong style="color: #1e1e1e;">
                             <span class="dashicons dashicons-lightbulb" style="color: #dba617;"></span>
-                            <?php esc_html_e('Pro tip:', 'wash'); ?>
+                            <?php esc_html_e('Pro tip:', 'wash-blog-manager'); ?>
                         </strong>
                         <span style="color: #555;">
-                            <?php esc_html_e('You can also use our ready-made template from', 'wash'); ?>
+                            <?php esc_html_e('You can also use our ready-made template from', 'wash-blog-manager'); ?>
                             <code>packages/shopify-theme-example/sections/wp-article-content.liquid</code>
                         </span>
                     </div>
@@ -1567,23 +1587,23 @@ function wash_render_permission_locked_banner() {
             <details class="wash-troubleshooting" style="background: #fff8e5; border: 1px solid #dba617; border-radius: 4px; padding: 15px; margin: 20px 0;">
                 <summary style="cursor: pointer; font-weight: 600; color: #826200; outline: none;">
                     <span class="dashicons dashicons-editor-help" style="color: #dba617; vertical-align: middle;"></span>
-                    <?php esc_html_e('Images in post content not showing?', 'wash'); ?>
+                    <?php esc_html_e('Images in post content not showing?', 'wash-blog-manager'); ?>
                 </summary>
                 <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #dba617;">
-                    <p style="margin-top: 0;"><?php esc_html_e('If images within the article body are not displaying:', 'wash'); ?></p>
+                    <p style="margin-top: 0;"><?php esc_html_e('If images within the article body are not displaying:', 'wash-blog-manager'); ?></p>
 
                     <ol style="margin-left: 20px; line-height: 1.8;">
                         <li>
-                            <strong><?php esc_html_e('Check if images are synced:', 'wash'); ?></strong>
-                            <?php esc_html_e('Go to Media Library and verify images have a green checkmark (synced) icon.', 'wash'); ?>
+                            <strong><?php esc_html_e('Check if images are synced:', 'wash-blog-manager'); ?></strong>
+                            <?php esc_html_e('Go to Media Library and verify images have a green checkmark (synced) icon.', 'wash-blog-manager'); ?>
                         </li>
                         <li>
-                            <strong><?php esc_html_e('Sync images first:', 'wash'); ?></strong>
-                            <?php esc_html_e('Click on an image and use "Sync to Shopify" button, then re-sync the post.', 'wash'); ?>
+                            <strong><?php esc_html_e('Sync images first:', 'wash-blog-manager'); ?></strong>
+                            <?php esc_html_e('Click on an image and use "Sync to Shopify" button, then re-sync the post.', 'wash-blog-manager'); ?>
                         </li>
                         <li>
-                            <strong><?php esc_html_e('Check WordPress debug.log:', 'wash'); ?></strong>
-                            <?php esc_html_e('Look for lines with [wash] to see sync status and any errors.', 'wash'); ?>
+                            <strong><?php esc_html_e('Check WordPress debug.log:', 'wash-blog-manager'); ?></strong>
+                            <?php esc_html_e('Look for lines with [wash] to see sync status and any errors.', 'wash-blog-manager'); ?>
                         </li>
                     </ol>
 
@@ -1591,15 +1611,15 @@ function wash_render_permission_locked_banner() {
                         <div>
                             <strong style="color: #2271b1;">
                                 <span class="dashicons dashicons-info"></span>
-                                <?php esc_html_e('Note:', 'wash'); ?>
+                                <?php esc_html_e('Note:', 'wash-blog-manager'); ?>
                             </strong>
                             <span style="color: #555;">
-                                <?php esc_html_e('Images are automatically synced when publishing a post. The sync rewrites WordPress URLs to Shopify CDN URLs in the content.', 'wash'); ?>
+                                <?php esc_html_e('Images are automatically synced when publishing a post. The sync rewrites WordPress URLs to Shopify CDN URLs in the content.', 'wash-blog-manager'); ?>
                             </span>
                         </div>
                         <a href="https://wash.tradik.com/docs/images-and-files.html" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0; margin-left: 15px;">
                             <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
-                            <?php esc_html_e('Documentation', 'wash'); ?>
+                            <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                         </a>
                     </div>
                 </div>
@@ -1607,95 +1627,95 @@ function wash_render_permission_locked_banner() {
         </div>
 
         <!-- Sync Tab -->
-        <?php $syncTabAttrs = wash_get_tab_content_class('sync', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
-        <div class="<?php echo esc_attr($syncTabAttrs['class']); ?>" id="tab-sync" style="display: none;">
-            <?php if (!empty($syncTabAttrs['isPermissionLocked'])) : ?>
+        <?php $wash_syncTabAttrs = wash_get_tab_content_class('sync', $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions, $wash_tabPermissions); ?>
+        <div class="<?php echo esc_attr($wash_syncTabAttrs['class']); ?>" id="tab-sync" style="display: none;">
+            <?php if (!empty($wash_syncTabAttrs['isPermissionLocked'])) : ?>
                 <?php wash_render_permission_locked_banner(); ?>
             <?php endif; ?>
-            <h2 class="title"><?php esc_html_e('Sync Preferences', 'wash'); ?></h2>
-            <p class="description"><?php esc_html_e('Configure how content is synchronized to Shopify.', 'wash'); ?></p>
+            <h2 class="title"><?php esc_html_e('Sync Preferences', 'wash-blog-manager'); ?></h2>
+            <p class="description"><?php esc_html_e('Configure how content is synchronized to Shopify.', 'wash-blog-manager'); ?></p>
 
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><?php esc_html_e('Auto-sync on Publish', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Auto-sync on Publish', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_sync_on_publish" value="0" />
                             <input type="checkbox" name="wash_sync_on_publish" value="1"
                                 <?php checked(get_option('wash_sync_on_publish'), '1'); ?> />
-                            <?php esc_html_e('Automatically sync posts when published or updated', 'wash'); ?>
+                            <?php esc_html_e('Automatically sync posts when published or updated', 'wash-blog-manager'); ?>
                         </label>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Sync Metafields', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Sync Metafields', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_sync_metafields" value="0" />
                             <input type="checkbox" name="wash_sync_metafields" value="1"
                                 <?php checked(get_option('wash_sync_metafields'), '1'); ?> />
-                            <?php esc_html_e('Sync core and plugin meta fields to Shopify metafields', 'wash'); ?>
+                            <?php esc_html_e('Sync core and plugin meta fields to Shopify metafields', 'wash-blog-manager'); ?>
                         </label>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Rewrite Internal URLs', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Rewrite Internal URLs', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_rewrite_internal_urls" value="0" />
                             <input type="checkbox" name="wash_rewrite_internal_urls" value="1"
                                 <?php checked(get_option('wash_rewrite_internal_urls', '1'), '1'); ?> />
-                            <?php esc_html_e('Convert internal WordPress links to Shopify URL format', 'wash'); ?>
+                            <?php esc_html_e('Convert internal WordPress links to Shopify URL format', 'wash-blog-manager'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('Rewrites links like /blog/post-slug to /blogs/{blog-handle}/post-slug and /page-slug to /pages/page-slug during sync.', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('Rewrites links like /blog/post-slug to /blogs/{blog-handle}/post-slug and /page-slug to /pages/page-slug during sync.', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
 <tr>
-                    <th scope="row"><?php esc_html_e('Bulk publish: inline progress mode', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Bulk publish: inline progress mode', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_sync_inline" value="0" />
                             <input type="checkbox" name="wash_sync_inline" value="1"
                                 <?php checked(get_option('wash_sync_inline', '1'), '1'); ?> />
-                            <?php esc_html_e('Run bulk publish through the JS progress page (recommended)', 'wash'); ?>
+                            <?php esc_html_e('Run bulk publish through the JS progress page (recommended)', 'wash-blog-manager'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('ON (default): bulk action redirects to a live progress bar; the browser drives N batches via AJAX, immune to PHP / proxy timeouts and works on private / password-protected sites where WP-Cron does not fire. OFF: legacy WP-Cron mode — each sync is queued as a single cron event. Requires WP-Cron to actually run; broken on idle sites.', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('ON (default): bulk action redirects to a live progress bar; the browser drives N batches via AJAX, immune to PHP / proxy timeouts and works on private / password-protected sites where WP-Cron does not fire. OFF: legacy WP-Cron mode — each sync is queued as a single cron event. Requires WP-Cron to actually run; broken on idle sites.', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Auto-clear stale sync errors', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Auto-clear stale sync errors', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_auto_clear_errors" value="0" />
                             <input type="checkbox" name="wash_auto_clear_errors" value="1"
                                 <?php checked(get_option('wash_auto_clear_errors', '1'), '1'); ?> />
-                            <?php esc_html_e('Daily WP-Cron job clears sync errors older than 30 days on published posts', 'wash'); ?>
+                            <?php esc_html_e('Daily WP-Cron job clears sync errors older than 30 days on published posts', 'wash-blog-manager'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('Stops the red "sync failed" icon from accumulating indefinitely. Adjustable via the wash_sync_error_retention_days filter.', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('Stops the red "sync failed" icon from accumulating indefinitely. Adjustable via the wash_sync_error_retention_days filter.', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Post Types', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Post Types', 'wash-blog-manager'); ?></th>
                     <td>
                         <?php
-                        $syncPostTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
-                        $publicPostTypes = get_post_types(['public' => true], 'objects');
+                        $wash_syncPostTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+                        $wash_publicPostTypes = get_post_types(['public' => true], 'objects');
                         ?>
                         <fieldset>
-                            <?php foreach ($publicPostTypes as $pt) :
-                                if ($pt->name === 'attachment') continue;
+                            <?php foreach ($wash_publicPostTypes as $wash_pt) :
+                                if ($wash_pt->name === 'attachment') continue;
                             ?>
                                 <label style="display: inline-block; margin-right: 14px; margin-bottom: 6px;">
-                                    <input type="checkbox" class="wash-sync-pt-checkbox" value="<?php echo esc_attr($pt->name); ?>"
-                                        <?php checked(in_array($pt->name, $syncPostTypes, true)); ?> />
-                                    <?php echo esc_html($pt->label); ?>
-                                    <code style="font-size: 11px; color: #666;">(<?php echo esc_html($pt->name); ?>)</code>
+                                    <input type="checkbox" class="wash-sync-pt-checkbox" value="<?php echo esc_attr($wash_pt->name); ?>"
+                                        <?php checked(in_array($wash_pt->name, $wash_syncPostTypes, true)); ?> />
+                                    <?php echo esc_html($wash_pt->label); ?>
+                                    <code style="font-size: 11px; color: #666;">(<?php echo esc_html($wash_pt->name); ?>)</code>
                                 </label>
                             <?php endforeach; ?>
                         </fieldset>
                         <input type="hidden" id="wash_post_types" name="wash_post_types"
                                value="<?php echo esc_attr(get_option('wash_post_types', 'post,page')); ?>" />
-                        <p class="description"><?php esc_html_e('Select which post types to synchronize to Shopify.', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('Select which post types to synchronize to Shopify.', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
             </table>
@@ -1703,67 +1723,67 @@ function wash_render_permission_locked_banner() {
             <div style="margin-top: 20px;">
                 <a href="https://wash.tradik.com/docs/page-sync.html" target="_blank" rel="noopener noreferrer" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
                     <span class="dashicons dashicons-book" style="font-size: 16px; width: 16px; height: 16px;"></span>
-                    <?php esc_html_e('Documentation', 'wash'); ?>
+                    <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                 </a>
             </div>
         </div>
 
         <!-- Content Processing Tab -->
-        <?php $contentTabAttrs = wash_get_tab_content_class('content', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
-        <div class="<?php echo esc_attr($contentTabAttrs['class']); ?>" id="tab-content" style="display: none;">
-            <?php if (!empty($contentTabAttrs['isPermissionLocked'])) : ?>
+        <?php $wash_contentTabAttrs = wash_get_tab_content_class('content', $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions, $wash_tabPermissions); ?>
+        <div class="<?php echo esc_attr($wash_contentTabAttrs['class']); ?>" id="tab-content" style="display: none;">
+            <?php if (!empty($wash_contentTabAttrs['isPermissionLocked'])) : ?>
                 <?php wash_render_permission_locked_banner(); ?>
             <?php endif; ?>
-            <h2 class="title"><?php esc_html_e('Content Processing', 'wash'); ?></h2>
-            <p class="description"><?php esc_html_e('Configure how content is processed during sync to Shopify.', 'wash'); ?></p>
+            <h2 class="title"><?php esc_html_e('Content Processing', 'wash-blog-manager'); ?></h2>
+            <p class="description"><?php esc_html_e('Configure how content is processed during sync to Shopify.', 'wash-blog-manager'); ?></p>
 
-            <?php $allowedHtmlTags = get_option('wash_allowed_html_tags', ''); ?>
+            <?php $wash_allowedHtmlTags = get_option('wash_allowed_html_tags', ''); ?>
 
             <h3 style="margin-bottom: 15px;">
                 <span class="dashicons dashicons-editor-code" style="color: #2271b1;"></span>
-                <?php esc_html_e('Custom HTML Tags Whitelist', 'wash'); ?>
+                <?php esc_html_e('Custom HTML Tags Whitelist', 'wash-blog-manager'); ?>
             </h3>
 
             <p class="description" style="margin-bottom: 15px;">
-                <?php esc_html_e('By default, WordPress strips unknown HTML tags for security. Add custom tag patterns to preserve third-party embed codes (Klaviyo forms, chat widgets, etc.).', 'wash'); ?>
+                <?php esc_html_e('By default, WordPress strips unknown HTML tags for security. Add custom tag patterns to preserve third-party embed codes (Klaviyo forms, chat widgets, etc.).', 'wash-blog-manager'); ?>
             </p>
 
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><?php esc_html_e('Allowed HTML Tag Patterns', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Allowed HTML Tag Patterns', 'wash-blog-manager'); ?></th>
                     <td>
-                        <input type="text" name="wash_allowed_html_tags" value="<?php echo esc_attr($allowedHtmlTags); ?>"
+                        <input type="text" name="wash_allowed_html_tags" value="<?php echo esc_attr($wash_allowedHtmlTags); ?>"
                             placeholder="klaviyo-*,chat-*,mddb-*" class="regular-text" style="max-width: 400px; font-family: monospace;" />
-                        <p class="description"><?php esc_html_e('Comma-separated patterns. Use * for wildcard (e.g., klaviyo-* matches klaviyo-form, klaviyo-embed).', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('Comma-separated patterns. Use * for wildcard (e.g., klaviyo-* matches klaviyo-form, klaviyo-embed).', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
             </table>
 
             <div style="display: flex; align-items: flex-start; gap: 20px; margin-top: 20px; flex-wrap: wrap;">
                 <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 15px; max-width: 600px; flex: 1;">
-                    <strong><?php esc_html_e('Examples:', 'wash'); ?></strong><br />
-                    <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">klaviyo-*</code> — <?php esc_html_e('Klaviyo forms and embeds', 'wash'); ?><br />
-                    <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">chat-*</code> — <?php esc_html_e('Chat widgets (Tidio, Intercom, etc.)', 'wash'); ?><br />
-                    <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">mddb-*</code> — <?php esc_html_e('MDDB custom elements', 'wash'); ?>
+                    <strong><?php esc_html_e('Examples:', 'wash-blog-manager'); ?></strong><br />
+                    <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">klaviyo-*</code> — <?php esc_html_e('Klaviyo forms and embeds', 'wash-blog-manager'); ?><br />
+                    <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">chat-*</code> — <?php esc_html_e('Chat widgets (Tidio, Intercom, etc.)', 'wash-blog-manager'); ?><br />
+                    <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">mddb-*</code> — <?php esc_html_e('MDDB custom elements', 'wash-blog-manager'); ?>
                 </div>
                 <a href="https://wash.tradik.com/docs/content-processing.html" target="_blank" rel="noopener noreferrer" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
                     <span class="dashicons dashicons-book" style="font-size: 16px; width: 16px; height: 16px;"></span>
-                    <?php esc_html_e('Documentation', 'wash'); ?>
+                    <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                 </a>
             </div>
         </div>
 
         <!-- Search & Replace Tab -->
-        <?php $searchReplaceTabAttrs = wash_get_tab_content_class('searchreplace', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
-        <div class="<?php echo esc_attr($searchReplaceTabAttrs['class']); ?>" id="tab-searchreplace" style="display: none;" data-locked="<?php echo $searchReplaceTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($searchReplaceTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($searchReplaceTabAttrs['upgradeUrl']); ?>">
-            <?php if (!empty($searchReplaceTabAttrs['isPermissionLocked'])) : ?>
+        <?php $wash_searchReplaceTabAttrs = wash_get_tab_content_class('searchreplace', $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions, $wash_tabPermissions); ?>
+        <div class="<?php echo esc_attr($wash_searchReplaceTabAttrs['class']); ?>" id="tab-searchreplace" style="display: none;" data-locked="<?php echo $wash_searchReplaceTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($wash_searchReplaceTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($wash_searchReplaceTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($wash_searchReplaceTabAttrs['isPermissionLocked'])) : ?>
                 <?php wash_render_permission_locked_banner(); ?>
-            <?php elseif (!empty($searchReplaceTabAttrs['isPlanLocked'])) : ?>
-                <?php wash_render_locked_banner($searchReplaceTabAttrs['requiredPlan'], $searchReplaceTabAttrs['upgradeUrl']); ?>
+            <?php elseif (!empty($wash_searchReplaceTabAttrs['isPlanLocked'])) : ?>
+                <?php wash_render_locked_banner($wash_searchReplaceTabAttrs['requiredPlan'], $wash_searchReplaceTabAttrs['upgradeUrl']); ?>
             <?php endif; ?>
-            <h2 class="title"><?php esc_html_e('Search & Replace Rules', 'wash'); ?></h2>
+            <h2 class="title"><?php esc_html_e('Search & Replace Rules', 'wash-blog-manager'); ?></h2>
             <p class="description">
-                <?php esc_html_e('Define text replacements applied to post content before syncing to Shopify. Useful for converting shortcodes, rewriting links, or replacing any text patterns.', 'wash'); ?>
+                <?php esc_html_e('Define text replacements applied to post content before syncing to Shopify. Useful for converting shortcodes, rewriting links, or replacing any text patterns.', 'wash-blog-manager'); ?>
             </p>
 
             <div id="wash-search-replace-rules" style="margin-top: 20px;">
@@ -1771,15 +1791,15 @@ function wash_render_permission_locked_banner() {
                     <span id="wash-sr-add-rule"></span>
                     <button type="button" id="wash-sr-save-rules" class="button button-primary">
                         <span class="dashicons dashicons-saved" style="vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Save Rules', 'wash'); ?>
+                        <?php esc_html_e('Save Rules', 'wash-blog-manager'); ?>
                     </button>
-                    <button type="button" id="wash-sr-export-rules" class="button" title="<?php esc_attr_e('Export rules as JSON', 'wash'); ?>">
+                    <button type="button" id="wash-sr-export-rules" class="button" title="<?php esc_attr_e('Export rules as JSON', 'wash-blog-manager'); ?>">
                         <span class="dashicons dashicons-download" style="vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Export', 'wash'); ?>
+                        <?php esc_html_e('Export', 'wash-blog-manager'); ?>
                     </button>
-                    <button type="button" id="wash-sr-import-rules" class="button" title="<?php esc_attr_e('Import rules from JSON', 'wash'); ?>">
+                    <button type="button" id="wash-sr-import-rules" class="button" title="<?php esc_attr_e('Import rules from JSON', 'wash-blog-manager'); ?>">
                         <span class="dashicons dashicons-upload" style="vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Import', 'wash'); ?>
+                        <?php esc_html_e('Import', 'wash-blog-manager'); ?>
                     </button>
                     <input type="file" id="wash-sr-import-file" accept=".json" style="display:none;" />
                     <span id="wash-sr-save-status" style="margin-left: 10px;"></span>
@@ -1788,20 +1808,20 @@ function wash_render_permission_locked_banner() {
                 <table class="widefat wash-sr-table" id="wash-sr-table">
                     <thead>
                         <tr>
-                            <th style="width: 3%;" title="<?php esc_attr_e('Drag to reorder', 'wash'); ?>">⇅</th>
+                            <th style="width: 3%;" title="<?php esc_attr_e('Drag to reorder', 'wash-blog-manager'); ?>">⇅</th>
                             <th style="width: 3%;">#</th>
-                            <th style="width: 7%;"><?php esc_html_e('Type', 'wash'); ?></th>
-                            <th style="width: 34%;"><?php esc_html_e('Search (find this)', 'wash'); ?></th>
+                            <th style="width: 7%;"><?php esc_html_e('Type', 'wash-blog-manager'); ?></th>
+                            <th style="width: 34%;"><?php esc_html_e('Search (find this)', 'wash-blog-manager'); ?></th>
                             <th style="width: 3%; text-align: center;">→</th>
-                            <th style="width: 34%;"><?php esc_html_e('Replace (with this)', 'wash'); ?></th>
-                            <th style="width: 7%; text-align: center;"><?php esc_html_e('Actions', 'wash'); ?></th>
+                            <th style="width: 34%;"><?php esc_html_e('Replace (with this)', 'wash-blog-manager'); ?></th>
+                            <th style="width: 7%; text-align: center;"><?php esc_html_e('Actions', 'wash-blog-manager'); ?></th>
                         </tr>
                     </thead>
                     <tbody id="wash-sr-tbody">
                         <!-- Rules loaded via JavaScript -->
                         <tr id="wash-sr-loading">
                             <td colspan="7" style="text-align: center; padding: 20px; color: #666;">
-                                <?php esc_html_e('Loading rules...', 'wash'); ?>
+                                <?php esc_html_e('Loading rules...', 'wash-blog-manager'); ?>
                             </td>
                         </tr>
                     </tbody>
@@ -1810,39 +1830,39 @@ function wash_render_permission_locked_banner() {
 
             <div style="display: flex; align-items: flex-start; gap: 20px; margin-top: 30px; flex-wrap: wrap;">
                 <div style="background: #f0f6fc; border: 1px solid #c5d9ed; border-radius: 4px; padding: 15px; max-width: 600px; flex: 1;">
-                    <strong><?php esc_html_e('Rule Types:', 'wash'); ?></strong>
+                    <strong><?php esc_html_e('Rule Types:', 'wash-blog-manager'); ?></strong>
                     <div style="margin-top: 8px;">
                         <span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;">Aa Text</span>
-                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Exact string replacement', 'wash'); ?></span>
+                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Exact string replacement', 'wash-blog-manager'); ?></span>
                     </div>
                     <div style="margin-top: 6px;">
                         <span style="background:#2563eb;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;">🔗 URL</span>
-                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Replace in href/src attributes only', 'wash'); ?></span>
+                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Replace in href/src attributes only', 'wash-blog-manager'); ?></span>
                     </div>
                     <div style="margin-top: 6px;">
                         <span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;">[ ] Shortcode</span>
-                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Match [tag] or [tag]...[/tag], auto-registers unregistered shortcodes', 'wash'); ?></span>
+                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Match [tag] or [tag]...[/tag], auto-registers unregistered shortcodes', 'wash-blog-manager'); ?></span>
                     </div>
                     <div style="margin-top: 6px;">
                         <span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;">▦ Block</span>
-                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Match Gutenberg blocks (wp:blockname)', 'wash'); ?></span>
+                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Match Gutenberg blocks (wp:blockname)', 'wash-blog-manager'); ?></span>
                     </div>
                     <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #c5d9ed;">
-                        <strong><?php esc_html_e('Variable:', 'wash'); ?></strong>
+                        <strong><?php esc_html_e('Variable:', 'wash-blog-manager'); ?></strong>
                         <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">%content%</code>
-                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Captures inner content (HTML stripped) from shortcodes/blocks', 'wash'); ?></span>
+                        <span style="color: #666; font-size: 12px;"> — <?php esc_html_e('Captures inner content (HTML stripped) from shortcodes/blocks', 'wash-blog-manager'); ?></span>
                     </div>
                 </div>
                 <div style="background: #fff8e6; border: 1px solid #ffc96b; border-radius: 4px; padding: 15px; max-width: 400px; flex: 1;">
                     <strong style="color: #856404;">
                         <span class="dashicons dashicons-warning" style="font-size: 16px; vertical-align: text-bottom;"></span>
-                        <?php esc_html_e('Important:', 'wash'); ?>
+                        <?php esc_html_e('Important:', 'wash-blog-manager'); ?>
                     </strong>
                     <ul style="margin: 8px 0 0; padding-left: 18px; color: #856404; font-size: 13px;">
-                        <li><?php esc_html_e('Rules are applied in order, top to bottom.', 'wash'); ?></li>
-                        <li><?php esc_html_e('Search is case-sensitive and uses exact text matching.', 'wash'); ?></li>
-                        <li><?php esc_html_e('Replacements are applied to the final HTML content before sending to Shopify.', 'wash'); ?></li>
-                        <li><?php esc_html_e('Test your rules carefully — incorrect replacements can break content.', 'wash'); ?></li>
+                        <li><?php esc_html_e('Rules are applied in order, top to bottom.', 'wash-blog-manager'); ?></li>
+                        <li><?php esc_html_e('Search is case-sensitive and uses exact text matching.', 'wash-blog-manager'); ?></li>
+                        <li><?php esc_html_e('Replacements are applied to the final HTML content before sending to Shopify.', 'wash-blog-manager'); ?></li>
+                        <li><?php esc_html_e('Test your rules carefully — incorrect replacements can break content.', 'wash-blog-manager'); ?></li>
                     </ul>
                 </div>
             </div>
@@ -1852,22 +1872,22 @@ function wash_render_permission_locked_banner() {
                 <div style="flex: 1; min-width: 300px;">
                     <details id="wash-sr-wp-refs" style="border: 1px solid #e2e8f0; border-radius: 4px; padding: 12px; background: #fafafa;">
                         <summary style="cursor: pointer; font-weight: 600; font-size: 13px;">
-                            <?php esc_html_e('WordPress — detected content', 'wash'); ?>
+                            <?php esc_html_e('WordPress — detected content', 'wash-blog-manager'); ?>
                             <span id="wash-sr-wp-count" style="color: #999; font-weight: normal;"></span>
                         </summary>
                         <div id="wash-sr-wp-list" style="margin-top: 10px; max-height: 300px; overflow-y: auto; font-size: 12px;">
-                            <span style="color: #999;"><?php esc_html_e('Loading...', 'wash'); ?></span>
+                            <span style="color: #999;"><?php esc_html_e('Loading...', 'wash-blog-manager'); ?></span>
                         </div>
                     </details>
                 </div>
                 <div style="flex: 1; min-width: 300px;">
                     <details id="wash-sr-shopify-refs" style="border: 1px solid #e2e8f0; border-radius: 4px; padding: 12px; background: #fafafa;">
                         <summary style="cursor: pointer; font-weight: 600; font-size: 13px;">
-                            <?php esc_html_e('Shopify — available links', 'wash'); ?>
+                            <?php esc_html_e('Shopify — available links', 'wash-blog-manager'); ?>
                             <span id="wash-sr-shopify-count" style="color: #999; font-weight: normal;"></span>
                         </summary>
                         <div id="wash-sr-shopify-list" style="margin-top: 10px; max-height: 300px; overflow-y: auto; font-size: 12px;">
-                            <span style="color: #999;"><?php esc_html_e('Loading...', 'wash'); ?></span>
+                            <span style="color: #999;"><?php esc_html_e('Loading...', 'wash-blog-manager'); ?></span>
                         </div>
                     </details>
                 </div>
@@ -1875,30 +1895,30 @@ function wash_render_permission_locked_banner() {
         </div>
 
         <!-- Advanced Tab -->
-        <?php $advancedTabAttrs = wash_get_tab_content_class('advanced', $features, $tabFeatures, $featurePlans, $upgradeUrl, $permissions, $tabPermissions); ?>
-        <div class="<?php echo esc_attr($advancedTabAttrs['class']); ?>" id="tab-advanced" style="display: none;">
-            <?php if (!empty($advancedTabAttrs['isPermissionLocked'])) : ?>
+        <?php $wash_advancedTabAttrs = wash_get_tab_content_class('advanced', $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions, $wash_tabPermissions); ?>
+        <div class="<?php echo esc_attr($wash_advancedTabAttrs['class']); ?>" id="tab-advanced" style="display: none;">
+            <?php if (!empty($wash_advancedTabAttrs['isPermissionLocked'])) : ?>
                 <?php wash_render_permission_locked_banner(); ?>
             <?php endif; ?>
-            <h2 class="title"><?php esc_html_e('Advanced Settings', 'wash'); ?></h2>
-            <p class="description"><?php esc_html_e('Additional configuration options.', 'wash'); ?></p>
+            <h2 class="title"><?php esc_html_e('Advanced Settings', 'wash-blog-manager'); ?></h2>
+            <p class="description"><?php esc_html_e('Additional configuration options.', 'wash-blog-manager'); ?></p>
 
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><?php esc_html_e('Block Search Engines', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Block Search Engines', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_block_robots" value="0" />
                             <input type="checkbox" name="wash_block_robots" value="1"
                                 <?php checked(get_option('wash_block_robots', '1'), '1'); ?> />
-                            <?php esc_html_e('Discourage search engines from indexing this site (robots.txt)', 'wash'); ?>
+                            <?php esc_html_e('Discourage search engines from indexing this site (robots.txt)', 'wash-blog-manager'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('Recommended for demo/staging sites. Outputs "Disallow: /" in robots.txt.', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('Recommended for demo/staging sites. Outputs "Disallow: /" in robots.txt.', 'wash-blog-manager'); ?></p>
                         <p class="description" style="margin-top: 8px;">
                             <span class="dashicons dashicons-info-outline" style="color: #2271b1; font-size: 14px; vertical-align: text-bottom;"></span>
-                            <?php esc_html_e('For full protection:', 'wash'); ?>
-                            <a href="<?php echo esc_url(admin_url('options-reading.php')); ?>"><?php esc_html_e('Settings → Reading', 'wash'); ?></a>
-                            <?php esc_html_e('→ "Discourage search engines" + password protect the site.', 'wash'); ?>
+                            <?php esc_html_e('For full protection:', 'wash-blog-manager'); ?>
+                            <a href="<?php echo esc_url(admin_url('options-reading.php')); ?>"><?php esc_html_e('Settings → Reading', 'wash-blog-manager'); ?></a>
+                            <?php esc_html_e('→ "Discourage search engines" + password protect the site.', 'wash-blog-manager'); ?>
                         </p>
                     </td>
                 </tr>
@@ -1906,66 +1926,78 @@ function wash_render_permission_locked_banner() {
 
             <hr style="border: none; border-top: 1px solid #ccd0d4; margin: 24px 0;" />
 
-            <h3><?php esc_html_e('Gutenberg Blocks', 'wash'); ?></h3>
-            <p class="description"><?php esc_html_e('Configure how Gutenberg blocks are processed and synced to Shopify.', 'wash'); ?></p>
+            <h3><?php esc_html_e('Gutenberg Blocks', 'wash-blog-manager'); ?></h3>
+            <p class="description"><?php esc_html_e('Configure how Gutenberg blocks are processed and synced to Shopify.', 'wash-blog-manager'); ?></p>
 
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><?php esc_html_e('Enable Custom Blocks', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Enable Custom Blocks', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_blocks_enabled" value="0" />
                             <input type="checkbox" name="wash_blocks_enabled" value="1"
                                 <?php checked(get_option('wash_blocks_enabled', '1'), '1'); ?> />
-                            <?php esc_html_e('Enable Wash custom blocks in Gutenberg editor', 'wash'); ?>
+                            <?php esc_html_e('Enable Wash custom blocks in Gutenberg editor', 'wash-blog-manager'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('Adds custom Wash blocks (Shopify Product, Shopify Collection, Sync Status) to the Gutenberg editor.', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('Adds custom Wash blocks (Shopify Product, Shopify Collection, Sync Status) to the Gutenberg editor.', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Include Block CSS', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Include Block CSS', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_sync_blocks_css" value="0" />
                             <input type="checkbox" name="wash_sync_blocks_css" value="1"
                                 <?php checked(get_option('wash_sync_blocks_css', '0'), '1'); ?> />
-                            <?php esc_html_e('Include WordPress block styles in synced content', 'wash'); ?>
+                            <?php esc_html_e('Include WordPress block styles in synced content', 'wash-blog-manager'); ?>
                         </label>
                         <p class="description">
-                            <?php esc_html_e('Includes WordPress block CSS styles in synced content for consistent visual appearance on Shopify.', 'wash'); ?>
-                            <a href="https://wash.tradik.com/docs/wordpress-blocks/#shopify-theme-css" target="_blank" rel="noopener"><?php esc_html_e('Learn how to configure your Shopify theme', 'wash'); ?> &rarr;</a>
+                            <?php esc_html_e('Includes WordPress block CSS styles in synced content for consistent visual appearance on Shopify.', 'wash-blog-manager'); ?>
+                            <a href="https://wash.tradik.com/docs/wordpress-blocks/#shopify-theme-css" target="_blank" rel="noopener"><?php esc_html_e('Learn how to configure your Shopify theme', 'wash-blog-manager'); ?> &rarr;</a>
                         </p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Sync Block Structure', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Sync Block Structure', 'wash-blog-manager'); ?></th>
                     <td>
                         <label>
                             <input type="hidden" name="wash_sync_blocks_meta" value="0" />
                             <input type="checkbox" name="wash_sync_blocks_meta" value="1"
                                 <?php checked(get_option('wash_sync_blocks_meta', '1'), '1'); ?> />
-                            <?php esc_html_e('Save block structure as Shopify metafields', 'wash'); ?>
+                            <?php esc_html_e('Save block structure as Shopify metafields', 'wash-blog-manager'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('Saves Gutenberg block structure as JSON metafield, allowing Shopify themes to render blocks dynamically.', 'wash'); ?></p>
+                        <p class="description"><?php esc_html_e('Saves Gutenberg block structure as JSON metafield, allowing Shopify themes to render blocks dynamically.', 'wash-blog-manager'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e('RankMath FAQ Blocks', 'wash-blog-manager'); ?></th>
+                    <td>
+                        <label>
+                            <input type="hidden" name="wash_transform_rankmath_faq" value="0" />
+                            <input type="checkbox" name="wash_transform_rankmath_faq" value="1"
+                                <?php checked(get_option('wash_transform_rankmath_faq', '1'), '1'); ?> />
+                            <?php esc_html_e('Convert RankMath FAQ blocks to a Shopify-safe accordion', 'wash-blog-manager'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Rebuilds RankMath FAQ blocks as styled <details> accordions and adds FAQPage schema, so they survive Shopify\'s HTML sanitizer instead of becoming unstyled headings.', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
             </table>
 
             <hr style="border: none; border-top: 1px solid #ccd0d4; margin: 24px 0;" />
 
-            <h3><?php esc_html_e('Sync Settings', 'wash'); ?></h3>
-            <p class="description"><?php esc_html_e('Synchronize settings between WordPress and Shopify App.', 'wash'); ?></p>
+            <h3><?php esc_html_e('Sync Settings', 'wash-blog-manager'); ?></h3>
+            <p class="description"><?php esc_html_e('Synchronize settings between WordPress and Shopify App.', 'wash-blog-manager'); ?></p>
 
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><?php esc_html_e('Sync from Shopify', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Sync from Shopify', 'wash-blog-manager'); ?></th>
                     <td>
                         <button type="button" id="wash-sync-from-shopify" class="button button-secondary">
                             <span class="dashicons dashicons-download" style="vertical-align: text-bottom;"></span>
-                            <?php esc_html_e('Sync from Shopify', 'wash'); ?>
+                            <?php esc_html_e('Sync from Shopify', 'wash-blog-manager'); ?>
                         </button>
                         <p class="description">
-                            <?php esc_html_e('Pull settings from Shopify App and apply them here. Use this if you changed settings in Shopify Admin.', 'wash'); ?>
+                            <?php esc_html_e('Pull settings from Shopify App and apply them here. Use this if you changed settings in Shopify Admin.', 'wash-blog-manager'); ?>
                         </p>
                     </td>
                 </tr>
@@ -1973,19 +2005,19 @@ function wash_render_permission_locked_banner() {
 
             <hr style="border: none; border-top: 1px solid #ccd0d4; margin: 24px 0;" />
 
-            <h3><?php esc_html_e('Reset Settings', 'wash'); ?></h3>
-            <p class="description"><?php esc_html_e('Reset all Wash settings to their default values. This will not affect your Shopify connection or synced content.', 'wash'); ?></p>
+            <h3><?php esc_html_e('Reset Settings', 'wash-blog-manager'); ?></h3>
+            <p class="description"><?php esc_html_e('Reset all Wash settings to their default values. This will not affect your Shopify connection or synced content.', 'wash-blog-manager'); ?></p>
 
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><?php esc_html_e('Reset to Defaults', 'wash'); ?></th>
+                    <th scope="row"><?php esc_html_e('Reset to Defaults', 'wash-blog-manager'); ?></th>
                     <td>
                         <button type="button" id="wash-reset-to-defaults" class="button button-secondary">
                             <span class="dashicons dashicons-image-rotate" style="vertical-align: text-bottom;"></span>
-                            <?php esc_html_e('Reset All Settings', 'wash'); ?>
+                            <?php esc_html_e('Reset All Settings', 'wash-blog-manager'); ?>
                         </button>
                         <p class="description" style="color: #d63638;">
-                            <?php esc_html_e('Warning: This will reset all sync settings, metafield options, file settings, and advanced options to their default values.', 'wash'); ?>
+                            <?php esc_html_e('Warning: This will reset all sync settings, metafield options, file settings, and advanced options to their default values.', 'wash-blog-manager'); ?>
                         </p>
                     </td>
                 </tr>
@@ -2032,10 +2064,10 @@ function wash_render_permission_locked_banner() {
             banner.className = 'wash-locked-banner';
             banner.innerHTML = '<div class="wash-locked-banner__text">' +
                 '<span class="dashicons dashicons-lock"></span>' +
-                '<span><?php echo esc_js(__('This feature requires', 'wash')); ?> <strong>' + requiredPlan + '</strong> <?php echo esc_js(__('plan', 'wash')); ?></span>' +
+                '<span><?php echo esc_js(__('This feature requires', 'wash-blog-manager')); ?> <strong>' + requiredPlan + '</strong> <?php echo esc_js(__('plan', 'wash-blog-manager')); ?></span>' +
                 '</div>' +
                 '<div class="wash-locked-banner__actions">' +
-                (upgradeUrl ? '<a href="' + upgradeUrl + '" target="_blank" class="button button-primary"><?php echo esc_js(__('Upgrade Now', 'wash')); ?></a>' : '') +
+                (upgradeUrl ? '<a href="' + upgradeUrl + '" target="_blank" class="button button-primary"><?php echo esc_js(__('Upgrade Now', 'wash-blog-manager')); ?></a>' : '') +
                 '</div>';
 
             // Insert banner as first child
@@ -2045,7 +2077,7 @@ function wash_render_permission_locked_banner() {
 
     // Submit button visibility based on tab and connection state
     var submitWrapper = document.getElementById('wash-submit-wrapper');
-    var isConnected = <?php echo $isConnected ? 'true' : 'false'; ?>;
+    var isConnected = <?php echo $wash_isConnected ? 'true' : 'false'; ?>;
 
     function updateSubmitVisibility(tabId) {
         if (!submitWrapper) return;
@@ -2119,12 +2151,17 @@ function wash_render_permission_locked_banner() {
     // Connect button visibility
     var storeInput = document.getElementById('wash_shopify_store');
     var connectBtn = document.getElementById('wash-connect-btn');
+    var consentCheckbox = document.getElementById('wash-consent-checkbox');
+    var consentAccepted = <?php echo $wash_consentAccepted ? 'true' : 'false'; ?>;
 
     function updateConnectButton() {
-        var store = storeInput.value.trim();
-        if (store && connectBtn) {
+        if (!connectBtn) return;
+        var store = storeInput ? storeInput.value.trim() : '';
+        if (store) {
             connectBtn.style.display = 'inline-flex';
-        } else if (connectBtn) {
+            // Even when visible, keep the button disabled until consent is recorded.
+            connectBtn.disabled = !consentAccepted;
+        } else {
             connectBtn.style.display = 'none';
         }
     }
@@ -2134,6 +2171,39 @@ function wash_render_permission_locked_banner() {
         updateConnectButton();
     }
 
+    // Persist explicit consent to the Tradik Wash data-processing terms
+    // (wp.org Plugin Directory guideline #10). Once accepted, the option is
+    // sticky — re-checking the box again is a no-op; un-checking it is not
+    // allowed via the UI (would only matter after a Disconnect).
+    if (consentCheckbox) {
+        consentCheckbox.addEventListener('change', function() {
+            if (!consentCheckbox.checked || consentAccepted) {
+                return;
+            }
+            var fd = new FormData();
+            fd.append('action', 'wash_save_consent');
+            fd.append('nonce', '<?php echo esc_js(wp_create_nonce('wash_consent')); ?>');
+            consentCheckbox.disabled = true;
+            fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(json) {
+                    if (json && json.success) {
+                        consentAccepted = true;
+                        updateConnectButton();
+                    } else {
+                        // Revert UI state if the server rejected the request.
+                        consentCheckbox.checked = false;
+                        consentCheckbox.disabled = false;
+                        alert('<?php echo esc_js(__('Failed to record consent. Please refresh the page and try again.', 'wash-blog-manager')); ?>');
+                    }
+                })
+                .catch(function() {
+                    consentCheckbox.checked = false;
+                    consentCheckbox.disabled = false;
+                });
+        });
+    }
+
     // Connect button click
     if (connectBtn) {
         connectBtn.addEventListener('click', function() {
@@ -2141,13 +2211,13 @@ function wash_render_permission_locked_banner() {
 
             // Validate store handle format
             if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(store) && !/^[a-z0-9]$/.test(store)) {
-                alert('<?php echo esc_js(__('Invalid store name. Use only lowercase letters, numbers, and hyphens.', 'wash')); ?>');
+                alert('<?php echo esc_js(__('Invalid store name. Use only lowercase letters, numbers, and hyphens.', 'wash-blog-manager')); ?>');
                 return;
             }
 
             // Show loading state
             connectBtn.disabled = true;
-            connectBtn.innerHTML = '<span class="dashicons dashicons-update" style="animation: rotation 1s infinite linear; vertical-align: text-bottom;"></span> <?php echo esc_js(__('Checking...', 'wash')); ?>';
+            connectBtn.innerHTML = '<span class="dashicons dashicons-update" style="animation: rotation 1s infinite linear; vertical-align: text-bottom;"></span> <?php echo esc_js(__('Checking...', 'wash-blog-manager')); ?>';
 
             // Verify store exists by checking if it responds
             fetch('https://' + store + '.myshopify.com/admin', { mode: 'no-cors', cache: 'no-store' })
@@ -2157,7 +2227,7 @@ function wash_render_permission_locked_banner() {
                     var siteUrl = encodeURIComponent(window.location.protocol + '//' + window.location.host);
                     var siteName = encodeURIComponent('<?php echo esc_js(get_bloginfo('name')); ?>');
 
-                    var appSlug = '<?php echo esc_js($shopifyAppSlug); ?>';
+                    var appSlug = '<?php echo esc_js($wash_shopifyAppSlug); ?>';
                     var connectUrl = 'https://admin.shopify.com/store/' + store + '/apps/' + appSlug + '/app/connections' +
                         '?action=connect' +
                         '&return_url=' + returnUrl +
@@ -2244,7 +2314,7 @@ function wash_render_permission_locked_banner() {
     }
 
     // Load mappings on page load (only if connected)
-    if (mappingsList && <?php echo $isConnected ? 'true' : 'false'; ?>) {
+    if (mappingsList && <?php echo $wash_isConnected ? 'true' : 'false'; ?>) {
         loadMappings();
         loadShopifyBlogs();
         loadShopifyMarkets();
@@ -2253,7 +2323,7 @@ function wash_render_permission_locked_banner() {
     }
 
     function loadMappings() {
-        fetch('<?php echo admin_url('admin-ajax.php'); ?>?action=wash_get_mappings&nonce=<?php echo wp_create_nonce('wash_mappings'); ?>')
+        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_mappings&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>')
             .then(function(r) { return r.json(); })
             .then(function(response) {
                 if (response.success) {
@@ -2264,12 +2334,12 @@ function wash_render_permission_locked_banner() {
                 }
             })
             .catch(function() {
-                mappingsList.innerHTML = '<p class="notice notice-error"><?php echo esc_js(__('Failed to load mappings', 'wash')); ?></p>';
+                mappingsList.innerHTML = '<p class="notice notice-error"><?php echo esc_js(__('Failed to load mappings', 'wash-blog-manager')); ?></p>';
             });
     }
 
     function loadShopifyBlogs() {
-        fetch('<?php echo admin_url('admin-ajax.php'); ?>?action=wash_get_shopify_blogs&nonce=<?php echo wp_create_nonce('wash_mappings'); ?>')
+        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shopify_blogs&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>')
             .then(function(r) { return r.json(); })
             .then(function(response) {
                 if (response.success) {
@@ -2283,7 +2353,7 @@ function wash_render_permission_locked_banner() {
     function updateBlogSelect() {
         if (!shopifyBlogSelect) return;
         var currentVal = shopifyBlogSelect.value;
-        shopifyBlogSelect.innerHTML = '<option value=""><?php echo esc_js(__('Select a blog...', 'wash')); ?></option>';
+        shopifyBlogSelect.innerHTML = '<option value=""><?php echo esc_js(__('Select a blog...', 'wash-blog-manager')); ?></option>';
         shopifyBlogs.forEach(function(blog) {
             var opt = document.createElement('option');
             opt.value = blog.id;
@@ -2292,13 +2362,13 @@ function wash_render_permission_locked_banner() {
         });
         var newOpt = document.createElement('option');
         newOpt.value = '_new';
-        newOpt.textContent = '➕ <?php echo esc_js(__('Create new blog', 'wash')); ?>';
+        newOpt.textContent = '➕ <?php echo esc_js(__('Create new blog', 'wash-blog-manager')); ?>';
         shopifyBlogSelect.appendChild(newOpt);
         shopifyBlogSelect.value = currentVal;
     }
 
     function loadShopifyMarkets() {
-        fetch('<?php echo admin_url('admin-ajax.php'); ?>?action=wash_get_shopify_markets&nonce=<?php echo wp_create_nonce('wash_mappings'); ?>')
+        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shopify_markets&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>')
             .then(function(r) { return r.json(); })
             .then(function(response) {
                 if (response.success) {
@@ -2310,7 +2380,7 @@ function wash_render_permission_locked_banner() {
     }
 
     function loadShopLocales() {
-        fetch('<?php echo admin_url('admin-ajax.php'); ?>?action=wash_get_shop_locales&nonce=<?php echo wp_create_nonce('wash_mappings'); ?>')
+        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shop_locales&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>')
             .then(function(r) { return r.json(); })
             .then(function(response) {
                 if (response.success) {
@@ -2324,7 +2394,7 @@ function wash_render_permission_locked_banner() {
     var domainSelect = document.getElementById('wash-destination-domain');
 
     function loadShopDomains() {
-        fetch('<?php echo admin_url('admin-ajax.php'); ?>?action=wash_get_shop_domains&nonce=<?php echo wp_create_nonce('wash_mappings'); ?>')
+        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shop_domains&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>')
             .then(function(r) { return r.json(); })
             .then(function(response) {
                 if (response.success) {
@@ -2337,7 +2407,7 @@ function wash_render_permission_locked_banner() {
     function updateDomainSelect() {
         if (!domainSelect) return;
         var currentVal = domainSelect.value;
-        domainSelect.innerHTML = '<option value=""><?php echo esc_js(__('Default (primary domain)', 'wash')); ?></option>';
+        domainSelect.innerHTML = '<option value=""><?php echo esc_js(__('Default (primary domain)', 'wash-blog-manager')); ?></option>';
         shopDomains.forEach(function(domain) {
             var opt = document.createElement('option');
             opt.value = domain.host;
@@ -2350,12 +2420,12 @@ function wash_render_permission_locked_banner() {
     function updateMarketLocaleSelect() {
         if (!marketLocaleSelect) return;
         var currentVal = marketLocaleSelect.value;
-        marketLocaleSelect.innerHTML = '<option value=""><?php echo esc_js(__('Default (primary market)', 'wash')); ?></option>';
+        marketLocaleSelect.innerHTML = '<option value=""><?php echo esc_js(__('Default (primary market)', 'wash-blog-manager')); ?></option>';
 
         // 🌍 Global (no market) — shop-wide Translate & Adapt translations
         if (shopLocales && shopLocales.length > 0) {
             var globalGroup = document.createElement('optgroup');
-            globalGroup.label = '<?php echo esc_js(__('🌍 Global (no market)', 'wash')); ?>';
+            globalGroup.label = '<?php echo esc_js(__('🌍 Global (no market)', 'wash-blog-manager')); ?>';
             shopLocales.forEach(function(loc) {
                 var opt = document.createElement('option');
                 opt.value = '|' + loc.locale;
@@ -2406,10 +2476,10 @@ function wash_render_permission_locked_banner() {
         marketLocaleSelect.value = currentVal;
     }
 
-    var wpPermalink = '<?php echo esc_js($permalinkExample); ?>';
+    var wpPermalink = '<?php echo esc_js($wash_permalinkExample); ?>';
     var wpBase = '<?php echo esc_js(home_url('/')); ?>';
-    var wpCategoryBase = '<?php echo esc_js($categoryBase); ?>';
-    var shopifyDomain = 'https://<?php echo esc_js($shopifyStore ?: '{store}'); ?>.myshopify.com';
+    var wpCategoryBase = '<?php echo esc_js($wash_categoryBase); ?>';
+    var shopifyDomain = 'https://<?php echo esc_js($wash_shopifyStore ?: '{store}'); ?>.myshopify.com';
 
     function getBlogHandle(blogId) {
         for (var i = 0; i < shopifyBlogs.length; i++) {
@@ -2560,29 +2630,29 @@ function wash_render_permission_locked_banner() {
 
         if (ruleType !== 'default' && !ruleValue) {
             issues.push({
-                msg: '<?php echo esc_js(__('Rule value is empty', 'wash')); ?>',
-                fix: '<?php echo esc_js(__('Open Edit and pick a Category and/or Language matching this rule.', 'wash')); ?>'
+                msg: '<?php echo esc_js(__('Rule value is empty', 'wash-blog-manager')); ?>',
+                fix: '<?php echo esc_js(__('Open Edit and pick a Category and/or Language matching this rule.', 'wash-blog-manager')); ?>'
             });
         }
 
         if (ruleType === 'language_category' && ruleValue && ruleValue.indexOf(':') === -1) {
             issues.push({
-                msg: '<?php echo esc_js(__('Rule value should use "language:category" format', 'wash')); ?>',
-                fix: '<?php echo esc_js(__('Open Edit and re-select both Language and Category dropdowns — current value is malformed.', 'wash')); ?>'
+                msg: '<?php echo esc_js(__('Rule value should use "language:category" format', 'wash-blog-manager')); ?>',
+                fix: '<?php echo esc_js(__('Open Edit and re-select both Language and Category dropdowns — current value is malformed.', 'wash-blog-manager')); ?>'
             });
         }
 
         if (dest === 'article' && !m.shopifyBlogId && m.shopifyBlogHandle !== '_new') {
             issues.push({
-                msg: '<?php echo esc_js(__('No target Shopify blog selected', 'wash')); ?>',
-                fix: '<?php echo esc_js(__('Open Edit and pick a blog from "Target Blog" dropdown (or create a new one).', 'wash')); ?>'
+                msg: '<?php echo esc_js(__('No target Shopify blog selected', 'wash-blog-manager')); ?>',
+                fix: '<?php echo esc_js(__('Open Edit and pick a blog from "Target Blog" dropdown (or create a new one).', 'wash-blog-manager')); ?>'
             });
         }
 
         if ((ruleType === 'language' || ruleType === 'language_category') && !m.shopifyLocale) {
             issues.push({
-                msg: '<?php echo esc_js(__('No Shopify locale — translations will not be registered', 'wash')); ?>',
-                fix: '<?php echo esc_js(__('Open Edit and pick a value in "Market & Locale" — either 🌍 Global or a market-scoped entry.', 'wash')); ?>'
+                msg: '<?php echo esc_js(__('No Shopify locale — translations will not be registered', 'wash-blog-manager')); ?>',
+                fix: '<?php echo esc_js(__('Open Edit and pick a value in "Market & Locale" — either 🌍 Global or a market-scoped entry.', 'wash-blog-manager')); ?>'
             });
         }
         // NOTE: shopifyLocale set + shopifyMarketId null is a valid state
@@ -2597,8 +2667,8 @@ function wash_render_permission_locked_banner() {
                 var valueLangShort = valueMatch[1].toLowerCase().split('-')[0];
                 if (nameLangShort !== valueLangShort) {
                     issues.push({
-                        msg: '<?php echo esc_js(__('Rule name and value disagree', 'wash')); ?> ("' + nameMatch[1] + '" vs "' + valueMatch[1] + '")',
-                        fix: '<?php echo esc_js(__('Open Edit and re-select Language. The stored value differs from what the name says — likely from an old import.', 'wash')); ?>'
+                        msg: '<?php echo esc_js(__('Rule name and value disagree', 'wash-blog-manager')); ?> ("' + nameMatch[1] + '" vs "' + valueMatch[1] + '")',
+                        fix: '<?php echo esc_js(__('Open Edit and re-select Language. The stored value differs from what the name says — likely from an old import.', 'wash-blog-manager')); ?>'
                     });
                 }
             }
@@ -2618,8 +2688,8 @@ function wash_render_permission_locked_banner() {
             });
             if (conflicts.length > 0) {
                 issues.push({
-                    msg: '<?php echo esc_js(__('Duplicate rule — another mapping with the same destination and post type already matches', 'wash')); ?>',
-                    fix: '<?php echo esc_js(__('Delete one of the duplicates, or change the rule value / post types so each mapping is unique.', 'wash')); ?>'
+                    msg: '<?php echo esc_js(__('Duplicate rule — another mapping with the same destination and post type already matches', 'wash-blog-manager')); ?>',
+                    fix: '<?php echo esc_js(__('Delete one of the duplicates, or change the rule value / post types so each mapping is unique.', 'wash-blog-manager')); ?>'
                 });
             }
         }
@@ -2719,24 +2789,24 @@ function wash_render_permission_locked_banner() {
         var filterActive = mappingsFilterTarget || mappingsFilterLanguage || mappingsFilterTranslation || mappingsFilterDestination;
 
         var html = '';
-        html += '<span style="color:#374151;font-weight:500;"><?php echo esc_js(__('Filter:', 'wash')); ?></span>';
+        html += '<span style="color:#374151;font-weight:500;"><?php echo esc_js(__('Filter:', 'wash-blog-manager')); ?></span>';
 
         // Destination filter
-        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('Destination', 'wash')); ?>: ';
+        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('Destination', 'wash-blog-manager')); ?>: ';
         html += '<select id="wash-filter-destination" style="font-size:12px;padding:2px 6px;">';
-        html += '<option value=""><?php echo esc_js(__('All', 'wash')); ?></option>';
+        html += '<option value=""><?php echo esc_js(__('All', 'wash-blog-manager')); ?></option>';
         ['article', 'page'].forEach(function(d) {
             if (!destinations[d]) return;
             var sel = (d === mappingsFilterDestination) ? ' selected' : '';
-            var label = d === 'article' ? '<?php echo esc_js(__('Article', 'wash')); ?>' : '<?php echo esc_js(__('Page', 'wash')); ?>';
+            var label = d === 'article' ? '<?php echo esc_js(__('Article', 'wash-blog-manager')); ?>' : '<?php echo esc_js(__('Page', 'wash-blog-manager')); ?>';
             html += '<option value="' + d + '"' + sel + '>' + label + '</option>';
         });
         html += '</select></label>';
 
         // Target (blog/page) filter
-        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('Blog/Page', 'wash')); ?>: ';
+        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('Blog/Page', 'wash-blog-manager')); ?>: ';
         html += '<select id="wash-filter-target" style="font-size:12px;padding:2px 6px;">';
-        html += '<option value=""><?php echo esc_js(__('All', 'wash')); ?></option>';
+        html += '<option value=""><?php echo esc_js(__('All', 'wash-blog-manager')); ?></option>';
         Object.keys(targets).sort().forEach(function(k) {
             var sel = (k === mappingsFilterTarget) ? ' selected' : '';
             html += '<option value="' + k + '"' + sel + '>' + targets[k] + '</option>';
@@ -2744,9 +2814,9 @@ function wash_render_permission_locked_banner() {
         html += '</select></label>';
 
         // WP language filter
-        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('WP Language', 'wash')); ?>: ';
+        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('WP Language', 'wash-blog-manager')); ?>: ';
         html += '<select id="wash-filter-language" style="font-size:12px;padding:2px 6px;">';
-        html += '<option value=""><?php echo esc_js(__('All', 'wash')); ?></option>';
+        html += '<option value=""><?php echo esc_js(__('All', 'wash-blog-manager')); ?></option>';
         Object.keys(languages).sort().forEach(function(k) {
             var sel = (k === mappingsFilterLanguage) ? ' selected' : '';
             html += '<option value="' + k + '"' + sel + '>' + k + '</option>';
@@ -2754,22 +2824,22 @@ function wash_render_permission_locked_banner() {
         html += '</select></label>';
 
         // Translation filter (shopifyLocale + scope)
-        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('Translation', 'wash')); ?>: ';
+        html += '<label style="display:flex;align-items:center;gap:4px;color:#4b5563;"><?php echo esc_js(__('Translation', 'wash-blog-manager')); ?>: ';
         html += '<select id="wash-filter-translation" style="font-size:12px;padding:2px 6px;">';
-        html += '<option value=""><?php echo esc_js(__('All', 'wash')); ?></option>';
+        html += '<option value=""><?php echo esc_js(__('All', 'wash-blog-manager')); ?></option>';
         // Scope groups
-        html += '<optgroup label="<?php echo esc_js(__('Scope', 'wash')); ?>">';
+        html += '<optgroup label="<?php echo esc_js(__('Scope', 'wash-blog-manager')); ?>">';
         ['__global__', '__market__', '__none__'].forEach(function(k) {
             var sel = (k === mappingsFilterTranslation) ? ' selected' : '';
-            var label = k === '__global__' ? '🌍 <?php echo esc_js(__('Global only', 'wash')); ?>'
-                : k === '__market__' ? '📍 <?php echo esc_js(__('Market-scoped', 'wash')); ?>'
-                : '— <?php echo esc_js(__('Primary only', 'wash')); ?>';
+            var label = k === '__global__' ? '🌍 <?php echo esc_js(__('Global only', 'wash-blog-manager')); ?>'
+                : k === '__market__' ? '📍 <?php echo esc_js(__('Market-scoped', 'wash-blog-manager')); ?>'
+                : '— <?php echo esc_js(__('Primary only', 'wash-blog-manager')); ?>';
             html += '<option value="' + k + '"' + sel + '>' + label + '</option>';
         });
         html += '</optgroup>';
         // Locale codes
         if (Object.keys(translations).length > 0) {
-            html += '<optgroup label="<?php echo esc_js(__('Locale', 'wash')); ?>">';
+            html += '<optgroup label="<?php echo esc_js(__('Locale', 'wash-blog-manager')); ?>">';
             Object.keys(translations).sort().forEach(function(k) {
                 var sel = (k === mappingsFilterTranslation) ? ' selected' : '';
                 html += '<option value="' + k + '"' + sel + '>' + k + '</option>';
@@ -2779,7 +2849,7 @@ function wash_render_permission_locked_banner() {
         html += '</select></label>';
 
         if (filterActive) {
-            html += '<button type="button" id="wash-filter-reset" class="button button-small" style="margin-left:auto;"><?php echo esc_js(__('Reset filters', 'wash')); ?></button>';
+            html += '<button type="button" id="wash-filter-reset" class="button button-small" style="margin-left:auto;"><?php echo esc_js(__('Reset filters', 'wash-blog-manager')); ?></button>';
         }
 
         html += '<span style="color:#6b7280;font-size:12px;">' + visibleCount + ' / ' + totalCount + '</span>';
@@ -2838,21 +2908,21 @@ function wash_render_permission_locked_banner() {
         if (!mappingsList) return;
         renderFilterToolbar();
         if (mappingsData.length === 0) {
-            mappingsList.innerHTML = '<p style="color: #666;"><?php echo esc_js(__('No mapping rules configured. Posts will sync to the default Shopify blog.', 'wash')); ?></p>';
+            mappingsList.innerHTML = '<p style="color: #666;"><?php echo esc_js(__('No mapping rules configured. Posts will sync to the default Shopify blog.', 'wash-blog-manager')); ?></p>';
             return;
         }
 
         var dragHeaderTitle = mappingsSortKey
-            ? '<?php echo esc_js(__('Drag disabled while sorted by column — click the same header twice to clear sort.', 'wash')); ?>'
-            : '<?php echo esc_js(__('Drag to reorder priority', 'wash')); ?>';
+            ? '<?php echo esc_js(__('Drag disabled while sorted by column — click the same header twice to clear sort.', 'wash-blog-manager')); ?>'
+            : '<?php echo esc_js(__('Drag to reorder priority', 'wash-blog-manager')); ?>';
 
         var html = '';
         html += '<table class="widefat striped wash-mappings-hover" id="wash-mappings-table"><thead><tr>' +
             '<th style="width:30px;" title="' + dragHeaderTitle + '">⇅</th>' +
-            '<th class="wash-sortable" data-sort="rule" style="cursor:pointer;user-select:none;"><?php echo esc_js(__('Rule', 'wash')); ?>' + sortIndicator('rule') + '</th>' +
-            '<th class="wash-sortable" data-sort="blog" style="cursor:pointer;user-select:none;"><?php echo esc_js(__('Blog / Page', 'wash')); ?>' + sortIndicator('blog') + '</th>' +
-            '<th class="wash-sortable" data-sort="translation" style="cursor:pointer;user-select:none;"><?php echo esc_js(__('Translation', 'wash')); ?>' + sortIndicator('translation') + '</th>' +
-            '<th><?php echo esc_js(__('Actions', 'wash')); ?></th>' +
+            '<th class="wash-sortable" data-sort="rule" style="cursor:pointer;user-select:none;"><?php echo esc_js(__('Rule', 'wash-blog-manager')); ?>' + sortIndicator('rule') + '</th>' +
+            '<th class="wash-sortable" data-sort="blog" style="cursor:pointer;user-select:none;"><?php echo esc_js(__('Blog / Page', 'wash-blog-manager')); ?>' + sortIndicator('blog') + '</th>' +
+            '<th class="wash-sortable" data-sort="translation" style="cursor:pointer;user-select:none;"><?php echo esc_js(__('Translation', 'wash-blog-manager')); ?>' + sortIndicator('translation') + '</th>' +
+            '<th><?php echo esc_js(__('Actions', 'wash-blog-manager')); ?></th>' +
             '</tr></thead><tbody id="wash-mappings-tbody">';
 
         var overlapGroups = detectOverlapGroups(mappingsData);
@@ -2873,7 +2943,7 @@ function wash_render_permission_locked_banner() {
         });
 
         if (rowsToRender.length === 0) {
-            mappingsList.innerHTML = '<p style="color:#6b7280;padding:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;text-align:center;"><?php echo esc_js(__('No mappings match the current filters.', 'wash')); ?></p>';
+            mappingsList.innerHTML = '<p style="color:#6b7280;padding:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;text-align:center;"><?php echo esc_js(__('No mappings match the current filters.', 'wash-blog-manager')); ?></p>';
             return;
         }
 
@@ -2890,17 +2960,17 @@ function wash_render_permission_locked_banner() {
         rowsToRender.forEach(function(m, idx) {
             var ruleLabel, badgeClass;
             if (m.ruleType === 'default') {
-                ruleLabel = '<?php echo esc_js(__('Default', 'wash')); ?>';
+                ruleLabel = '<?php echo esc_js(__('Default', 'wash-blog-manager')); ?>';
                 badgeClass = 'background:#28a745;';
             } else if (m.ruleType === 'language') {
-                ruleLabel = '<?php echo esc_js(__('Language', 'wash')); ?>: ' + (m.ruleValue || '');
+                ruleLabel = '<?php echo esc_js(__('Language', 'wash-blog-manager')); ?>: ' + (m.ruleValue || '');
                 badgeClass = 'background:#007bff;';
             } else if (m.ruleType === 'language_category') {
                 var parts = (m.ruleValue || '').split(':');
-                ruleLabel = '<?php echo esc_js(__('Language', 'wash')); ?>: ' + (parts[0] || '') + ' + <?php echo esc_js(__('Category', 'wash')); ?>: ' + (parts[1] || '');
+                ruleLabel = '<?php echo esc_js(__('Language', 'wash-blog-manager')); ?>: ' + (parts[0] || '') + ' + <?php echo esc_js(__('Category', 'wash-blog-manager')); ?>: ' + (parts[1] || '');
                 badgeClass = 'background:#6f42c1;';
             } else {
-                ruleLabel = '<?php echo esc_js(__('Category', 'wash')); ?>: ' + (m.ruleValue || '');
+                ruleLabel = '<?php echo esc_js(__('Category', 'wash-blog-manager')); ?>: ' + (m.ruleValue || '');
                 badgeClass = 'background:#fd7e14;';
             }
             var destBadge = m.destination === 'page'
@@ -2913,18 +2983,18 @@ function wash_render_permission_locked_banner() {
             // Scope badge — where the translation lands in Shopify
             var scopeBadge = '';
             if (m.shopifyLocale && !m.shopifyMarketId) {
-                scopeBadge = '<div title="<?php echo esc_js(__('Shop-wide translation (Translate & Adapt). No market scope.', 'wash')); ?>" style="display:inline-block;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;">🌍 Global / ' + m.shopifyLocale.toUpperCase() + '</div>';
+                scopeBadge = '<div title="<?php echo esc_js(__('Shop-wide translation (Translate & Adapt). No market scope.', 'wash-blog-manager')); ?>" style="display:inline-block;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;">🌍 Global / ' + m.shopifyLocale.toUpperCase() + '</div>';
             } else if (m.shopifyLocale && m.shopifyMarketId) {
                 var marketForBadge = getMarketById(m.shopifyMarketId);
                 var marketBadgeName = marketForBadge ? marketForBadge.name : '?';
-                scopeBadge = '<div title="<?php echo esc_js(__('Market-scoped translation. Visible only to buyers in this market.', 'wash')); ?>" style="display:inline-block;background:#eff6ff;color:#1e3a8a;border:1px solid #93c5fd;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;">📍 ' + marketBadgeName + ' / ' + m.shopifyLocale + '</div>';
+                scopeBadge = '<div title="<?php echo esc_js(__('Market-scoped translation. Visible only to buyers in this market.', 'wash-blog-manager')); ?>" style="display:inline-block;background:#eff6ff;color:#1e3a8a;border:1px solid #93c5fd;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;">📍 ' + marketBadgeName + ' / ' + m.shopifyLocale + '</div>';
             } else {
-                scopeBadge = '<div title="<?php echo esc_js(__('Primary language only — no translation registered.', 'wash')); ?>" style="display:inline-block;background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;padding:1px 6px;border-radius:3px;font-size:11px;">— primary only</div>';
+                scopeBadge = '<div title="<?php echo esc_js(__('Primary language only — no translation registered.', 'wash-blog-manager')); ?>" style="display:inline-block;background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;padding:1px 6px;border-radius:3px;font-size:11px;">— primary only</div>';
             }
 
             var overlap = overlapGroups[m.id];
             var rowBg = overlap ? 'background:' + overlap.color + ';' : '';
-            var warnIcon = overlap ? '<span title="<?php echo esc_js(__('Overlapping rule — higher priority wins', 'wash')); ?>" style="color:#b45309;font-size:14px;margin-right:4px;cursor:help;">&#9888;</span>' : '';
+            var warnIcon = overlap ? '<span title="<?php echo esc_js(__('Overlapping rule — higher priority wins', 'wash-blog-manager')); ?>" style="color:#b45309;font-size:14px;margin-right:4px;cursor:help;">&#9888;</span>' : '';
 
             // Configuration validation — show error icon with hints if rule is misconfigured
             var validationIssues = validateMapping(m, mappingsData);
@@ -2933,12 +3003,12 @@ function wash_render_permission_locked_banner() {
                 var tipLines = validationIssues.map(function(issue) {
                     return '• ' + issue.msg + '\n  → ' + issue.fix;
                 }).join('\n\n');
-                var tipTitle = '<?php echo esc_js(__('Configuration issues:', 'wash')); ?>\n\n' + tipLines;
+                var tipTitle = '<?php echo esc_js(__('Configuration issues:', 'wash-blog-manager')); ?>\n\n' + tipLines;
                 errorIcon = '<span title="' + tipTitle.replace(/"/g, '&quot;') + '" style="color:#dc2626;font-size:16px;margin-right:4px;cursor:help;font-weight:bold;">&#10071;</span>';
             }
 
             var displayNumber = '#' + (idx + 1);
-            var idTooltip = m.id + ' — <?php echo esc_js(__('click to copy', 'wash')); ?>';
+            var idTooltip = m.id + ' — <?php echo esc_js(__('click to copy', 'wash-blog-manager')); ?>';
             var ruleIdBadge = '<span title="' + idTooltip + '" class="wash-mapping-id" data-id="' + m.id + '" style="display:inline-block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-weight:600;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:1px 8px;border-radius:10px;margin-right:6px;cursor:copy;user-select:none;">' + displayNumber + '</span>';
 
             html += '<tr class="wash-mapping-row" data-id="' + m.id + '" data-priority="' + m.priority + '" style="' + rowBg + '">' +
@@ -2955,9 +3025,9 @@ function wash_render_permission_locked_banner() {
                 '<td style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#1f2937;">' + targetLabel + '</td>' +
                 '<td>' + scopeBadge + '</td>' +
                 '<td style="white-space:nowrap;">' +
-                '<button type="button" class="button button-small wash-edit-mapping wash-icon-btn" data-id="' + m.id + '" title="<?php echo esc_js(__('Edit', 'wash')); ?>" aria-label="<?php echo esc_js(__('Edit', 'wash')); ?>"><span class="dashicons dashicons-edit" aria-hidden="true"></span></button> ' +
-                '<button type="button" class="button button-small wash-duplicate-mapping wash-icon-btn" data-id="' + m.id + '" title="<?php echo esc_js(__('Duplicate', 'wash')); ?>" aria-label="<?php echo esc_js(__('Duplicate', 'wash')); ?>"><span class="dashicons dashicons-admin-page" aria-hidden="true"></span></button> ' +
-                '<button type="button" class="button button-small wash-delete-mapping wash-icon-btn" data-id="' + m.id + '" title="<?php echo esc_js(__('Delete', 'wash')); ?>" aria-label="<?php echo esc_js(__('Delete', 'wash')); ?>" style="color:#dc3545;"><span class="dashicons dashicons-trash" aria-hidden="true"></span></button>' +
+                '<button type="button" class="button button-small wash-edit-mapping wash-icon-btn" data-id="' + m.id + '" title="<?php echo esc_js(__('Edit', 'wash-blog-manager')); ?>" aria-label="<?php echo esc_js(__('Edit', 'wash-blog-manager')); ?>"><span class="dashicons dashicons-edit" aria-hidden="true"></span></button> ' +
+                '<button type="button" class="button button-small wash-duplicate-mapping wash-icon-btn" data-id="' + m.id + '" title="<?php echo esc_js(__('Duplicate', 'wash-blog-manager')); ?>" aria-label="<?php echo esc_js(__('Duplicate', 'wash-blog-manager')); ?>"><span class="dashicons dashicons-admin-page" aria-hidden="true"></span></button> ' +
+                '<button type="button" class="button button-small wash-delete-mapping wash-icon-btn" data-id="' + m.id + '" title="<?php echo esc_js(__('Delete', 'wash-blog-manager')); ?>" aria-label="<?php echo esc_js(__('Delete', 'wash-blog-manager')); ?>" style="color:#dc3545;"><span class="dashicons dashicons-trash" aria-hidden="true"></span></button>' +
                 '</td></tr>';
         });
 
@@ -3018,22 +3088,22 @@ function wash_render_permission_locked_banner() {
                     });
                     // Save new priorities via AJAX
                     jQuery.ajax({
-                        url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                        url: '<?php echo esc_url(admin_url('admin-ajax.php')); ?>',
                         type: 'POST',
                         data: {
                             action: 'wash_reorder_mappings',
-                            nonce: '<?php echo wp_create_nonce('wash_mappings'); ?>',
+                            nonce: '<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>',
                             updates: JSON.stringify(updates),
                         },
                         success: function(res) {
                             if (res.success) {
-                                washMappingsToast('<?php echo esc_js(__('Order saved', 'wash')); ?>');
+                                washMappingsToast('<?php echo esc_js(__('Order saved', 'wash-blog-manager')); ?>');
                             } else {
-                                washMappingsToast('<?php echo esc_js(__('Failed to save order', 'wash')); ?>', 'error');
+                                washMappingsToast('<?php echo esc_js(__('Failed to save order', 'wash-blog-manager')); ?>', 'error');
                             }
                         },
                         error: function() {
-                            washMappingsToast('<?php echo esc_js(__('Failed to save order', 'wash')); ?>', 'error');
+                            washMappingsToast('<?php echo esc_js(__('Failed to save order', 'wash-blog-manager')); ?>', 'error');
                         }
                     });
                 },
@@ -3115,7 +3185,7 @@ function wash_render_permission_locked_banner() {
     if (exportBtn) {
         exportBtn.addEventListener('click', function() {
             if (!mappingsData || mappingsData.length === 0) {
-                alert('<?php echo esc_js(__('No mapping rules to export.', 'wash')); ?>');
+                alert('<?php echo esc_js(__('No mapping rules to export.', 'wash-blog-manager')); ?>');
                 return;
             }
             var json = JSON.stringify(mappingsData, null, 2);
@@ -3147,11 +3217,11 @@ function wash_render_permission_locked_banner() {
                 try {
                     imported = JSON.parse(e.target.result);
                 } catch (err) {
-                    alert('<?php echo esc_js(__('Invalid JSON file.', 'wash')); ?>');
+                    alert('<?php echo esc_js(__('Invalid JSON file.', 'wash-blog-manager')); ?>');
                     return;
                 }
                 if (!Array.isArray(imported) || imported.length === 0) {
-                    alert('<?php echo esc_js(__('No mapping rules found in file.', 'wash')); ?>');
+                    alert('<?php echo esc_js(__('No mapping rules found in file.', 'wash-blog-manager')); ?>');
                     return;
                 }
                 // Auto-fix: recover ruleValue from wpBlogName if missing
@@ -3174,24 +3244,24 @@ function wash_render_permission_locked_banner() {
                         }
                     }
                 });
-                var confirmMsg = '<?php echo esc_js(__('This will delete all existing mapping rules and import', 'wash')); ?> ' + imported.length + ' <?php echo esc_js(__('rules.', 'wash')); ?>';
+                var confirmMsg = '<?php echo esc_js(__('This will delete all existing mapping rules and import', 'wash-blog-manager')); ?> ' + imported.length + ' <?php echo esc_js(__('rules.', 'wash-blog-manager')); ?>';
                 if (fixed > 0) {
-                    confirmMsg += '\n\n' + fixed + ' <?php echo esc_js(__('rules had missing ruleValue — auto-recovered from names.', 'wash')); ?>';
+                    confirmMsg += '\n\n' + fixed + ' <?php echo esc_js(__('rules had missing ruleValue — auto-recovered from names.', 'wash-blog-manager')); ?>';
                 }
-                confirmMsg += '\n\n<?php echo esc_js(__('Continue?', 'wash')); ?>';
+                confirmMsg += '\n\n<?php echo esc_js(__('Continue?', 'wash-blog-manager')); ?>';
                 if (!confirm(confirmMsg)) {
                     return;
                 }
                 importBtn.disabled = true;
-                importBtn.textContent = '<?php echo esc_js(__('Importing...', 'wash')); ?>';
+                importBtn.textContent = '<?php echo esc_js(__('Importing...', 'wash-blog-manager')); ?>';
 
                 // Step 1: delete all existing mappings
                 var deletePromises = mappingsData.map(function(m) {
                     var fd = new FormData();
                     fd.append('action', 'wash_delete_mapping');
-                    fd.append('nonce', '<?php echo wp_create_nonce('wash_mappings'); ?>');
+                    fd.append('nonce', '<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>');
                     fd.append('mappingId', m.id);
-                    return fetch('<?php echo admin_url('admin-ajax.php'); ?>', { method: 'POST', body: fd }).then(function(r) { return r.json(); });
+                    return fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', { method: 'POST', body: fd }).then(function(r) { return r.json(); });
                 });
 
                 Promise.all(deletePromises).then(function() {
@@ -3204,7 +3274,7 @@ function wash_render_permission_locked_banner() {
                         chain = chain.then(function() {
                             var fd = new FormData();
                             fd.append('action', 'wash_create_mapping');
-                            fd.append('nonce', '<?php echo wp_create_nonce('wash_mappings'); ?>');
+                            fd.append('nonce', '<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>');
                             fd.append('destination', rule.destination || 'article');
                             fd.append('wpPostTypes', rule.wpPostTypes || 'post');
                             fd.append('ruleType', rule.ruleType || 'default');
@@ -3214,7 +3284,7 @@ function wash_render_permission_locked_banner() {
                             fd.append('priority', rule.priority !== undefined ? rule.priority : (imported.length - idx) * 10);
                             fd.append('marketId', rule.shopifyMarketId || '');
                             fd.append('shopifyLocale', rule.shopifyLocale || '');
-                            return fetch('<?php echo admin_url('admin-ajax.php'); ?>', { method: 'POST', body: fd })
+                            return fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', { method: 'POST', body: fd })
                                 .then(function(r) { return r.json(); })
                                 .then(function(resp) {
                                     if (resp.success) {
@@ -3228,19 +3298,19 @@ function wash_render_permission_locked_banner() {
                     });
                     return chain.then(function() {
                         importBtn.disabled = false;
-                        importBtn.innerHTML = '<span class="dashicons dashicons-upload" style="vertical-align: text-bottom;"></span> <?php echo esc_js(__('Import', 'wash')); ?>';
+                        importBtn.innerHTML = '<span class="dashicons dashicons-upload" style="vertical-align: text-bottom;"></span> <?php echo esc_js(__('Import', 'wash-blog-manager')); ?>';
                         loadMappings();
                         if (window.washClearDirty) washClearDirty('blogs');
-                        var msg = '<?php echo esc_js(__('Import complete:', 'wash')); ?> ' + created + ' <?php echo esc_js(__('created', 'wash')); ?>';
+                        var msg = '<?php echo esc_js(__('Import complete:', 'wash-blog-manager')); ?> ' + created + ' <?php echo esc_js(__('created', 'wash-blog-manager')); ?>';
                         if (failed > 0) {
-                            msg += ', ' + failed + ' <?php echo esc_js(__('failed', 'wash')); ?>:\n' + errors.join('\n');
+                            msg += ', ' + failed + ' <?php echo esc_js(__('failed', 'wash-blog-manager')); ?>:\n' + errors.join('\n');
                         }
                         alert(msg);
                     });
                 }).catch(function() {
                     importBtn.disabled = false;
-                    importBtn.innerHTML = '<span class="dashicons dashicons-upload" style="vertical-align: text-bottom;"></span> <?php echo esc_js(__('Import', 'wash')); ?>';
-                    alert('<?php echo esc_js(__('Import failed.', 'wash')); ?>');
+                    importBtn.innerHTML = '<span class="dashicons dashicons-upload" style="vertical-align: text-bottom;"></span> <?php echo esc_js(__('Import', 'wash-blog-manager')); ?>';
+                    alert('<?php echo esc_js(__('Import failed.', 'wash-blog-manager')); ?>');
                 });
             };
             reader.readAsText(file);
@@ -3250,7 +3320,7 @@ function wash_render_permission_locked_banner() {
     if (addMappingBtn) {
         addMappingBtn.addEventListener('click', function() {
             document.getElementById('wash-mapping-id').value = '';
-            document.getElementById('wash-mapping-form-title').textContent = '<?php echo esc_js(__('Add Mapping Rule', 'wash')); ?>';
+            document.getElementById('wash-mapping-form-title').textContent = '<?php echo esc_js(__('Add Mapping Rule', 'wash-blog-manager')); ?>';
             if (destinationSelect) destinationSelect.value = 'article';
             setPostTypeCheckboxes('post');
             updateDestinationFields();
@@ -3287,7 +3357,7 @@ function wash_render_permission_locked_banner() {
             var dest = destinationSelect ? destinationSelect.value : 'article';
             var data = {
                 action: mappingId ? 'wash_update_mapping' : 'wash_create_mapping',
-                nonce: '<?php echo wp_create_nonce('wash_mappings'); ?>',
+                nonce: '<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>',
                 mappingId: mappingId,
                 destination: dest,
                 wpPostTypes: wpPostTypesInput ? wpPostTypesInput.value : 'post',
@@ -3301,19 +3371,19 @@ function wash_render_permission_locked_banner() {
             };
 
             saveMappingBtn.disabled = true;
-            saveMappingBtn.textContent = '<?php echo esc_js(__('Saving...', 'wash')); ?>';
+            saveMappingBtn.textContent = '<?php echo esc_js(__('Saving...', 'wash-blog-manager')); ?>';
 
             var formData = new FormData();
             Object.keys(data).forEach(function(key) { formData.append(key, data[key]); });
 
-            fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+            fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', {
                 method: 'POST',
                 body: formData
             })
             .then(function(r) { return r.json(); })
             .then(function(response) {
                 saveMappingBtn.disabled = false;
-                saveMappingBtn.textContent = '<?php echo esc_js(__('Save Mapping', 'wash')); ?>';
+                saveMappingBtn.textContent = '<?php echo esc_js(__('Save Mapping', 'wash-blog-manager')); ?>';
                 if (response.success) {
                     mappingForm.style.display = 'none';
                     loadMappings();
@@ -3327,7 +3397,7 @@ function wash_render_permission_locked_banner() {
             })
             .catch(function() {
                 saveMappingBtn.disabled = false;
-                saveMappingBtn.textContent = '<?php echo esc_js(__('Save Mapping', 'wash')); ?>';
+                saveMappingBtn.textContent = '<?php echo esc_js(__('Save Mapping', 'wash-blog-manager')); ?>';
                 alert('Failed to save mapping');
             });
         });
@@ -3341,7 +3411,7 @@ function wash_render_permission_locked_banner() {
         checkDuplicateChanged();
 
         document.getElementById('wash-mapping-id').value = mapping.id;
-        document.getElementById('wash-mapping-form-title').textContent = '<?php echo esc_js(__('Edit Mapping Rule', 'wash')); ?>';
+        document.getElementById('wash-mapping-form-title').textContent = '<?php echo esc_js(__('Edit Mapping Rule', 'wash-blog-manager')); ?>';
         if (destinationSelect) destinationSelect.value = mapping.destination || 'article';
         setPostTypeCheckboxes(mapping.wpPostTypes || 'post');
         updateDestinationFields();
@@ -3382,7 +3452,7 @@ function wash_render_permission_locked_banner() {
 
         // Open form as NEW (empty ID) but pre-filled with source data
         document.getElementById('wash-mapping-id').value = '';
-        document.getElementById('wash-mapping-form-title').textContent = '<?php echo esc_js(__('Duplicate Mapping Rule', 'wash')); ?>';
+        document.getElementById('wash-mapping-form-title').textContent = '<?php echo esc_js(__('Duplicate Mapping Rule', 'wash-blog-manager')); ?>';
         if (destinationSelect) destinationSelect.value = mapping.destination || 'article';
         setPostTypeCheckboxes(mapping.wpPostTypes || 'post');
         updateDestinationFields();
@@ -3447,7 +3517,7 @@ function wash_render_permission_locked_banner() {
             mappingForm.style.border = '2px solid #d4a017';
             mappingForm.style.background = '#fef9e7';
             saveMappingBtn.disabled = true;
-            saveMappingBtn.title = '<?php echo esc_js(__('Change at least one field before saving', 'wash')); ?>';
+            saveMappingBtn.title = '<?php echo esc_js(__('Change at least one field before saving', 'wash-blog-manager')); ?>';
         } else {
             mappingForm.style.border = '1px solid #ddd';
             mappingForm.style.background = '#f9f9f9';
@@ -3476,14 +3546,14 @@ function wash_render_permission_locked_banner() {
     }
 
     function deleteMapping(id) {
-        if (!confirm('<?php echo esc_js(__('Are you sure you want to delete this mapping?', 'wash')); ?>')) return;
+        if (!confirm('<?php echo esc_js(__('Are you sure you want to delete this mapping?', 'wash-blog-manager')); ?>')) return;
 
         var formData = new FormData();
         formData.append('action', 'wash_delete_mapping');
-        formData.append('nonce', '<?php echo wp_create_nonce('wash_mappings'); ?>');
+        formData.append('nonce', '<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>');
         formData.append('mappingId', id);
 
-        fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', {
             method: 'POST',
             body: formData
         })

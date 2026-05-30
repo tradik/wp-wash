@@ -3,6 +3,10 @@
  * WordPress Multisite support.
  * Handles per-site blog mappings and network admin settings.
  */
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct file access.
+}
+
 class WashMultisite {
 
     /**
@@ -20,8 +24,8 @@ class WashMultisite {
      */
     public function addNetworkMenu() {
         add_menu_page(
-            __('Wash Network', 'wash'),
-            __('Wash: Manager', 'wash'),
+            __('Wash Network', 'wash-blog-manager'),
+            __('Wash: Manager', 'wash-blog-manager'),
             'manage_network_options',
             'wash-network',
             [$this, 'renderNetworkSettingsPage'],
@@ -109,17 +113,17 @@ class WashMultisite {
         $sites = $this->getNetworkSites();
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Wash Network Settings', 'wash'); ?></h1>
-            <p><?php esc_html_e('Manage blog-to-Shopify mappings for all sites in the network.', 'wash'); ?></p>
+            <h1><?php esc_html_e('Wash Network Settings', 'wash-blog-manager'); ?></h1>
+            <p><?php esc_html_e('Manage blog-to-Shopify mappings for all sites in the network.', 'wash-blog-manager'); ?></p>
 
             <table class="widefat fixed striped" role="grid">
                 <thead>
                     <tr>
-                        <th><?php esc_html_e('Site ID', 'wash'); ?></th>
-                        <th><?php esc_html_e('Blog Name', 'wash'); ?></th>
-                        <th><?php esc_html_e('URL', 'wash'); ?></th>
-                        <th><?php esc_html_e('Sync Active', 'wash'); ?></th>
-                        <th><?php esc_html_e('Shopify Blog', 'wash'); ?></th>
+                        <th><?php esc_html_e('Site ID', 'wash-blog-manager'); ?></th>
+                        <th><?php esc_html_e('Blog Name', 'wash-blog-manager'); ?></th>
+                        <th><?php esc_html_e('URL', 'wash-blog-manager'); ?></th>
+                        <th><?php esc_html_e('Sync Active', 'wash-blog-manager'); ?></th>
+                        <th><?php esc_html_e('Shopify Blog', 'wash-blog-manager'); ?></th>
                     </tr>
                 </thead>
                 <tbody>

@@ -108,6 +108,7 @@ class WashCallback {
         // Count synced posts (have _wash_article_id meta)
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- COUNT() over the postmeta join; running this through WP_Query with meta_query+counting_only is slower and the values feed a REST status endpoint called by the Shopify app, not a hot path.
         $syncedPosts = (int) $wpdb->get_var(
             "SELECT COUNT(DISTINCT p.ID)
              FROM {$wpdb->posts} p
@@ -118,6 +119,7 @@ class WashCallback {
              AND pm.meta_value != ''"
         );
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- see above; same pattern for pages.
         $syncedPages = (int) $wpdb->get_var(
             "SELECT COUNT(DISTINCT p.ID)
              FROM {$wpdb->posts} p
@@ -163,6 +165,7 @@ class WashCallback {
         }
 
         if (function_exists('icl_object_id')) {
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- `wpml_active_languages` is a WPML plugin filter; we consume it, we do not own it.
             $wpmlLangs = apply_filters('wpml_active_languages', null, ['skip_missing' => 0]);
             if (is_array($wpmlLangs) && !empty($wpmlLangs)) {
                 return $this->getLanguageStatsWpml($wpmlLangs);
@@ -211,6 +214,7 @@ class WashCallback {
      * @param array $wpmlLangs Result of `wpml_active_languages` filter.
      * @return array
      */
+    // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- `wpml_default_language` and `wpml_switch_language` are WPML plugin hooks; we consume them as a WPML integration, we do not own them.
     private function getLanguageStatsWpml($wpmlLangs) {
         $primary = apply_filters('wpml_default_language', null);
         $byLanguage = [];
@@ -239,6 +243,7 @@ class WashCallback {
         }
 
         do_action('wpml_switch_language', $primary);
+        // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 
         return [
             'detector'   => 'wpml',
@@ -273,6 +278,7 @@ class WashCallback {
             if ($hasPolylang) {
                 $language = pll_get_term_language($term->term_id) ?: null;
             } elseif ($hasWpml) {
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- `wpml_element_language_code` is a WPML plugin filter; consumed for category-language detection.
                 $language = apply_filters('wpml_element_language_code', null, [
                     'element_id'   => $term->term_id,
                     'element_type' => 'category',
@@ -311,7 +317,7 @@ class WashCallback {
         if (!$apiClient->isConfigured()) {
             return new WP_Error(
                 'not_configured',
-                __('Wash is not configured. Please set up your API key.', 'wash'),
+                __('Wash is not configured. Please set up your API key.', 'wash-blog-manager'),
                 ['status' => 400]
             );
         }
@@ -343,7 +349,7 @@ class WashCallback {
         if (!$apiClient->isConfigured()) {
             return new WP_Error(
                 'not_configured',
-                __('Wash is not configured. Please set up your API key.', 'wash'),
+                __('Wash is not configured. Please set up your API key.', 'wash-blog-manager'),
                 ['status' => 400]
             );
         }
@@ -376,7 +382,7 @@ class WashCallback {
         if (!$post) {
             return new WP_Error(
                 'not_found',
-                __('Post not found', 'wash'),
+                __('Post not found', 'wash-blog-manager'),
                 ['status' => 404]
             );
         }
@@ -405,7 +411,7 @@ class WashCallback {
                 delete_post_meta($postId, '_wash_sync_status');
                 delete_post_meta($postId, '_wash_job_id');
                 delete_post_meta($postId, '_wash_queued_at');
-                update_post_meta($postId, '_wash_sync_error', __('Sync timed out. The callback may not have reached WordPress.', 'wash'));
+                update_post_meta($postId, '_wash_sync_error', __('Sync timed out. The callback may not have reached WordPress.', 'wash-blog-manager'));
             } else {
                 $status = 'queued';
             }

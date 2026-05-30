@@ -11,6 +11,11 @@
  * - Weglot (API-based, limited support)
  * - Lokalise (requires WPML)
  */
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct file access.
+}
+
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- This class is a WPML / Polylang integration; all `wpml_*` filters/actions used below are WPML plugin hooks (defined by sitepress-multilingual-cms), not hooks owned by Wash. Renaming them would break the integration.
 class WashHreflangs {
 
     /** @var WashApiClient */
@@ -827,7 +832,7 @@ class WashHreflangs {
             'polylang'     => 'Polylang',
             'translatepress' => 'TranslatePress',
             'weglot'       => 'Weglot',
-            default        => __('None detected', 'wash'),
+            default        => __('None detected', 'wash-blog-manager'),
         };
     }
 
@@ -846,23 +851,22 @@ class WashHreflangs {
      * @return string Liquid code snippet
      */
     public static function getTemplateCode() {
-        return <<<'LIQUID'
-{% comment %}
-  Wash Hreflang Tags
-  Add this snippet to your theme's layout/theme.liquid in the <head> section
-{% endcomment %}
-
-{% if article %}
-  {% assign ns = 'wash_hreflang' %}
-
-  {% comment %} Loop through all hreflang metafields {% endcomment %}
-  {% for metafield in article.metafields[ns] %}
-    {% if metafield.key contains 'hreflang_' %}
-      {% assign lang_code = metafield.key | remove: 'hreflang_' | replace: '_', '-' %}
-      <link rel="alternate" hreflang="{{ lang_code }}" href="{{ metafield.value }}" />
-    {% endif %}
-  {% endfor %}
-{% endif %}
-LIQUID;
+        return "{% comment %}\n"
+            . "  Wash Hreflang Tags\n"
+            . "  Add this snippet to your theme's layout/theme.liquid in the <head> section\n"
+            . "{% endcomment %}\n"
+            . "\n"
+            . "{% if article %}\n"
+            . "  {% assign ns = 'wash_hreflang' %}\n"
+            . "\n"
+            . "  {% comment %} Loop through all hreflang metafields {% endcomment %}\n"
+            . "  {% for metafield in article.metafields[ns] %}\n"
+            . "    {% if metafield.key contains 'hreflang_' %}\n"
+            . "      {% assign lang_code = metafield.key | remove: 'hreflang_' | replace: '_', '-' %}\n"
+            . '      <link rel="alternate" hreflang="{{ lang_code }}" href="{{ metafield.value }}" />' . "\n"
+            . "    {% endif %}\n"
+            . "  {% endfor %}\n"
+            . "{% endif %}\n";
     }
 }
+// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound

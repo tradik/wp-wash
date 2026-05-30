@@ -9,7 +9,7 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
     exit;
 }
 
-$optionKeys = [
+$wash_optionKeys = [
     'wash_shopify_store',
     'wash_api_key',
     'wash_http_user',
@@ -27,24 +27,28 @@ $optionKeys = [
     'wash_hreflangs_enabled',
     'wash_auto_clear_errors',
     'wash_sync_inline',
+    'wash_consent_accepted',
+    'wash_consent_accepted_at',
 ];
 
 if (is_multisite()) {
-    $siteIds = get_sites(['fields' => 'ids', 'number' => 1000]);
-    foreach ($siteIds as $siteId) {
-        switch_to_blog($siteId);
-        foreach ($optionKeys as $key) {
-            delete_option($key);
+    $wash_siteIds = get_sites(['fields' => 'ids', 'number' => 1000]);
+    foreach ($wash_siteIds as $wash_siteId) {
+        switch_to_blog($wash_siteId);
+        foreach ($wash_optionKeys as $wash_key) {
+            delete_option($wash_key);
         }
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- uninstall-time schema cleanup; DROP TABLE cannot use prepared values for the identifier, $wpdb->prefix is trusted, and caching is irrelevant on a teardown query.
         $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}wash_sync");
         restore_current_blog();
     }
 } else {
-    foreach ($optionKeys as $key) {
-        delete_option($key);
+    foreach ($wash_optionKeys as $wash_key) {
+        delete_option($wash_key);
     }
     global $wpdb;
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- see above; same teardown pattern for single-site installs.
     $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}wash_sync");
 }
 

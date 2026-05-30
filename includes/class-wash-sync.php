@@ -3,6 +3,10 @@
  * Content synchronization handler.
  * Hooks into WordPress save/delete actions to sync posts to Shopify.
  */
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct file access.
+}
+
 class WashSync {
 
     /** @var WashApiClient */
@@ -354,7 +358,15 @@ class WashSync {
             $rawContent = $this->applySearchReplaceRules($rawContent, ['block', 'shortcode']);
 
             // Apply the_content filter to processed content
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WP core's `the_content` filter; consumed for rendered output.
             $content = apply_filters('the_content', $rawContent);
+        }
+
+        // Convert RankMath FAQ blocks (rendered by the_content) into Shopify-safe
+        // accordion markup + FAQPage JSON-LD. Shopify strips the rank-math-* divs,
+        // so we rebuild them with <details>/<summary> and inline styles.
+        if (get_option('wash_transform_rankmath_faq', '1') === '1') {
+            $content = $this->transformRankMathFaq($content);
         }
 
         // Preserve custom HTML tags that Shopify would strip (klaviyo-form, chat-widget, etc.)
@@ -422,6 +434,11 @@ class WashSync {
 
         $thumbnailId = get_post_thumbnail_id($postId);
         if ($thumbnailId) {
+            // Send the attachment id so the worker can rehost the featured image
+            // to Shopify CDN (via the signed media endpoint, with Basic Auth) when
+            // it isn't synced yet — instead of handing a protected WP URL to Shopify.
+            $data['featuredImageId'] = (int) $thumbnailId;
+
             // Try to use Shopify CDN URL if image was synced, otherwise use WordPress URL
             $cdnUrl = WashImages::getShopifyCdnUrl($thumbnailId);
             $wpUrl = wp_get_attachment_url($thumbnailId);
@@ -439,6 +456,16 @@ class WashSync {
                     washLog("[wash] buildPostData() - WARNING: Invalid CDN URL stored: {$cdnUrl}");
                 }
             }
+        }
+
+        // Map every wp-content/uploads URL in the body to its attachment id so
+        // the worker can rehost a not-yet-synced image to the Shopify CDN (via
+        // the signed endpoint, with Basic Auth) instead of leaving a protected
+        // source URL Shopify can't fetch. Not anchored to site_url, so it also
+        // covers offload/CDN-rewritten upload URLs.
+        $contentImageIds = $this->buildContentImageIdMap($content);
+        if (!empty($contentImageIds)) {
+            $data['contentImageIds'] = $contentImageIds;
         }
 
         $data['seo'] = $this->getSeoData($postId);
@@ -619,6 +646,141 @@ class WashSync {
     }
 
     /**
+     * Transform RankMath FAQ blocks into Shopify-safe accordion markup.
+     *
+     * RankMath renders its FAQ block as nested <div class="rank-math-*"> elements.
+     * Shopify's article body sanitizer drops those wrappers and their class names,
+     * collapsing the FAQ into unstyled <h3> + <p> fragments with no schema. This
+     * parses each question/answer pair out of the rendered block and rebuilds it as
+     * <details>/<summary> (both on Shopify's allowlist) with inline styles, then
+     * appends a single FAQPage JSON-LD <script> for SEO parity with the WP source.
+     *
+     * @param string $content Rendered HTML content.
+     * @return string Content with FAQ blocks transformed (unchanged if none found).
+     */
+    private function transformRankMathFaq($content) {
+        if (strpos($content, 'rank-math-block') === false
+            && strpos($content, 'rank-math-question') === false) {
+            return $content;
+        }
+
+        // Match from the opening #rank-math-faq div to the end of content tail, then
+        // trim back to the last balanced item — but a greedy inner capture is enough
+        // here because the block is the final element RankMath emits in the body.
+        $blockPattern = '/<div\b[^>]*\bid=("|\')rank-math-faq\1[^>]*>(.*)<\/div>\s*<\/div>/is';
+
+        $content = preg_replace_callback($blockPattern, function ($blockMatch) {
+            $inner = $blockMatch[2];
+            $faqs = $this->extractRankMathFaqItems($inner);
+
+            if (empty($faqs)) {
+                // Could not parse items — leave the original block untouched.
+                return $blockMatch[0];
+            }
+
+            return $this->renderFaqAccordion($faqs);
+        }, $content);
+
+        return $content;
+    }
+
+    /**
+     * Parse question/answer pairs out of a rendered RankMath FAQ block body.
+     *
+     * @param string $inner Inner HTML of the rank-math-faq container.
+     * @return array<int, array{question: string, answer: string}>
+     */
+    private function extractRankMathFaqItems($inner) {
+        // Pair each question heading with the answer body that follows it. We anchor
+        // on rank-math-question / rank-math-answer rather than balancing the nested
+        // rank-math-list-item <div>s, which are brittle to match with a flat regex.
+        $pairPattern = '/<h[1-6]\b[^>]*\brank-math-question\b[^>]*>(.*?)<\/h[1-6]>'
+            . '\s*<div\b[^>]*\brank-math-answer\b[^>]*>(.*?)<\/div>/is';
+
+        if (!preg_match_all($pairPattern, $inner, $pairs, PREG_SET_ORDER)) {
+            return [];
+        }
+
+        $faqs = [];
+        foreach ($pairs as $pair) {
+            $question = trim($pair[1]);
+            $answer = trim($pair[2]);
+
+            if ($question === '') {
+                continue;
+            }
+
+            $faqs[] = [
+                'question' => $question,
+                'answer'   => $answer,
+            ];
+        }
+
+        return $faqs;
+    }
+
+    /**
+     * Render parsed FAQ items as a Shopify-safe accordion plus FAQPage JSON-LD.
+     *
+     * @param array<int, array{question: string, answer: string}> $faqs
+     * @return string HTML markup.
+     */
+    private function renderFaqAccordion(array $faqs) {
+        $itemStyle = 'border:1px solid #e0e0e0;border-radius:6px;margin:0 0 0.75rem;overflow:hidden;';
+        $summaryStyle = 'cursor:pointer;padding:1rem 1.25rem;font-weight:600;list-style:none;';
+        $answerStyle = 'padding:0 1.25rem 1rem;';
+
+        $html = '<div class="wash-faq" style="margin:2rem 0;">';
+
+        $jsonItems = [];
+        foreach ($faqs as $faq) {
+            $html .= '<details class="wash-faq__item" style="' . esc_attr($itemStyle) . '">';
+            $html .= '<summary class="wash-faq__question" style="' . esc_attr($summaryStyle) . '">'
+                . $faq['question'] . '</summary>';
+            $html .= '<div class="wash-faq__answer" style="' . esc_attr($answerStyle) . '">'
+                . $faq['answer'] . '</div>';
+            $html .= '</details>';
+
+            $jsonItems[] = [
+                '@type'          => 'Question',
+                'name'           => $this->faqPlainText($faq['question']),
+                'acceptedAnswer' => [
+                    '@type' => 'Answer',
+                    'text'  => $this->faqPlainText($faq['answer']),
+                ],
+            ];
+        }
+
+        $html .= '</div>';
+
+        $schema = [
+            '@context'   => 'https://schema.org',
+            '@type'      => 'FAQPage',
+            'mainEntity' => $jsonItems,
+        ];
+
+        $json = function_exists('wp_json_encode')
+            ? wp_json_encode($schema)
+            : json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        $html .= '<script type="application/ld+json">' . $json . '</script>';
+
+        return $html;
+    }
+
+    /**
+     * Strip HTML tags and decode entities for use in JSON-LD plain-text fields.
+     *
+     * @param string $html
+     * @return string
+     */
+    private function faqPlainText($html) {
+        $text = wp_strip_all_tags($html);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return trim(preg_replace('/\s+/', ' ', $text));
+    }
+
+    /**
      * Backwards compatibility alias.
      */
     private function rewriteImageUrls($content) {
@@ -634,7 +796,7 @@ class WashSync {
      */
     private function rewriteInternalUrls($content) {
         $siteUrl = get_site_url();
-        $parsedSite = parse_url($siteUrl);
+        $parsedSite = wp_parse_url($siteUrl);
         $siteHost = $parsedSite['host'] ?? '';
 
         if (empty($siteHost)) {
@@ -916,6 +1078,34 @@ class WashSync {
 
         washLog("[wash] getAttachmentIdFromUrl() - No attachment found for: {$cleanUrl}");
         return false;
+    }
+
+    /**
+     * Map every wp-content/uploads URL in the content to its WP attachment id.
+     *
+     * Unlike syncContentFiles() the regex is NOT anchored to get_site_url(), so
+     * it also matches upload URLs rewritten to an offload/CDN host. The worker
+     * uses this map to rehost a not-yet-synced body image to the Shopify CDN.
+     *
+     * @param string $content Post content HTML.
+     * @return array<string,int> URL (as found in content) => attachment id.
+     */
+    private function buildContentImageIdMap($content) {
+        if (empty($content)) {
+            return [];
+        }
+        $pattern = '/(https?:\/\/[^"\'<>\s\)]+\/wp-content\/uploads\/[^"\'<>\s\)]+)/i';
+        if (!preg_match_all($pattern, $content, $matches) || empty($matches[1])) {
+            return [];
+        }
+        $map = [];
+        foreach (array_unique($matches[1]) as $fileUrl) {
+            $attachmentId = $this->getAttachmentIdFromUrl($fileUrl);
+            if ($attachmentId) {
+                $map[$fileUrl] = (int) $attachmentId;
+            }
+        }
+        return $map;
     }
 
     /**
@@ -1301,6 +1491,7 @@ class WashSync {
      */
     private function resolveSeoVariables($template, $postId) {
         $post = get_post($postId);
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WP core's `document_title_separator` filter; consumed for parity with how WP renders document titles.
         $sep = apply_filters('document_title_separator', '-');
         $siteName = get_bloginfo('name');
 
@@ -1315,7 +1506,7 @@ class WashSync {
             '%%excerpt%%'    => get_the_excerpt($postId),
             '%%date%%'       => get_the_date('', $postId),
             '%%category%%'   => $this->getPrimaryCategory($postId),
-            '%%currentyear%%' => date('Y'),
+            '%%currentyear%%' => gmdate('Y'),
             '%%primary_category%%' => $this->getPrimaryCategory($postId),
         ];
 
@@ -1329,7 +1520,7 @@ class WashSync {
             '%date%'         => get_the_date('', $postId),
             '%author%'       => get_the_author_meta('display_name', $post->post_author),
             '%category%'     => $this->getPrimaryCategory($postId),
-            '%currentyear%'  => date('Y'),
+            '%currentyear%'  => gmdate('Y'),
             '%sitedesc%'     => get_bloginfo('description'),
         ];
 
@@ -1528,6 +1719,7 @@ class WashSync {
         // Suppress errors so a transient table issue doesn't break the post save flow.
         $previousShowErrors = $wpdb->show_errors(false);
         $previousSuppressErrors = $wpdb->suppress_errors(true);
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- custom plugin table (wash_sync) tracking sync timestamps; no WP-API equivalent. Caching unnecessary on an INSERT.
         $wpdb->insert($tableName, $data);
         $wpdb->show_errors($previousShowErrors);
         $wpdb->suppress_errors($previousSuppressErrors);
@@ -1544,6 +1736,7 @@ class WashSync {
             return;
         }
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-shot SHOW TABLES probe to self-heal a missing custom table on first request after activation; result cached in static $verified for the rest of the request.
         $exists = $wpdb->get_var(
             $wpdb->prepare("SHOW TABLES LIKE %s", $tableName)
         );

@@ -3,6 +3,10 @@
  * Handles plugin activation and deactivation.
  * Creates required database tables and default options.
  */
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct file access.
+}
+
 class WashActivator {
 
     /**

@@ -4,6 +4,10 @@
  * Parses blocks BEFORE apply_filters('the_content') to extract metadata
  * and optionally modify blocks before rendering.
  */
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct file access.
+}
+
 class WashBlocks {
 
     /** @var WashApiClient */
@@ -323,12 +327,14 @@ class WashBlocks {
         $css = [];
         $blockTypes = $this->getUniqueBlockTypes($blocks);
 
-        // Get theme.json custom CSS if available
-        if (function_exists('wp_get_global_styles_custom_css')) {
-            $customCss = wp_get_global_styles_custom_css();
-            if ($customCss) {
-                $css[] = "/* Theme Custom CSS */\n" . $customCss;
-            }
+        // Get theme.json custom CSS. wp_get_global_styles_custom_css() was
+        // deprecated in WP 6.7 in favor of WP_Theme_JSON_Resolver, but the
+        // replacement isn't stable across the WP 6.3-6.8 range we support, so
+        // prefer the new path when available and fall back to the deprecated
+        // helper (silenced) on older installs.
+        $customCss = $this->getThemeJsonCustomCss();
+        if ($customCss !== '') {
+            $css[] = "/* Theme Custom CSS */\n" . $customCss;
         }
 
         // Get block-specific styles for core blocks
@@ -346,6 +352,33 @@ class WashBlocks {
         $css[] = $this->getCoreBlocksCss();
 
         return implode("\n\n", array_filter($css));
+    }
+
+    /**
+     * Resolve theme.json "custom CSS" string across WP 6.3-6.8.
+     *
+     * On WP 6.7+ the dedicated helper `wp_get_global_styles_custom_css()` was
+     * deprecated; the recommended replacement is reading the merged theme.json
+     * via `WP_Theme_JSON_Resolver::get_merged_data()->get_custom_css()`. We
+     * try the new path first and silently fall back to the deprecated helper
+     * on older WP versions so behaviour is unchanged for installs on the
+     * 6.3-6.6 range still in our `Requires at least` band.
+     */
+    private function getThemeJsonCustomCss(): string {
+        if (class_exists('WP_Theme_JSON_Resolver')) {
+            $merged = \WP_Theme_JSON_Resolver::get_merged_data();
+            if (is_object($merged) && method_exists($merged, 'get_custom_css')) {
+                $css = (string) $merged->get_custom_css();
+                if ($css !== '') {
+                    return $css;
+                }
+            }
+        }
+        if (function_exists('wp_get_global_styles_custom_css')) {
+            // phpcs:ignore WordPress.WP.DeprecatedFunctions.wp_get_global_styles_custom_cssFound -- only reached as a fallback on WP 6.3-6.6 where the WP_Theme_JSON_Resolver path above isn't available; the new API is preferred whenever present.
+            return (string) @wp_get_global_styles_custom_css();
+        }
+        return '';
     }
 
     /**

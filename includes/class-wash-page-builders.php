@@ -4,6 +4,10 @@
  * Detects active page builders (Bricks, Elementor, Divi, etc.)
  * and renders their content to HTML+CSS for Shopify sync.
  */
+if (!defined('ABSPATH')) {
+    exit; // Prevent direct file access.
+}
+
 class WashPageBuilders {
 
     /**
@@ -134,6 +138,7 @@ class WashPageBuilders {
                 washLog("[wash] Bricks: all methods failed, falling back to the_content");
                 $post = get_post($postId);
                 if ($post) {
+                    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- `the_content` is WordPress core's documented content filter; we consume it to get fully-rendered output, not a hook we own.
                     $html = apply_filters('the_content', $post->post_content);
                 }
             }
@@ -192,11 +197,13 @@ class WashPageBuilders {
 
         // Fallback: detect auth from current request (nginx/apache basic auth)
         if (empty($httpUser) && !empty($_SERVER['PHP_AUTH_USER'])) {
-            $httpUser = $_SERVER['PHP_AUTH_USER'];
-            $httpPass = $_SERVER['PHP_AUTH_PW'] ?? '';
+            $httpUser = sanitize_text_field(wp_unslash($_SERVER['PHP_AUTH_USER']));
+            $httpPass = isset($_SERVER['PHP_AUTH_PW'])
+                ? sanitize_text_field(wp_unslash($_SERVER['PHP_AUTH_PW']))
+                : '';
         }
         if (empty($httpUser) && !empty($_SERVER['HTTP_AUTHORIZATION'])) {
-            $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+            $authHeader = sanitize_text_field(wp_unslash($_SERVER['HTTP_AUTHORIZATION']));
             if (stripos($authHeader, 'Basic ') === 0) {
                 $decoded = base64_decode(substr($authHeader, 6));
                 if ($decoded && strpos($decoded, ':') !== false) {
@@ -445,6 +452,7 @@ class WashPageBuilders {
 
         // Future: \Elementor\Plugin::$instance->frontend->get_builder_content($postId, true)
         $post = get_post($postId);
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WP core's `the_content` filter; consumed for rendered output.
         $html = $post ? apply_filters('the_content', $post->post_content) : '';
 
         return ['html' => $html, 'css' => ''];
@@ -462,6 +470,7 @@ class WashPageBuilders {
 
         // Future: et_builder_get_layout_html($postId)
         $post = get_post($postId);
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WP core's `the_content` filter; consumed for rendered output.
         $html = $post ? apply_filters('the_content', $post->post_content) : '';
 
         return ['html' => $html, 'css' => ''];

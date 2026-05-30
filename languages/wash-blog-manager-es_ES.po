@@ -1,15 +1,15 @@
-# German translation for wash
+# Spanish translation for wash
 # Copyright (C) 2026 Tradik
 # This file is distributed under the MIT license.
 msgid ""
 msgstr ""
-"Project-Id-Version: wash 1.12.13\n"
+"Project-Id-Version: wash-blog-manager 1.12.13\n"
 "Report-Msgid-Bugs-To: https://github.com/tradik/wash/issues\n"
 "POT-Creation-Date: 2026-03-29 00:00+0000\n"
 "PO-Revision-Date: 2026-03-29 00:00+0000\n"
 "Last-Translator: Tradik Team <hello@tradik.com>\n"
-"Language-Team: German <de@li.org>\n"
-"Language: de_DE\n"
+"Language-Team: Spanish <es@li.org>\n"
+"Language: es_ES\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -105,7 +105,7 @@ msgstr ""
 
 #: blocks/sync-status/index.js:112 includes/class-wash-admin.php:392
 msgid "Loading..."
-msgstr "Laden..."
+msgstr "Cargando..."
 
 #: blocks/sync-status/index.js:129
 msgid "Shopify ID:"
@@ -121,7 +121,7 @@ msgstr ""
 
 #: blocks/sync-status/index.js:144
 msgid "Error:"
-msgstr "Fehler:"
+msgstr "Error:"
 
 #: blocks/sync-status/index.js:152
 msgid "Not yet synced to Shopify"
@@ -190,7 +190,7 @@ msgstr ""
 #: admin/views/settings-page.php:142
 #, php-format
 msgid "Requires %s plan"
-msgstr "Erfordert %s-Plan"
+msgstr "Requiere el plan %s"
 
 #: admin/views/settings-page.php:144
 msgid "Locked by Shopify Admin"
@@ -219,7 +219,7 @@ msgstr ""
 
 #: admin/views/settings-page.php:233 includes/class-wash-admin.php:144
 msgid "Wash Settings"
-msgstr "wash Einstellungen"
+msgstr "Configuración de wash"
 
 #: admin/views/settings-page.php:238
 msgid "Check for updates"
@@ -236,23 +236,23 @@ msgstr ""
 
 #: admin/views/settings-page.php:265 admin/views/settings-page.php:277
 msgid "(unlimited)"
-msgstr "(unbegrenzt)"
+msgstr "(ilimitado)"
 
 #: admin/views/settings-page.php:260
 msgid "Articles:"
-msgstr "Artikel:"
+msgstr "Artículos:"
 
 #: admin/views/settings-page.php:272
 msgid "Edits:"
-msgstr "Bearbeitungen:"
+msgstr "Ediciones:"
 
 #: admin/views/settings-page.php:286
 msgid "Upgrade Plan"
-msgstr "Plan upgraden"
+msgstr "Mejorar plan"
 
 #: admin/views/settings-page.php:294
 msgid "Connection"
-msgstr "Verbindung"
+msgstr "Conexión"
 
 #: admin/views/settings-page.php:295
 msgid "Blogs"
@@ -260,7 +260,7 @@ msgstr "Blogs"
 
 #: admin/views/settings-page.php:296
 msgid "Redirections"
-msgstr "Weiterleitungen"
+msgstr "Redirecciones"
 
 #: admin/views/settings-page.php:297
 msgid "Hreflangs"
@@ -268,15 +268,15 @@ msgstr "Hreflangs"
 
 #: admin/views/settings-page.php:298
 msgid "Meta Fields"
-msgstr "Meta-Felder"
+msgstr "Metacampos"
 
 #: admin/views/settings-page.php:299
 msgid "Authors"
-msgstr "Autoren"
+msgstr "Autores"
 
 #: admin/views/settings-page.php:300
 msgid "Files & Media"
-msgstr "Dateien & Medien"
+msgstr "Archivos y medios"
 
 #: admin/views/settings-page.php:301
 msgid "Content Processing"
@@ -284,19 +284,19 @@ msgstr ""
 
 #: admin/views/settings-page.php:302
 msgid "Sync Settings"
-msgstr "Sync-Einstellungen"
+msgstr "Configuración de sincronización"
 
 #: admin/views/settings-page.php:303
 msgid "Advanced"
-msgstr "Erweitert"
+msgstr "Avanzado"
 
 #: admin/views/settings-page.php:312
 msgid "Shopify Store Connection"
-msgstr "Shopify Store Verbindung"
+msgstr "Conexión con tienda Shopify"
 
 #: admin/views/settings-page.php:320
 msgid "Connected"
-msgstr "Verbunden"
+msgstr "Conectado"
 
 #: admin/views/settings-page.php:323
 msgid "to"
@@ -304,283 +304,283 @@ msgstr ""
 
 #: admin/views/settings-page.php:332
 msgid "Disconnect"
-msgstr "Trennen"
+msgstr "Desconectar"
 
 #: admin/views/settings-page.php:345
 msgid "Shopify Store"
-msgstr "Shopify Store"
+msgstr "Tienda Shopify"
 
 #: admin/views/settings-page.php:355
 msgid "Your Shopify store handle (e.g., \"my-store\" from my-store.myshopify.com)"
-msgstr "Ihr Shopify Store Handle (z.B. \"mein-shop\" von mein-shop.myshopify.com)"
+msgstr "El identificador de tu tienda Shopify (ej. \"mi-tienda\" de mi-tienda.myshopify.com)"
 
 #: admin/views/settings-page.php:363
 msgid "Connect to Shopify"
-msgstr "Mit Shopify verbinden"
+msgstr "Conectar con Shopify"
 
 #: admin/views/settings-page.php:370
 msgid "Manual Configuration"
-msgstr "Manuelle Konfiguration"
+msgstr "Configuración manual"
 
 #: admin/views/settings-page.php:371
 msgid "If automatic connection fails, you can enter credentials manually."
-msgstr "Wenn die automatische Verbindung fehlschlägt, können Sie die Anmeldedaten manuell eingeben."
+msgstr "Si la conexión automática falla, puedes introducir las credenciales manualmente."
 
 #: admin/views/settings-page.php:376
 msgid "API Key"
-msgstr "API-Schlüssel"
+msgstr "Clave API"
 
 #: admin/views/settings-page.php:386
 msgid "API Secret"
-msgstr "API-Geheimnis"
+msgstr "Secreto API"
 
 #: admin/views/settings-page.php:397
 msgid "Hide manual configuration"
-msgstr "Manuelle Konfiguration ausblenden"
+msgstr "Ocultar configuración manual"
 
 #: admin/views/settings-page.php:402
 msgid "Enter credentials manually"
-msgstr "Anmeldedaten manuell eingeben"
+msgstr "Introducir credenciales manualmente"
 
 #: admin/views/settings-page.php:415
 msgid "Blog Routing Rules"
-msgstr "Blog-Routing-Regeln"
+msgstr "Reglas de enrutamiento de blogs"
 
 #: admin/views/settings-page.php:417
 msgid "Route WordPress posts to different Shopify blogs based on language or category."
-msgstr "Leiten Sie WordPress-Beiträge basierend auf Sprache oder Kategorie an verschiedene Shopify-Blogs weiter."
+msgstr "Enruta los posts de WordPress a diferentes blogs de Shopify según el idioma o categoría."
 
 #: admin/views/settings-page.php:418
 msgid "Higher priority rules are matched first. Default rule is used when no other rule matches."
-msgstr "Regeln mit höherer Priorität werden zuerst abgeglichen. Die Standardregel wird verwendet, wenn keine andere Regel passt."
+msgstr "Las reglas de mayor prioridad se procesan primero. La regla por defecto se usa cuando ninguna otra coincide."
 
 #: admin/views/settings-page.php:423
 msgid "Connect to Shopify first to configure blog mappings."
-msgstr "Verbinden Sie sich zuerst mit Shopify, um Blog-Zuordnungen zu konfigurieren."
+msgstr "Conéctate primero a Shopify para configurar los mapeos de blogs."
 
 #: admin/views/settings-page.php:429
 msgid "Loading mappings..."
-msgstr "Zuordnungen werden geladen..."
+msgstr "Cargando mapeos..."
 
 #: admin/views/settings-page.php:435 admin/views/settings-page.php:441
 msgid "Add Mapping Rule"
-msgstr "Zuordnungsregel hinzufügen"
+msgstr "Añadir regla de mapeo"
 
 #: admin/views/settings-page.php:447
 msgid "Rule Type"
-msgstr "Regeltyp"
+msgstr "Tipo de regla"
 
 #: admin/views/settings-page.php:451
 msgid "Default (catch-all)"
-msgstr "Standard (catch-all)"
+msgstr "Por defecto (catch-all)"
 
 #: admin/views/settings-page.php:452
 msgid "By Language"
-msgstr "Nach Sprache"
+msgstr "Por idioma"
 
 #: admin/views/settings-page.php:453
 msgid "By Category"
-msgstr "Nach Kategorie"
+msgstr "Por categoría"
 
 #: admin/views/settings-page.php:459
 msgid "Value"
-msgstr "Wert"
+msgstr "Valor"
 
 #: admin/views/settings-page.php:464
 msgid "Language code (en, de, pl) or category slug"
-msgstr "Sprachcode (en, de, pl) oder Kategorie-Slug"
+msgstr "Código de idioma (en, de, pl) o slug de categoría"
 
 #: admin/views/settings-page.php:470
 msgid "Target Shopify Blog"
-msgstr "Ziel-Shopify-Blog"
+msgstr "Blog Shopify destino"
 
 #: admin/views/settings-page.php:474
 msgid "Select a blog..."
-msgstr "Blog auswählen..."
+msgstr "Seleccionar un blog..."
 
 #: admin/views/settings-page.php:475
 msgid "Create new blog"
-msgstr "Neuen Blog erstellen"
+msgstr "Crear nuevo blog"
 
 #: admin/views/settings-page.php:478
 msgid "New blog name (e.g., blog-en)"
-msgstr "Name des neuen Blogs (z.B. blog-de)"
+msgstr "Nombre del nuevo blog (ej. blog-es)"
 
 #: admin/views/settings-page.php:484
 msgid "Priority"
-msgstr "Priorität"
+msgstr "Prioridad"
 
 #: admin/views/settings-page.php:488
 msgid "Higher priority rules are matched first (0-100)"
-msgstr "Regeln mit höherer Priorität werden zuerst abgeglichen (0-100)"
+msgstr "Las reglas de mayor prioridad se procesan primero (0-100)"
 
 #: admin/views/settings-page.php:495
 msgid "Save Mapping"
-msgstr "Zuordnung speichern"
+msgstr "Guardar mapeo"
 
 #: admin/views/settings-page.php:498
 msgid "Cancel"
-msgstr "Abbrechen"
+msgstr "Cancelar"
 
 #: admin/views/settings-page.php:512
 msgid "URL Redirections Management"
-msgstr "URL-Weiterleitungsverwaltung"
+msgstr "Gestión de redirecciones URL"
 
 #: admin/views/settings-page.php:513
 msgid "Manage 301 redirects from WordPress URLs to Shopify URLs for SEO preservation during migration."
-msgstr "Verwalten Sie 301-Weiterleitungen von WordPress-URLs zu Shopify-URLs zur SEO-Erhaltung während der Migration."
+msgstr "Gestiona las redirecciones 301 de URLs de WordPress a URLs de Shopify para preservar el SEO durante la migración."
 
 #: admin/views/settings-page.php:520
 msgid "Redirections Manager"
-msgstr "Weiterleitungsmanager"
+msgstr "Gestor de redirecciones"
 
 #: admin/views/settings-page.php:526
 msgid "Loading redirect stats..."
-msgstr "Weiterleitungsstatistiken werden geladen..."
+msgstr "Cargando estadísticas de redirecciones..."
 
 #: admin/views/settings-page.php:533 includes/class-wash-admin.php:403
 msgid "Sync from Old Website"
-msgstr "Von alter Website synchronisieren"
+msgstr "Sincronizar desde sitio antiguo"
 
 #: admin/views/settings-page.php:537 includes/class-wash-admin.php:408
 msgid "Generate from Synced Posts"
-msgstr "Aus synchronisierten Beiträgen generieren"
+msgstr "Generar desde posts sincronizados"
 
 #: admin/views/settings-page.php:541 includes/class-wash-admin.php:410
 msgid "Load from Shopify"
-msgstr "Von Shopify laden"
+msgstr "Cargar desde Shopify"
 
 #: admin/views/settings-page.php:545 includes/class-wash-admin.php:419
 msgid "Fix Session Scopes"
-msgstr "Sitzungsbereiche reparieren"
+msgstr "Corregir ámbitos de sesión"
 
 #: admin/views/settings-page.php:552
 msgid "Redirections List"
-msgstr "Weiterleitungsliste"
+msgstr "Lista de redirecciones"
 
 #: admin/views/settings-page.php:554
 msgid "format: /old-path -> /new-path"
-msgstr "Format: /alter-pfad -> /neuer-pfad"
+msgstr "formato: /ruta-antigua -> /ruta-nueva"
 
 #: admin/views/settings-page.php:563
 msgid "Enter one redirection per line. You can use ->, =>, or → as separator. Lines starting with # are ignored."
-msgstr "Geben Sie eine Weiterleitung pro Zeile ein. Sie können ->, => oder → als Trennzeichen verwenden. Zeilen, die mit # beginnen, werden ignoriert."
+msgstr "Introduce una redirección por línea. Puedes usar ->, => o → como separador. Las líneas que empiezan con # se ignoran."
 
 #: admin/views/settings-page.php:571
 msgid "Sync Redirections to Shopify"
-msgstr "Weiterleitungen zu Shopify synchronisieren"
+msgstr "Sincronizar redirecciones a Shopify"
 
 #: admin/views/settings-page.php:580
 msgid "Sync Complete"
-msgstr "Synchronisierung abgeschlossen"
+msgstr "Sincronización completada"
 
 #: admin/views/settings-page.php:587
 msgid "Connect to Shopify first to manage redirections."
-msgstr "Verbinden Sie sich zuerst mit Shopify, um Weiterleitungen zu verwalten."
+msgstr "Conéctate primero a Shopify para gestionar las redirecciones."
 
 #: admin/views/settings-page.php:595
 msgid "URL Structure Guide"
-msgstr "URL-Struktur-Anleitung"
+msgstr "Guía de estructura URL"
 
 #: admin/views/settings-page.php:603
 msgid "WordPress URL Structure (Current)"
-msgstr "WordPress URL-Struktur (aktuell)"
+msgstr "Estructura URL de WordPress (Actual)"
 
 #: admin/views/settings-page.php:605
 msgid "Your WordPress site currently serves content with these URL patterns:"
-msgstr "Ihre WordPress-Site stellt derzeit Inhalte mit diesen URL-Mustern bereit:"
+msgstr "Tu sitio WordPress actualmente sirve contenido con estos patrones de URL:"
 
 #: admin/views/settings-page.php:609 admin/views/settings-page.php:650
 msgid "Blog Posts"
-msgstr "Blog-Beiträge"
+msgstr "Entradas del blog"
 
 #: admin/views/settings-page.php:612
 msgid "Permalink structure depends on Settings → Permalinks"
-msgstr "Permalink-Struktur hängt von Einstellungen → Permalinks ab"
+msgstr "La estructura de enlaces permanentes depende de Ajustes → Enlaces permanentes"
 
 #: admin/views/settings-page.php:616 admin/views/settings-page.php:666
 msgid "Pages"
-msgstr "Seiten"
+msgstr "Páginas"
 
 #: admin/views/settings-page.php:619
 msgid "Page slug becomes the URL"
-msgstr "Seiten-Slug wird zur URL"
+msgstr "El slug de la página se convierte en la URL"
 
 #: admin/views/settings-page.php:623
 msgid "Categories"
-msgstr "Kategorien"
+msgstr "Categorías"
 
 #: admin/views/settings-page.php:626
 msgid "Category archives with pagination"
-msgstr "Kategoriearchive mit Paginierung"
+msgstr "Archivos de categorías con paginación"
 
 #: admin/views/settings-page.php:630 admin/views/settings-page.php:673 admin/views/settings-page.php:1504
 msgid "Images"
-msgstr "Bilder"
+msgstr "Imágenes"
 
 #: admin/views/settings-page.php:633
 msgid "Served from your WordPress server"
-msgstr "Von Ihrem WordPress-Server bereitgestellt"
+msgstr "Servido desde tu servidor WordPress"
 
 #: admin/views/settings-page.php:644
 msgid "Shopify URL Structure (After Sync)"
-msgstr "Shopify URL-Struktur (nach Synchronisierung)"
+msgstr "Estructura URL de Shopify (Después de sincronizar)"
 
 #: admin/views/settings-page.php:646
 msgid "After syncing, your content will be available on Shopify with these URL patterns:"
-msgstr "Nach der Synchronisierung sind Ihre Inhalte auf Shopify mit diesen URL-Mustern verfügbar:"
+msgstr "Después de sincronizar, tu contenido estará disponible en Shopify con estos patrones de URL:"
 
 #: admin/views/settings-page.php:653
 msgid "Blog handle is required in Shopify URLs. Configure in Blogs tab."
-msgstr "Blog-Handle ist in Shopify-URLs erforderlich. Konfigurieren Sie im Blogs-Tab."
+msgstr "El identificador del blog es requerido en las URLs de Shopify. Configura en la pestaña Blogs."
 
 #: admin/views/settings-page.php:657
 msgid "Multi-language Posts"
-msgstr "Mehrsprachige Beiträge"
+msgstr "Posts multiidioma"
 
 #: admin/views/settings-page.php:659
 msgid "English"
-msgstr "Englisch"
+msgstr "Inglés"
 
 #: admin/views/settings-page.php:660
 msgid "German"
-msgstr "Deutsch"
+msgstr "Alemán"
 
 #: admin/views/settings-page.php:661
 msgid "Polish"
-msgstr "Polnisch"
+msgstr "Polaco"
 
 #: admin/views/settings-page.php:662
 msgid "Each language gets its own blog with routing rules."
-msgstr "Jede Sprache bekommt ihren eigenen Blog mit Routing-Regeln."
+msgstr "Cada idioma tiene su propio blog con reglas de enrutamiento."
 
 #: admin/views/settings-page.php:669
 msgid "Pages are prefixed with /pages/ in Shopify."
-msgstr "Seiten haben in Shopify das Präfix /pages/."
+msgstr "Las páginas tienen el prefijo /pages/ en Shopify."
 
 #: admin/views/settings-page.php:676
 msgid "Images are uploaded to Shopify CDN for faster global delivery."
-msgstr "Bilder werden zum Shopify CDN hochgeladen für schnellere globale Bereitstellung."
+msgstr "Las imágenes se suben al CDN de Shopify para una entrega global más rápida."
 
 #: admin/views/settings-page.php:687
 msgid "Image Handling"
-msgstr "Bildverarbeitung"
+msgstr "Gestión de imágenes"
 
 #: admin/views/settings-page.php:692
 msgid "Image Type"
-msgstr "Bildtyp"
+msgstr "Tipo de imagen"
 
 #: admin/views/settings-page.php:693
 msgid "What Happens"
-msgstr "Was passiert"
+msgstr "Qué sucede"
 
 #: admin/views/settings-page.php:698
 msgid "Featured Image"
-msgstr "Beitragsbild"
+msgstr "Imagen destacada"
 
 #: admin/views/settings-page.php:699
 msgid "Uploaded to Shopify and set as article image. Displayed in blog listings and article headers."
-msgstr "Zu Shopify hochgeladen und als Artikelbild gesetzt. Angezeigt in Blog-Listen und Artikelüberschriften."
+msgstr "Subida a Shopify y establecida como imagen del artículo. Mostrada en listados de blog y cabeceras de artículos."
 
 #: admin/views/settings-page.php:702
 msgid "Content Images"
@@ -1057,7 +1057,7 @@ msgstr ""
 
 #: admin/views/settings-page.php:1259
 msgid "Author Mapping"
-msgstr "Autorenzuordnung"
+msgstr "Mapeo de autores"
 
 #: admin/views/settings-page.php:1260
 msgid "Map WordPress users to custom author names displayed on Shopify articles."
@@ -1549,11 +1549,11 @@ msgstr ""
 
 #: admin/views/settings-page.php:1977 includes/class-wash-admin.php:377
 msgid "Are you sure you want to disconnect from Shopify?"
-msgstr "Sind Sie sicher, dass Sie die Verbindung zu Shopify trennen möchten?"
+msgstr "¿Está seguro de que desea desconectarse de Shopify?"
 
 #: admin/views/settings-page.php:2025 includes/class-wash-admin.php:436
 msgid "Failed to load mappings"
-msgstr "Zuordnungen konnten nicht geladen werden"
+msgstr "No se pudieron cargar los mapeos"
 
 #: admin/views/settings-page.php:2060
 msgid "No mapping rules configured. Posts will sync to the default Shopify blog."
@@ -1585,11 +1585,11 @@ msgstr ""
 
 #: admin/views/settings-page.php:2081 includes/class-wash-admin.php:437
 msgid "Edit"
-msgstr "Bearbeiten"
+msgstr "Editar"
 
 #: admin/views/settings-page.php:2082 includes/class-wash-admin.php:438
 msgid "Delete"
-msgstr "Löschen"
+msgstr "Eliminar"
 
 #: admin/views/settings-page.php:2154
 msgid "Saving..."
@@ -1649,7 +1649,7 @@ msgstr ""
 
 #: includes/class-wash-files-media.php:192 includes/class-wash-admin.php:1325 includes/class-wash-files-media.php:435
 msgid "Sync failed"
-msgstr "Synchronisierung fehlgeschlagen"
+msgstr "Falló la sincronización"
 
 #: includes/class-wash-files-media.php:267
 msgid "Image synced to Shopify successfully!"
@@ -1799,7 +1799,7 @@ msgstr ""
 
 #: includes/class-wash-hreflangs.php:640
 msgid "None detected"
-msgstr "Keine erkannt"
+msgstr "Ninguno detectado"
 
 #: includes/class-wash-multisite.php:23
 msgid "Wash Network"
@@ -1839,7 +1839,7 @@ msgstr ""
 
 #: includes/class-wash-admin.php:344
 msgid "Sync in progress..."
-msgstr "Synchronisierung läuft..."
+msgstr "Sincronización en progreso..."
 
 #: includes/class-wash-admin.php:346 includes/class-wash-admin.php:1245
 msgid "Post synced to Shopify successfully."
@@ -1847,204 +1847,204 @@ msgstr ""
 
 #: includes/class-wash-admin.php:372
 msgid "Testing connection..."
-msgstr "Verbindung wird getestet..."
+msgstr "Probando conexión..."
 
 #: includes/class-wash-admin.php:373
 msgid "Connection successful!"
-msgstr "Verbindung erfolgreich!"
+msgstr "¡Conexión exitosa!"
 
 #: includes/class-wash-admin.php:374
 msgid "Connection failed: "
-msgstr "Verbindung fehlgeschlagen: "
+msgstr "Conexión fallida: "
 
 #: includes/class-wash-admin.php:375
 msgid "Test Connection"
-msgstr "Verbindung testen"
+msgstr "Probar conexión"
 
 #: includes/class-wash-admin.php:378
 msgid "Failed to disconnect. Please try again."
-msgstr "Trennen fehlgeschlagen. Bitte versuchen Sie es erneut."
+msgstr "No se pudo desconectar. Por favor, inténtelo de nuevo."
 
 #: includes/class-wash-admin.php:380
 msgid "Debug Session"
-msgstr "Sitzung debuggen"
+msgstr "Depurar sesión"
 
 #: includes/class-wash-admin.php:381
 msgid "Checking..."
-msgstr "Überprüfen..."
+msgstr "Comprobando..."
 
 #: includes/class-wash-admin.php:382
 msgid "Network error - could not reach debug endpoint"
-msgstr "Netzwerkfehler - Debug-Endpunkt nicht erreichbar"
+msgstr "Error de red - no se pudo alcanzar el endpoint de depuración"
 
 #: includes/class-wash-admin.php:384
 msgid "Reset Session"
-msgstr "Sitzung zurücksetzen"
+msgstr "Reiniciar sesión"
 
 #: includes/class-wash-admin.php:385
 msgid "Resetting..."
-msgstr "Wird zurückgesetzt..."
+msgstr "Reiniciando..."
 
 #: includes/class-wash-admin.php:386
 msgid "This will delete the Shopify session. You will need to re-open the app from Shopify Admin to re-authenticate. Continue?"
-msgstr "Dies löscht die Shopify-Sitzung. Sie müssen die App erneut aus dem Shopify Admin öffnen, um sich erneut zu authentifizieren. Fortfahren?"
+msgstr "Esto eliminará la sesión de Shopify. Necesitará volver a abrir la app desde el Admin de Shopify para re-autenticarse. ¿Continuar?"
 
 #: includes/class-wash-admin.php:387
 msgid "Session reset. Now open the app from Shopify Admin to re-authenticate."
-msgstr "Sitzung zurückgesetzt. Öffnen Sie nun die App aus dem Shopify Admin, um sich erneut zu authentifizieren."
+msgstr "Sesión reiniciada. Ahora abra la app desde el Admin de Shopify para re-autenticarse."
 
 #: includes/class-wash-admin.php:388
 msgid "Failed to reset session: "
-msgstr "Sitzung konnte nicht zurückgesetzt werden: "
+msgstr "No se pudo reiniciar la sesión: "
 
 #: includes/class-wash-admin.php:389
 msgid "Network error - could not reach reset endpoint"
-msgstr "Netzwerkfehler - Reset-Endpunkt nicht erreichbar"
+msgstr "Error de red - no se pudo alcanzar el endpoint de reinicio"
 
 #: includes/class-wash-admin.php:390
 msgid "Network error while resetting session"
-msgstr "Netzwerkfehler beim Zurücksetzen der Sitzung"
+msgstr "Error de red al reiniciar la sesión"
 
 #: includes/class-wash-admin.php:393
 msgid "Syncing redirections..."
-msgstr "Weiterleitungen werden synchronisiert..."
+msgstr "Sincronizando redirecciones..."
 
 #: includes/class-wash-admin.php:394
 msgid "Generating redirections..."
-msgstr "Weiterleitungen werden generiert..."
+msgstr "Generando redirecciones..."
 
 #: includes/class-wash-admin.php:395
 msgid "Fetching WordPress redirections..."
-msgstr "WordPress-Weiterleitungen werden abgerufen..."
+msgstr "Obteniendo redirecciones de WordPress..."
 
 #: includes/class-wash-admin.php:396
 msgid "Redirections synced successfully!"
-msgstr "Weiterleitungen erfolgreich synchronisiert!"
+msgstr "¡Redirecciones sincronizadas con éxito!"
 
 #: includes/class-wash-admin.php:397
 msgid "Failed to sync redirections: "
-msgstr "Synchronisierung der Weiterleitungen fehlgeschlagen: "
+msgstr "No se pudieron sincronizar las redirecciones: "
 
 #: includes/class-wash-admin.php:398
 msgid "Failed to load stats"
-msgstr "Statistiken konnten nicht geladen werden"
+msgstr "No se pudieron cargar las estadísticas"
 
 #: includes/class-wash-admin.php:399
 msgid "No redirections found in WordPress plugins (Redirection, RankMath, Yoast)."
-msgstr "Keine Weiterleitungen in WordPress-Plugins gefunden (Redirection, RankMath, Yoast)."
+msgstr "No se encontraron redirecciones en los plugins de WordPress (Redirection, RankMath, Yoast)."
 
 #: includes/class-wash-admin.php:400
 msgid "# Imported from WordPress plugins"
-msgstr "# Aus WordPress-Plugins importiert"
+msgstr "# Importado de plugins de WordPress"
 
 #: includes/class-wash-admin.php:401
 msgid "Failed to fetch redirections: "
-msgstr "Abrufen der Weiterleitungen fehlgeschlagen: "
+msgstr "No se pudieron obtener las redirecciones: "
 
 #: includes/class-wash-admin.php:402
 msgid "Network error while fetching WordPress redirections"
-msgstr "Netzwerkfehler beim Abrufen der WordPress-Weiterleitungen"
+msgstr "Error de red al obtener las redirecciones de WordPress"
 
 #: includes/class-wash-admin.php:404
 msgid "No synced posts found. Sync some posts first to generate redirections."
-msgstr "Keine synchronisierten Beiträge gefunden. Synchronisieren Sie zuerst einige Beiträge, um Weiterleitungen zu generieren."
+msgstr "No se encontraron posts sincronizados. Sincronice algunos posts primero para generar redirecciones."
 
 #: includes/class-wash-admin.php:405
 msgid "# Generated from synced posts"
-msgstr "# Aus synchronisierten Beiträgen generiert"
+msgstr "# Generado de posts sincronizados"
 
 #: includes/class-wash-admin.php:406
 msgid "Failed to generate redirections: "
-msgstr "Generierung der Weiterleitungen fehlgeschlagen: "
+msgstr "No se pudieron generar las redirecciones: "
 
 #: includes/class-wash-admin.php:407
 msgid "Network error while generating redirections"
-msgstr "Netzwerkfehler beim Generieren der Weiterleitungen"
+msgstr "Error de red al generar las redirecciones"
 
 #: includes/class-wash-admin.php:409
 msgid "Failed to load Shopify redirections: "
-msgstr "Shopify-Weiterleitungen konnten nicht geladen werden: "
+msgstr "No se pudieron cargar las redirecciones de Shopify: "
 
 #: includes/class-wash-admin.php:411
 msgid "No redirections found in Shopify."
-msgstr "Keine Weiterleitungen in Shopify gefunden."
+msgstr "No se encontraron redirecciones en Shopify."
 
 #: includes/class-wash-admin.php:412
 msgid "# Existing Shopify redirections"
-msgstr "# Bestehende Shopify-Weiterleitungen"
+msgstr "# Redirecciones existentes de Shopify"
 
 #: includes/class-wash-admin.php:413
 msgid "Network error while loading Shopify redirections"
-msgstr "Netzwerkfehler beim Laden der Shopify-Weiterleitungen"
+msgstr "Error de red al cargar las redirecciones de Shopify"
 
 #: includes/class-wash-admin.php:415
 msgid "Fixing..."
-msgstr "Wird repariert..."
+msgstr "Reparando..."
 
 #: includes/class-wash-admin.php:416
 msgid "Session fixed!"
-msgstr "Sitzung repariert!"
+msgstr "¡Sesión reparada!"
 
 #: includes/class-wash-admin.php:417
 msgid "No sessions needed fixing."
-msgstr "Keine Sitzungen mussten repariert werden."
+msgstr "Ninguna sesión necesitaba reparación."
 
 #: includes/class-wash-admin.php:418
 msgid "Network error while fixing session"
-msgstr "Netzwerkfehler beim Reparieren der Sitzung"
+msgstr "Error de red al reparar la sesión"
 
 #: includes/class-wash-admin.php:420
 msgid "Failed to fix session: "
-msgstr "Sitzung konnte nicht repariert werden: "
+msgstr "No se pudo reparar la sesión: "
 
 #: includes/class-wash-admin.php:422
 msgid "Please enter redirections to sync."
-msgstr "Bitte geben Sie Weiterleitungen zum Synchronisieren ein."
+msgstr "Por favor, introduzca redirecciones para sincronizar."
 
 #: includes/class-wash-admin.php:423
 msgid "Network error while syncing redirections"
-msgstr "Netzwerkfehler beim Synchronisieren der Weiterleitungen"
+msgstr "Error de red al sincronizar las redirecciones"
 
 #: includes/class-wash-admin.php:424
 msgid "Unknown error"
-msgstr "Unbekannter Fehler"
+msgstr "Error desconocido"
 
 #: includes/class-wash-admin.php:425
 msgid "Network error"
-msgstr "Netzwerkfehler"
+msgstr "Error de red"
 
 #: includes/class-wash-admin.php:427
 msgid "Created"
-msgstr "Erstellt"
+msgstr "Creadas"
 
 #: includes/class-wash-admin.php:428
 msgid "Skipped (already exist)"
-msgstr "Übersprungen (existieren bereits)"
+msgstr "Omitidas (ya existen)"
 
 #: includes/class-wash-admin.php:429
 msgid "Failed"
-msgstr "Fehlgeschlagen"
+msgstr "Fallidas"
 
 #: includes/class-wash-admin.php:430
 msgid "Total in Shopify"
-msgstr "Gesamt in Shopify"
+msgstr "Total en Shopify"
 
 #: includes/class-wash-admin.php:431
 msgid "Remaining"
-msgstr "Verbleibend"
+msgstr "Restantes"
 
 #: includes/class-wash-admin.php:432
 msgid "Errors"
-msgstr "Fehler"
+msgstr "Errores"
 
 #: includes/class-wash-admin.php:433
 #, php-format
 msgid "... and %d more"
-msgstr "... und %d weitere"
+msgstr "... y %d más"
 
 #: includes/class-wash-admin.php:434
 msgid "Try loading redirections again."
-msgstr "Versuchen Sie, die Weiterleitungen erneut zu laden."
+msgstr "Intente cargar las redirecciones de nuevo."
 
 #: includes/class-wash-admin.php:626 includes/class-wash-admin.php:657
 msgid "Mapping ID is required"
