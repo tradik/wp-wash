@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.26.5
+Stable tag: 1.26.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -85,6 +85,9 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.26.6 =
+* Fixed content images staying on the source WordPress host (never rehosted to the Shopify CDN) when the body referenced a sized thumbnail of a `-scaled` original — e.g. `foo-1024x785.jpg` where WordPress stores the original as `foo-scaled.jpg`. `getAttachmentIdFromUrl()` stripped the size to `foo.jpg` and gave up, so the image was never uploaded and the rewriter left the source URL in place. It now also tries the `-scaled` form, mirroring the queue worker's `filenameVariants()`. Additionally, `buildContentImageIdMap()` now reads the canonical `wp-image-<id>` class straight off each `<img>` tag (the real attachment id Gutenberg/Bricks already embed) and maps that src directly to the id — immune to host rewrites and size/-scaled suffix mismatches that defeat `attachment_url_to_postid()`. URL-based resolution remains as a fallback for non-`<img>` references (PDFs, links).
 
 = 1.26.5 =
 * Added explicit data-processing consent flow on the Connection tab (wp.org Plugin Directory guideline #10). The "Connect to Shopify" button is now disabled until the merchant ticks a checkbox that explains exactly what content will be sent to `app-wash.tradik.com` and links to the Privacy Policy and the External services section of this readme. Consent is persisted in two options (`wash_consent_accepted`, `wash_consent_accepted_at`), shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"), and removed by `uninstall.php`. New AJAX action `wash_save_consent` (capability + nonce gated) records the acceptance without leaving the page. No data leaves WordPress on a fresh install until the merchant interacts with this UI.

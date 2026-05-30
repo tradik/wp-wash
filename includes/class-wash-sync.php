@@ -1063,16 +1063,33 @@ class WashSync {
             return $attachmentId;
         }
 
-        // Strip WordPress size suffix (e.g., -768x512, -1024x683, -scaled)
-        // Only for image files (not PDFs, docs, etc.)
-        $baseUrl = preg_replace('/-\d+x\d+(?=\.[a-z]{3,4}$)/i', '', $cleanUrl);
-        $baseUrl = preg_replace('/-scaled(?=\.[a-z]{3,4}$)/i', '', $baseUrl);
+        // Strip WordPress size suffix (e.g., -768x512, -1024x683) and the
+        // -scaled marker so we can match the stored original. Image files only.
+        $sizeStripped = preg_replace('/-\d+x\d+(?=\.[a-z]{3,4}$)/i', '', $cleanUrl);
+        $baseUrl = preg_replace('/-scaled(?=\.[a-z]{3,4}$)/i', '', $sizeStripped);
 
         if ($baseUrl !== $cleanUrl) {
             $attachmentId = attachment_url_to_postid($baseUrl);
             if ($attachmentId) {
                 washLog("[wash] getAttachmentIdFromUrl() - Found attachment {$attachmentId} for resized URL: {$cleanUrl}");
                 return $attachmentId;
+            }
+        }
+
+        // WP keeps images larger than big_image_size_threshold (2560px) as the
+        // `-scaled` original, while the body may reference a sized thumbnail
+        // like `foo-1024x785.jpg`. Stripping the size gives `foo.jpg`, which
+        // never matches the stored `foo-scaled.jpg` — so try the `-scaled` form
+        // explicitly. Mirrors the worker's filenameVariants() so plugin and
+        // worker resolve identical URLs identically.
+        if ($sizeStripped !== $cleanUrl && strpos($sizeStripped, '-scaled.') === false) {
+            $scaledUrl = preg_replace('/(\.[a-z]{3,4})$/i', '-scaled$1', $sizeStripped);
+            if ($scaledUrl !== $sizeStripped) {
+                $attachmentId = attachment_url_to_postid($scaledUrl);
+                if ($attachmentId) {
+                    washLog("[wash] getAttachmentIdFromUrl() - Found attachment {$attachmentId} via -scaled fallback for: {$cleanUrl}");
+                    return $attachmentId;
+                }
             }
         }
 
@@ -1094,15 +1111,34 @@ class WashSync {
         if (empty($content)) {
             return [];
         }
-        $pattern = '/(https?:\/\/[^"\'<>\s\)]+\/wp-content\/uploads\/[^"\'<>\s\)]+)/i';
-        if (!preg_match_all($pattern, $content, $matches) || empty($matches[1])) {
-            return [];
-        }
         $map = [];
-        foreach (array_unique($matches[1]) as $fileUrl) {
-            $attachmentId = $this->getAttachmentIdFromUrl($fileUrl);
-            if ($attachmentId) {
-                $map[$fileUrl] = (int) $attachmentId;
+
+        // Primary, canonical source: Gutenberg/Bricks tag each <img> with a
+        // `wp-image-<id>` class carrying the real attachment id. Map that src
+        // straight to the id — immune to host rewrites and size/-scaled suffix
+        // mismatches that defeat attachment_url_to_postid(). Attribute order
+        // varies, so match the whole tag, then pull src + id independently.
+        if (preg_match_all('/<img\b[^>]*>/i', $content, $imgTags)) {
+            foreach ($imgTags[0] as $tag) {
+                if (preg_match('/wp-image-(\d+)/i', $tag, $idMatch)
+                    && preg_match('/\bsrc=["\']([^"\']+)["\']/i', $tag, $srcMatch)) {
+                    $map[$srcMatch[1]] = (int) $idMatch[1];
+                }
+            }
+        }
+
+        // Fallback: resolve any remaining upload URLs (non-<img> references,
+        // PDFs, links) by guessing the attachment id from the URL.
+        $pattern = '/(https?:\/\/[^"\'<>\s\)]+\/wp-content\/uploads\/[^"\'<>\s\)]+)/i';
+        if (preg_match_all($pattern, $content, $matches) && !empty($matches[1])) {
+            foreach (array_unique($matches[1]) as $fileUrl) {
+                if (isset($map[$fileUrl])) {
+                    continue;
+                }
+                $attachmentId = $this->getAttachmentIdFromUrl($fileUrl);
+                if ($attachmentId) {
+                    $map[$fileUrl] = (int) $attachmentId;
+                }
             }
         }
         return $map;
