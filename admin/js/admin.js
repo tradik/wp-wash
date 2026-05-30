@@ -228,6 +228,66 @@
         });
 
         // =====================
+        // Refresh all sync statuses (bulk reconcile from Shopify)
+        // =====================
+        $("#wash-refresh-statuses").on("click", function () {
+            if (!confirm(i18n('confirmRefreshStatuses', 'Rebuild synced / not-synced indicators for all posts from Shopify? This does not re-sync content.'))) {
+                return;
+            }
+            const btn = $(this);
+            const progress = $("#wash-refresh-statuses-progress");
+            const origHtml = btn.html();
+            const totals = { restored: 0, notSynced: 0, errors: 0 };
+            btn.prop("disabled", true);
+            progress.text(i18n('refreshPreparing', 'Preparing…'));
+
+            function call(extra) {
+                return $.ajax({
+                    url: washAdmin.ajaxUrl,
+                    type: "POST",
+                    data: $.extend({ action: "wash_refresh_all_statuses", nonce: washAdmin.nonce }, extra),
+                });
+            }
+            function fail(msg) {
+                progress.text("");
+                alert(msg);
+                btn.prop("disabled", false).html(origHtml);
+            }
+            function batch(token, total, offset) {
+                progress.text(i18n('refreshProgress', 'Refreshing…') + " " + Math.min(offset, total) + " / " + total);
+                call({ token: token, offset: offset }).done(function (r) {
+                    if (!r || !r.success) { fail(i18n('refreshFailed', 'Failed to refresh statuses: ') + (r && r.data ? r.data : "")); return; }
+                    totals.restored += r.data.restored || 0;
+                    totals.notSynced += r.data.notSynced || 0;
+                    totals.errors += r.data.errors || 0;
+                    if (r.data.done) {
+                        progress.text(
+                            i18n('refreshDone', 'Done.') + " " +
+                            i18n('refreshSummarySynced', 'Synced: ') + totals.restored + ", " +
+                            i18n('refreshSummaryNot', 'not synced: ') + totals.notSynced +
+                            (totals.errors ? ", " + i18n('refreshSummaryErrors', 'errors: ') + totals.errors : "")
+                        );
+                        btn.prop("disabled", false).html(origHtml);
+                        setTimeout(function () { window.location.reload(); }, 1500);
+                    } else {
+                        batch(token, total, r.data.nextOffset);
+                    }
+                }).fail(function () { fail(i18n('networkError', 'Network error')); });
+            }
+
+            call({}).done(function (res) {
+                if (!res || !res.success) { fail(i18n('refreshFailed', 'Failed to start refresh: ') + (res && res.data ? res.data : "")); return; }
+                const total = res.data.total || 0;
+                if (total === 0) {
+                    progress.text(i18n('refreshNoPosts', 'No published posts to refresh.'));
+                    btn.prop("disabled", false).html(origHtml);
+                    return;
+                }
+                batch(res.data.token, total, 0);
+            }).fail(function () { fail(i18n('networkError', 'Network error')); });
+        });
+
+        // =====================
         // Redirections Management
         // =====================
         const textarea = $("#wash-redirections-textarea");

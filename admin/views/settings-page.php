@@ -2001,6 +2001,19 @@ function wash_render_permission_locked_banner() {
                         </p>
                     </td>
                 </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e('Refresh sync statuses', 'wash-blog-manager'); ?></th>
+                    <td>
+                        <button type="button" id="wash-refresh-statuses" class="button button-secondary">
+                            <span class="dashicons dashicons-update" style="vertical-align: text-bottom;"></span>
+                            <?php esc_html_e('Refresh all sync statuses', 'wash-blog-manager'); ?>
+                        </button>
+                        <span id="wash-refresh-statuses-progress" style="margin-left: 10px;"></span>
+                        <p class="description">
+                            <?php esc_html_e('Rebuild the synced / not-synced indicators for every post from Shopify, without re-syncing content. Use this if the status dots disappeared (e.g. after re-installing the plugin).', 'wash-blog-manager'); ?>
+                        </p>
+                    </td>
+                </tr>
             </table>
 
             <hr style="border: none; border-top: 1px solid #ccd0d4; margin: 24px 0;" />

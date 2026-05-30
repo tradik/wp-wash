@@ -35,6 +35,7 @@ class WashAdmin {
         add_action('wp_ajax_wash_fix_session', [$this, 'ajaxFixSession']);
         add_action('wp_ajax_wash_reset_to_defaults', [$this, 'ajaxResetToDefaults']);
         add_action('wp_ajax_wash_sync_settings_from_shopify', [$this, 'ajaxSyncSettingsFromShopify']);
+        add_action('wp_ajax_wash_refresh_all_statuses', [$this, 'ajaxRefreshAllStatuses']);
         // Blog mappings AJAX handlers
         add_action('wp_ajax_wash_get_mappings', [$this, 'ajaxGetMappings']);
         add_action('wp_ajax_wash_get_shopify_blogs', [$this, 'ajaxGetShopifyBlogs']);
@@ -1997,8 +1998,25 @@ class WashAdmin {
         }
 
         $status = $response['statuses'][(string) $postId] ?? $response['statuses'][$postId] ?? null;
+        $result = $this->applyStatusToPostMeta($postId, $status);
+        wp_safe_redirect(add_query_arg('wash_refresh_result', $result, $redirectUrl));
+        exit;
+    }
+    // phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+    /**
+     * Reconcile one post's local sync meta with shopify-app's check-status entry.
+     * Restores _wash_article_id/_wash_blog_id/_wash_blog_handle/_wash_synced_at
+     * (and clears stale errors) when the article exists on Shopify; clears all of
+     * them when it doesn't. Shared by the per-post "Refresh status" row action and
+     * the bulk "Refresh all statuses" button so both behave identically.
+     *
+     * @param int        $postId
+     * @param array|null $status One `statuses` entry from /api/check-status.
+     * @return string 'synced' when the article exists, otherwise 'not_synced'.
+     */
+    private function applyStatusToPostMeta($postId, $status) {
         if ($status && !empty($status['exists'])) {
-            // shopify-app says the article exists — sync local meta to match.
             if (!empty($status['shopifyArticleId'])) {
                 update_post_meta($postId, '_wash_article_id', $status['shopifyArticleId']);
             }
@@ -2013,22 +2031,110 @@ class WashAdmin {
             }
             delete_post_meta($postId, '_wash_sync_error');
             delete_post_meta($postId, '_wash_sync_error_at');
-            wp_safe_redirect(add_query_arg('wash_refresh_result', 'synced', $redirectUrl));
-            exit;
+            return 'synced';
         }
-
-        // Article does not exist in Shopify — clear stale article meta if present,
-        // and clear stale errors so the post falls back to the gray "not synced" state.
         delete_post_meta($postId, '_wash_article_id');
         delete_post_meta($postId, '_wash_blog_id');
         delete_post_meta($postId, '_wash_blog_handle');
         delete_post_meta($postId, '_wash_synced_at');
         delete_post_meta($postId, '_wash_sync_error');
         delete_post_meta($postId, '_wash_sync_error_at');
-        wp_safe_redirect(add_query_arg('wash_refresh_result', 'not_synced', $redirectUrl));
-        exit;
+        return 'not_synced';
     }
-    // phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+    /**
+     * AJAX: bulk "Refresh all statuses" — rebuild local sync meta for every
+     * published post from shopify-app's source of truth (the SyncLog), without
+     * re-syncing content. Recovers the synced/not-synced indicators after they
+     * were lost (e.g. uninstall.php cleared _wash_* meta on a plugin delete).
+     *
+     * Two phases, driven by the JS loop in admin.js:
+     *  - no `token`: enumerate candidate post IDs, cache them in a transient,
+     *    return {token, total} so the client can show a progress bar.
+     *  - `token` + `offset`: reconcile one batch (capped to the check-status
+     *    100-id limit) and report progress.
+     */
+    public function ajaxRefreshAllStatuses() {
+        check_ajax_referer('wash_nonce', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
+        }
+        if (!$this->apiClient->isConfigured()) {
+            wp_send_json_error(__('Not connected to Shopify.', 'wash-blog-manager'));
+        }
+
+        $token = isset($_POST['token']) ? sanitize_key(wp_unslash($_POST['token'])) : '';
+
+        // Prepare phase: enumerate published posts of the configured types once.
+        if ($token === '') {
+            $postTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+            $ids = get_posts([
+                'post_type'      => $postTypes,
+                'post_status'    => 'publish',
+                'posts_per_page' => -1,
+                'fields'         => 'ids',
+                'orderby'        => 'ID',
+                'order'          => 'ASC',
+            ]);
+            $ids = array_map('intval', $ids);
+            $token = wp_generate_password(20, false, false);
+            set_transient('wash_refresh_' . $token, $ids, HOUR_IN_SECONDS);
+            wp_send_json_success(['token' => $token, 'total' => count($ids)]);
+        }
+
+        // Batch phase.
+        $ids = get_transient('wash_refresh_' . $token);
+        if (!is_array($ids)) {
+            wp_send_json_error(__('Refresh session expired — please start again.', 'wash-blog-manager'));
+        }
+        $offset    = isset($_POST['offset']) ? absint($_POST['offset']) : 0;
+        // Cap at the /api/check-status 100-id limit.
+        $batchSize = min(100, (int) apply_filters('wash_refresh_batch_size', 50));
+        $batch     = array_slice($ids, $offset, $batchSize);
+
+        if (empty($batch)) {
+            delete_transient('wash_refresh_' . $token);
+            wp_send_json_success(['restored' => 0, 'notSynced' => 0, 'errors' => 0, 'nextOffset' => $offset, 'done' => true]);
+        }
+
+        $response = $this->apiClient->post('/api/check-status', [
+            'wpPostIds' => array_values($batch),
+            'wpSiteId'  => get_current_blog_id(),
+        ]);
+
+        $restored = 0;
+        $notSynced = 0;
+        $errors = 0;
+        if (is_wp_error($response) || !is_array($response) || empty($response['success'])) {
+            $errors = count($batch);
+        } else {
+            $statuses = (isset($response['statuses']) && is_array($response['statuses'])) ? $response['statuses'] : [];
+            foreach ($batch as $postId) {
+                // PHP normalises numeric-string array keys to int, so a single
+                // int lookup covers both "10" and 10 from the JSON response.
+                $status = $statuses[$postId] ?? null;
+                if ($this->applyStatusToPostMeta($postId, $status) === 'synced') {
+                    $restored++;
+                } else {
+                    $notSynced++;
+                }
+            }
+        }
+
+        $nextOffset = $offset + count($batch);
+        $done       = $nextOffset >= count($ids);
+        if ($done) {
+            delete_transient('wash_refresh_' . $token);
+        }
+
+        wp_send_json_success([
+            'restored'   => $restored,
+            'notSynced'  => $notSynced,
+            'errors'     => $errors,
+            'nextOffset' => $nextOffset,
+            'done'       => $done,
+        ]);
+    }
 
     /**
      * Cron handler: clear `_wash_sync_error` meta on published posts where the
