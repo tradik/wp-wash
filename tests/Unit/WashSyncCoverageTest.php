@@ -66,6 +66,7 @@ class WashSyncCoverageTest extends TestCase
             };
         });
         Functions\when('get_site_url')->justReturn('https://example.com');
+        Functions\when('home_url')->alias(fn($path = '') => 'https://example.com' . $path);
         Functions\when('error_log')->justReturn(true);
 
         $this->sync = new \WashSync();
@@ -1725,6 +1726,57 @@ class WashSyncCoverageTest extends TestCase
 
         // Should be unchanged
         $this->assertStringContainsString('example.com/product', $result);
+    }
+
+    public function testRewriteInternalUrlsRewritesAbsoluteLinkFromAnotherDomain(): void
+    {
+        // #179: content migrated from another domain carries absolute links to
+        // the OLD host. They must still be rewritten — resolution is by path.
+        Functions\when('url_to_postid')->alias(fn($url) => str_contains($url, 'my-post') ? 5 : 0);
+        Functions\when('get_post')->justReturn($this->makePost(['ID' => 5, 'post_type' => 'post', 'post_name' => 'my-post']));
+        Functions\when('get_post_meta')->alias(fn($id, $key, $single) => $key === '_wash_blog_handle' ? 'news' : '');
+        Functions\when('get_option')->alias(fn($k, $d = '') => $k === 'wash_post_types' ? 'post,page' : $d);
+
+        $content = '<a href="https://oldsite.hilo.com/my-post">Cross-domain</a>';
+        $result  = $this->invokePrivate('rewriteInternalUrls', [$content]);
+
+        $this->assertStringContainsString('/blogs/news/my-post', $result);
+        $this->assertStringNotContainsString('oldsite.hilo.com', $result);
+    }
+
+    public function testRewriteInternalUrlsResolvesDespiteTrailingSlashDrift(): void
+    {
+        // Body link has a trailing slash; only the no-slash permalink resolves.
+        Functions\when('url_to_postid')->alias(fn($url) => $url === 'https://example.com/my-post' ? 5 : 0);
+        Functions\when('get_post')->justReturn($this->makePost(['ID' => 5, 'post_type' => 'post', 'post_name' => 'my-post']));
+        Functions\when('get_post_meta')->alias(fn($id, $key, $single) => $key === '_wash_blog_handle' ? 'news' : '');
+        Functions\when('get_option')->alias(fn($k, $d = '') => $k === 'wash_post_types' ? 'post,page' : $d);
+
+        $content = '<a href="https://example.com/my-post/">Trailing slash</a>';
+        $result  = $this->invokePrivate('rewriteInternalUrls', [$content]);
+
+        $this->assertStringContainsString('/blogs/news/my-post', $result);
+    }
+
+    public function testRewriteInternalUrlsLeavesExternalLinkThatDoesNotResolve(): void
+    {
+        // An external link whose path is not a local post stays untouched.
+        Functions\when('url_to_postid')->justReturn(0);
+
+        $content = '<a href="https://partner.example.org/pricing">Partner</a>';
+        $result  = $this->invokePrivate('rewriteInternalUrls', [$content]);
+
+        $this->assertSame($content, $result);
+    }
+
+    public function testRewriteInternalUrlsLeavesMailtoAndTelLinks(): void
+    {
+        Functions\when('url_to_postid')->justReturn(0);
+
+        $content = '<a href="mailto:hi@hilo.com">Mail</a> <a href="tel:+48123">Call</a> <a href="#top">Top</a>';
+        $result  = $this->invokePrivate('rewriteInternalUrls', [$content]);
+
+        $this->assertSame($content, $result);
     }
 
     // ---------------------------------------------------------------

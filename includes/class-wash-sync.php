@@ -795,98 +795,112 @@ class WashSync {
      * @return string Content with rewritten internal URLs.
      */
     private function rewriteInternalUrls($content) {
-        $siteUrl = get_site_url();
-        $parsedSite = wp_parse_url($siteUrl);
-        $siteHost = $parsedSite['host'] ?? '';
+        washLog("[wash] rewriteInternalUrls() - Site URL: " . get_site_url());
 
-        if (empty($siteHost)) {
-            return $content;
-        }
+        // Match every href whose value is a path (root-relative) or an absolute
+        // http(s) URL with a path. We resolve each by PATH against the local
+        // install (not by the current site host), so absolute links pointing at a
+        // domain the content was migrated from — oldsite ↔ staging ↔ production —
+        // are rewritten too (#179). Non-path hrefs (#anchors, mailto:, tel:,
+        // bare relative) don't match and are left untouched.
+        $pattern = '/href=(["\'])((?:https?:\/\/[^\/"\'<>\s]+)?\/[^"\'<>\s]*)\1/i';
 
-        washLog("[wash] rewriteInternalUrls() - Site URL: {$siteUrl}, Host: {$siteHost}");
-
-        // Find all internal links in href attributes
-        $pattern = '/href=["\'](' . preg_quote($siteUrl, '/') . '\/[^"\'<>\s]*)["\']|href=["\'](\/[^"\'<>\s]*)["\']|href=["\']https?:\/\/' . preg_quote($siteHost, '/') . '(\/[^"\'<>\s]*)["\']|href=["\']http?:\/\/' . preg_quote($siteHost, '/') . '(\/[^"\'<>\s]*)["\']/i';
-
-        $rewrittenContent = preg_replace_callback(
+        $rewritten = preg_replace_callback(
             $pattern,
-            function ($matches) use ($siteUrl) {
-                // Determine the matched URL path
-                $fullMatch = $matches[0];
-                $matchedUrl = '';
-                $relativePath = '';
-
-                if (!empty($matches[1])) {
-                    $matchedUrl = $matches[1];
-                    $relativePath = str_replace($siteUrl, '', $matchedUrl);
-                } elseif (!empty($matches[2])) {
-                    $matchedUrl = $matches[2];
-                    $relativePath = $matches[2];
-                } elseif (!empty($matches[3])) {
-                    $relativePath = $matches[3];
-                    $matchedUrl = $siteUrl . $relativePath;
-                } elseif (!empty($matches[4])) {
-                    $relativePath = $matches[4];
-                    $matchedUrl = $siteUrl . $relativePath;
-                }
-
-                // Skip anchors, query strings only, or empty paths
-                if (empty($relativePath) || $relativePath === '/' || strpos($relativePath, '#') === 0) {
-                    return $fullMatch;
-                }
-
-                // Skip media/file URLs
-                if (strpos($relativePath, '/wp-content/') !== false) {
-                    return $fullMatch;
-                }
-
-                // Skip admin, login, and system URLs
-                if (preg_match('/^\/(wp-admin|wp-login|wp-json|feed|xmlrpc)/i', $relativePath)) {
-                    return $fullMatch;
-                }
-
-                // Try to find a matching post/page by URL
-                $postId = url_to_postid($matchedUrl);
-                if (!$postId) {
-                    // Try with site URL prefix for relative paths
-                    $postId = url_to_postid($siteUrl . $relativePath);
-                }
-
-                if (!$postId) {
-                    washLog("[wash] rewriteInternalUrls() - No post found for URL: {$matchedUrl}");
-                    return $fullMatch;
-                }
-
-                $post = get_post($postId);
-                if (!$post) {
-                    return $fullMatch;
-                }
-
-                // Check if this post type is allowed for syncing
-                if (!$this->isAllowedPostType($post->post_type)) {
-                    washLog("[wash] rewriteInternalUrls() - Post type '{$post->post_type}' not allowed for syncing");
-                    return $fullMatch;
-                }
-
-                // Build Shopify URL based on post type
-                if ($post->post_type === 'page') {
-                    $shopifyPath = '/pages/' . $post->post_name;
-                } else {
-                    // For posts, use blog handle from meta or default
-                    $blogHandle = get_post_meta($postId, '_wash_blog_handle', true);
-                    if (empty($blogHandle)) {
-                        $blogHandle = 'news'; // Default blog handle
-                    }
-                    $shopifyPath = '/blogs/' . $blogHandle . '/' . $post->post_name;
-                }
-
-                washLog("[wash] rewriteInternalUrls() - Rewriting: {$matchedUrl} -> {$shopifyPath}");
-                return 'href="' . $shopifyPath . '"';
+            function ($matches) {
+                return $this->rewriteHref($matches[0], $matches[2]);
             },
             $content
         );
 
-        return $rewrittenContent;
+        // preg_replace_callback returns null on a PCRE backtrack/recursion-limit
+        // overflow (very large page-builder bodies). Keep the original content
+        // rather than blanking the article.
+        return $rewritten === null ? $content : $rewritten;
+    }
+
+    /**
+     * Rewrite a single href to its Shopify path if it resolves to a syncable
+     * local post; otherwise return the original match unchanged.
+     *
+     * @param string $fullMatch The full `href="..."` match.
+     * @param string $href      The captured href value.
+     * @return string
+     */
+    private function rewriteHref($fullMatch, $href) {
+        $parsed = wp_parse_url($href);
+
+        // Absolute URLs: only http(s); take the path. Root-relative: use as-is.
+        if (isset($parsed['host'])) {
+            $scheme = strtolower($parsed['scheme'] ?? '');
+            if ($scheme !== 'http' && $scheme !== 'https') {
+                return $fullMatch;
+            }
+        }
+        $path = $parsed['path'] ?? '';
+
+        if (empty($path) || $path === '/') {
+            return $fullMatch;
+        }
+        if (strpos($path, '/wp-content/') !== false) {
+            return $fullMatch;
+        }
+        if (preg_match('/^\/(wp-admin|wp-login|wp-json|feed|xmlrpc)/i', $path)) {
+            return $fullMatch;
+        }
+
+        $postId = $this->resolvePathToPostId($path);
+        if (!$postId) {
+            washLog("[wash] rewriteInternalUrls() - No post found for URL: {$href}");
+            return $fullMatch;
+        }
+
+        $post = get_post($postId);
+        if (!$post) {
+            return $fullMatch;
+        }
+        if (!$this->isAllowedPostType($post->post_type)) {
+            washLog("[wash] rewriteInternalUrls() - Post type '{$post->post_type}' not allowed for syncing");
+            return $fullMatch;
+        }
+
+        if ($post->post_type === 'page') {
+            $shopifyPath = '/pages/' . $post->post_name;
+        } else {
+            $blogHandle = get_post_meta($postId, '_wash_blog_handle', true);
+            if (empty($blogHandle)) {
+                $blogHandle = 'news'; // Default blog handle
+            }
+            $shopifyPath = '/blogs/' . $blogHandle . '/' . $post->post_name;
+        }
+
+        washLog("[wash] rewriteInternalUrls() - Rewriting: {$href} -> {$shopifyPath}");
+        return 'href="' . $shopifyPath . '"';
+    }
+
+    /**
+     * Resolve a URL path to a local post ID, host-agnostically. Maps the path
+     * onto the current install (home_url) and tolerates trailing-slash drift, so
+     * a link migrated from another domain still resolves when the slug exists
+     * locally. Returns 0 when nothing matches.
+     *
+     * @param string $path URL path (e.g. "/my-article/").
+     * @return int Post ID or 0.
+     */
+    private function resolvePathToPostId($path) {
+        $trimmed = '/' . trim($path, '/');
+        $candidates = array_unique([
+            home_url($path),
+            home_url($trimmed),
+            home_url($trimmed . '/'),
+        ]);
+        foreach ($candidates as $url) {
+            $postId = url_to_postid($url);
+            if ($postId) {
+                return (int) $postId;
+            }
+        }
+        return 0;
     }
 
     /**
