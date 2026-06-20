@@ -134,6 +134,16 @@ class WashImages {
             return false;
         }
 
+        // Async path (CRIT-3): the app queues the upload and the worker reports
+        // the shopifyFileId / shopifyCdnUrl back via the callback, which writes
+        // the attachment meta. Treat "queued" as success-pending, not failure —
+        // returning false here is what made every image re-enqueue on each save.
+        if (!empty($result['queued'])) {
+            update_post_meta($attachmentId, '_wash_sync_pending', current_time('mysql'));
+            washLog("[wash] uploadToShopify() - Attachment {$attachmentId} queued (async); awaiting callback");
+            return true;
+        }
+
         if (!isset($result['shopifyFileId'])) {
             washLog("[wash] uploadToShopify() - Missing shopifyFileId in response");
             return false;

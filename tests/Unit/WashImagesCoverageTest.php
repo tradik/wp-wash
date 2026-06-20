@@ -351,6 +351,29 @@ class WashImagesCoverageTest extends TestCase
         $this->assertFalse($this->images->syncFile(42));
     }
 
+    public function testSyncFileTreatsQueuedResponseAsSuccessPending(): void
+    {
+        // CRIT-3: the app now queues the upload and returns {queued:true} with no
+        // shopifyFileId. uploadToShopify must treat that as success-pending (true),
+        // not failure — otherwise the image is re-enqueued on every post save.
+        Functions\when('get_post_mime_type')->justReturn('image/jpeg');
+        Functions\when('wp_get_attachment_url')->justReturn('https://example.com/img.jpg');
+        Functions\when('get_attached_file')->justReturn('/var/www/html/wp-content/uploads/img.jpg');
+        Functions\when('get_post_meta')->justReturn('');
+        Functions\when('is_wp_error')->justReturn(false);
+        Functions\when('current_time')->justReturn('2026-06-20 12:00:00');
+        $responseBody = json_encode(['success' => true, 'queued' => true, 'jobId' => 'job-1']);
+        Functions\when('wp_remote_post')->justReturn(['body' => $responseBody]);
+        Functions\when('wp_remote_retrieve_response_code')->justReturn(200);
+        Functions\when('wp_remote_retrieve_body')->justReturn($responseBody);
+        Functions\when('wp_remote_retrieve_header')->justReturn('');
+        // Only the pending marker is written here; the real file meta arrives later
+        // via the worker's callback.
+        Functions\expect('update_post_meta')->once()->with(43, '_wash_sync_pending', \Mockery::type('string'))->andReturn(true);
+
+        $this->assertTrue($this->images->syncFile(43));
+    }
+
     // ---------------------------------------------------------------
     // onAddAttachment()
     // ---------------------------------------------------------------

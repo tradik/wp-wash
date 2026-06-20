@@ -500,6 +500,14 @@ class WashCallback {
         $shopifyLocale = $body['shopifyLocale'] ?? null;
         $translationGroup = $body['translationGroup'] ?? null;
 
+        // Image-sync (attachment) callback — keyed by wpAttachmentId, no wpPostId.
+        // Closes the async image loop by writing the attachment's Shopify file
+        // meta (CRIT-3); must short-circuit before the wpPostId guard below.
+        $wpAttachmentId = $body['wpAttachmentId'] ?? null;
+        if (!empty($wpAttachmentId)) {
+            return $this->handleAttachmentCallback($body, (int) $wpAttachmentId, (int) $wpSiteId);
+        }
+
         // Fallback: detect translation group server-side if not in callback payload
         if (!$translationGroup && $wpPostId) {
             $hreflangs = new WashHreflangs();
@@ -641,6 +649,53 @@ class WashCallback {
         return new WP_REST_Response([
             'success' => true,
             'message' => 'Callback processed',
+        ], 200);
+    }
+
+    /**
+     * Handle an image-sync callback from the queue worker.
+     *
+     * Closes the async image loop (CRIT-3): the worker uploads the file to
+     * Shopify and reports the resulting file id / CDN URL here. We store the
+     * same attachment meta WashImages::uploadToShopify used to write
+     * synchronously, so the "already synced" check passes and the image is not
+     * re-enqueued on every post save.
+     *
+     * @param array $body           Callback payload.
+     * @param int   $wpAttachmentId Attachment post ID.
+     * @param int   $wpSiteId       Multisite blog ID.
+     * @return WP_REST_Response
+     */
+    private function handleAttachmentCallback($body, $wpAttachmentId, $wpSiteId) {
+        $success       = $body['success'] ?? false;
+        $shopifyFileId = $body['shopifyFileId'] ?? null;
+        $shopifyCdnUrl = $body['shopifyCdnUrl'] ?? '';
+
+        if (is_multisite() && $wpSiteId > 1) {
+            switch_to_blog($wpSiteId);
+        }
+
+        if ($success && $shopifyFileId) {
+            update_post_meta($wpAttachmentId, '_wash_file_id', $shopifyFileId);
+            update_post_meta($wpAttachmentId, '_wash_cdn_url', $shopifyCdnUrl);
+            update_post_meta($wpAttachmentId, '_wash_synced_at', current_time('mysql'));
+            delete_post_meta($wpAttachmentId, '_wash_sync_pending');
+            washLog("[wash] Image callback: attachment {$wpAttachmentId} synced, file {$shopifyFileId}, CDN: " . ($shopifyCdnUrl ?: 'EMPTY'));
+            do_action('wash_image_callback_success', $wpAttachmentId, $body);
+        } else {
+            delete_post_meta($wpAttachmentId, '_wash_sync_pending');
+            $error = $body['error'] ?? 'Unknown error';
+            washLog("[wash] Image callback: attachment {$wpAttachmentId} sync failed: {$error}");
+            do_action('wash_image_callback_error', $wpAttachmentId, $error, $body);
+        }
+
+        if (is_multisite() && $wpSiteId > 1) {
+            restore_current_blog();
+        }
+
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => 'Attachment callback processed',
         ], 200);
     }
 

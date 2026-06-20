@@ -143,6 +143,39 @@ class WashCallbackTest extends TestCase
         $this->assertTrue($response->data['success']);
     }
 
+    public function testAttachmentCallbackStoresFileMetaAndReturns200(): void
+    {
+        // Image-sync (CRIT-3) callback: keyed by wpAttachmentId, no wpPostId.
+        // Must short-circuit the post path and report success without 400-ing.
+        $cb = $this->loadCallback();
+        $response = $cb->handleCallback($this->makeRequest([
+            'wpPostId'        => null,
+            'wpAttachmentId'  => 77,
+            'success'         => true,
+            'shopifyFileId'   => 'gid://shopify/MediaImage/55',
+            'shopifyCdnUrl'   => 'https://cdn.shopify.com/files/x.png',
+        ]));
+
+        $this->assertSame(200, $response->status);
+        $this->assertTrue($response->data['success']);
+        $this->assertSame('Attachment callback processed', $response->data['message']);
+    }
+
+    public function testAttachmentCallbackFailureClearsPendingAndReturns200(): void
+    {
+        $cb = $this->loadCallback();
+        $response = $cb->handleCallback($this->makeRequest([
+            'wpPostId'       => null,
+            'wpAttachmentId' => 77,
+            'success'        => false,
+            'error'          => 'upload failed',
+        ]));
+
+        $this->assertSame(200, $response->status);
+        $this->assertTrue($response->data['success']);
+        $this->assertSame('Attachment callback processed', $response->data['message']);
+    }
+
     /**
      * @runInSeparateProcess
      * @preserveGlobalState disabled
