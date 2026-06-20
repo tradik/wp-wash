@@ -1030,8 +1030,12 @@ class WashMetafields {
 
     /**
      * Sanitize a meta key for use as a Shopify metafield key.
+     *
+     * Public so WashSync::getCustomFields() uses the SAME canonical sanitizer as
+     * the enabled-field set (MED-12, #154): otherwise `my--field` or keys >64
+     * chars sanitize differently on each side and an enabled field is dropped.
      */
-    private function sanitizeKey($key) {
+    public function sanitizeKey($key) {
         $sanitized = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '_', $key));
         $sanitized = preg_replace('/_+/', '_', $sanitized);
         return substr(ltrim($sanitized, '_'), 0, 64);

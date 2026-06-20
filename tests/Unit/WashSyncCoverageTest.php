@@ -1198,6 +1198,40 @@ class WashSyncCoverageTest extends TestCase
         $this->assertArrayNotHasKey('_private_key', $result);
     }
 
+    public function testGetCustomFieldsMatchesEnabledViaCanonicalSanitizer(): void
+    {
+        // MED-12 (#154): the enabled-field set is keyed by WashMetafields::sanitizeKey
+        // (collapses `_+`), so `my--field` must sanitize to `my_field` here too —
+        // otherwise an explicitly-enabled field is silently dropped.
+        \WashMetafields::$fieldConfigCache = null;
+        Functions\when('get_post_meta')->justReturn([
+            'my--field' => ['kept'],
+            'off_field' => ['dropped'],
+        ]);
+        Functions\when('get_posts')->justReturn([]);
+        Functions\when('update_option')->justReturn(true);
+        Functions\when('get_option')->alias(fn($k, $d = '') => match ($k) {
+            'wash_meta_field_config' => json_encode([
+                ['namespace' => 'wash_custom', 'key' => 'my_field', 'syncEnabled' => true],
+            ]),
+            default => $d,
+        });
+
+        require_once dirname(__DIR__, 2) . '/includes/class-wash-metafields.php';
+
+        $sync = new \WashSync();
+        $ref  = new \ReflectionMethod(\WashSync::class, 'getCustomFields');
+        $ref->setAccessible(true);
+        $result = $ref->invoke($sync, 1);
+
+        // `my--field` (canonical → my_field) is enabled and kept; `off_field` is not.
+        $this->assertArrayHasKey('my--field', $result);
+        $this->assertSame('kept', $result['my--field']);
+        $this->assertArrayNotHasKey('off_field', $result);
+
+        \WashMetafields::$fieldConfigCache = null;
+    }
+
     // ---------------------------------------------------------------
     // rewriteInternalUrls — early-return paths
     // Note: wp_parse_url() is already defined in bootstrap.php as a passthrough

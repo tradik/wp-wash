@@ -1634,8 +1634,10 @@ class WashSync {
             if (str_starts_with($key, '_')) {
                 continue;
             }
-            // Check if field is enabled (wash_custom.{key} or wash_acf.{key})
-            $sanitizedKey = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '_', $key));
+            // Check if field is enabled (wash_custom.{key} or wash_acf.{key}).
+            // Use the SAME canonical sanitizer as the enabled-field set (MED-12,
+            // #154) so a key like `my--field` or one >64 chars matches on both sides.
+            $sanitizedKey = $metafields->sanitizeKey($key);
             if (!empty($enabledFields) && !isset($enabledFields["wash_custom.{$sanitizedKey}"]) && !isset($enabledFields["wash_acf.{$sanitizedKey}"])) {
                 continue;
             }
