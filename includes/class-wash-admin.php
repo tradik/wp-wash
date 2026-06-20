@@ -2855,11 +2855,21 @@ class WashAdmin {
         $endpoint = $post->post_type === 'page' ? '/api/page-sync' : '/api/content-sync';
         washLog("[wash] unpublishFromShopify: postId={$postId}, endpoint={$endpoint}");
 
-        $result = $this->apiClient->post($endpoint, [
+        $sync = new WashSync();
+        $payload = [
             'action'   => 'delete',
             'wpPostId' => $postId,
             'wpSiteId' => get_current_blog_id(),
-        ]);
+            'language' => $sync->getPostLanguage($postId),
+        ];
+
+        $hreflangs = new WashHreflangs();
+        $group = $hreflangs->getTranslationGroupSource($postId);
+        if ($group) {
+            $payload['translationGroup'] = $group;
+        }
+
+        $result = $this->apiClient->post($endpoint, $payload);
 
         // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r -- routed through washLog() which is gated by the WASH_DEBUG constant (off in production); the result array is helpful in debug output.
         washLog("[wash] unpublishFromShopify result: " . print_r($result, true));

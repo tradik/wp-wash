@@ -184,6 +184,13 @@ class WashAdminCoverageTest extends TestCase
         // Clean up superglobals
         $_GET = [];
         $_POST = [];
+        // Reset WashHreflangs' cached translation-plugin detection so a test that
+        // forces it (e.g. Polylang) never leaks into the next test in the process.
+        if (class_exists('WashHreflangs')) {
+            $ref = new \ReflectionProperty('WashHreflangs', 'activePlugin');
+            $ref->setAccessible(true);
+            $ref->setValue(null, null);
+        }
         Monkey\tearDown();
         parent::tearDown();
     }
@@ -2122,6 +2129,69 @@ class WashAdminCoverageTest extends TestCase
         $result = $admin->handleBulkActions($url, 'wash_unpublish', [140]);
 
         $this->assertStringContainsString('wash_bulk_processed', $result);
+    }
+
+    public function testUnpublishFromShopifyIncludesLanguageAndTranslationGroup(): void
+    {
+        $this->options['wash_sync_inline'] = '0';
+        Functions\when('get_option')->alias(fn($k, $d = '') => $this->options[$k] ?? $d);
+        $admin = new \WashAdmin();
+
+        $this->mockPost(141, 'post', 'publish', 'synced-unp-group');
+        $this->postMetaStore[141]['_wash_article_id'] = 'gid://shopify/Article/100';
+        $this->postMetaStore[141]['_wash_language'] = 'fr';
+
+        // Polylang translation detection. is_plugin_active() is defined in
+        // bootstrap.php and cannot be re-mocked (Patchwork "DefinedTooEarly"),
+        // so force WashHreflangs' cached plugin detection to 'polylang' directly
+        // — detectActivePlugin() short-circuits on the cached value (reset in
+        // tearDown). pll_* are not pre-defined, so Brain\Monkey can stub them.
+        require_once dirname(__DIR__, 2) . '/includes/class-wash-hreflangs.php';
+        $activePluginRef = new \ReflectionProperty('WashHreflangs', 'activePlugin');
+        $activePluginRef->setAccessible(true);
+        $activePluginRef->setValue(null, 'polylang');
+
+        Functions\when('pll_get_post_language')->justReturn('fr');
+        Functions\when('pll_get_post_translations')->justReturn([
+            'en' => 100,
+            'fr' => 141,
+        ]);
+        Functions\when('pll_default_language')->justReturn('en');
+
+        Functions\when('update_post_meta')->alias(function ($id, $key, $val) {
+            $this->postMetaStore[(int) $id][$key] = $val;
+            return true;
+        });
+        Functions\when('delete_post_meta')->alias(function ($id, $key) {
+            unset($this->postMetaStore[(int) $id][$key]);
+            return true;
+        });
+
+        $capturedPayload = null;
+        Functions\when('wp_remote_post')->alias(function ($url, $args) use (&$capturedPayload) {
+            $capturedPayload = json_decode($args['body'] ?? '{}', true);
+            return ['body' => '{"success":true}'];
+        });
+
+        Functions\when('wp_remote_retrieve_response_code')->justReturn(200);
+        Functions\when('wp_remote_retrieve_body')->justReturn('{"success":true}');
+        Functions\when('get_current_blog_id')->justReturn(1);
+        Functions\when('apply_filters')->alias(fn($_, $v) => $v);
+        Functions\when('site_url')->justReturn('https://example.com');
+
+        $url = 'https://example.com/wp-admin/edit.php';
+        $result = $admin->handleBulkActions($url, 'wash_unpublish', [141]);
+
+        $this->assertStringContainsString('wash_bulk_processed', $result);
+        $this->assertNotNull($capturedPayload);
+        $this->assertSame('delete', $capturedPayload['action']);
+        $this->assertSame(141, $capturedPayload['wpPostId']);
+        $this->assertSame('fr', $capturedPayload['language']);
+        $this->assertIsArray($capturedPayload['translationGroup']);
+        $this->assertSame(100, $capturedPayload['translationGroup']['sourcePostId']);
+        $this->assertSame('en', $capturedPayload['translationGroup']['sourceLang']);
+        $this->assertSame('fr', $capturedPayload['translationGroup']['currentLang']);
+        $this->assertFalse($capturedPayload['translationGroup']['isSource']);
     }
 
     // ---------------------------------------------------------------

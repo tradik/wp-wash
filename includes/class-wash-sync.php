@@ -1371,7 +1371,7 @@ class WashSync {
      * @param int $postId Post ID
      * @return string|null Language code (e.g., 'en', 'de', 'pl')
      */
-    private function getPostLanguage($postId) {
+    public function getPostLanguage($postId) {
         // Manual override via custom field (highest priority)
         $manualLang = get_post_meta($postId, '_wash_language', true);
         if ($manualLang) {
