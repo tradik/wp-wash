@@ -47,7 +47,7 @@ class WashCallback {
         register_rest_route('wash/v1', '/sync-status/(?P<post_id>\d+)', [
             'methods'             => 'GET',
             'callback'            => [$this, 'getSyncStatus'],
-            'permission_callback' => [$this, 'checkEditPermission'],
+            'permission_callback' => [$this, 'checkEditPostPermission'],
             'args'                => [
                 'post_id' => [
                     'required'          => true,
@@ -297,12 +297,34 @@ class WashCallback {
     }
 
     /**
-     * Check if user can edit posts.
+     * Check if user can edit posts (global capability).
+     *
+     * Used for post-agnostic editor endpoints (Shopify product/collection
+     * lookups for Gutenberg blocks), which expose no per-post data.
      *
      * @return bool
      */
     public function checkEditPermission() {
         return current_user_can('edit_posts');
+    }
+
+    /**
+     * Check if the current user can edit the *specific* post in the request.
+     *
+     * Endpoints that take a `post_id` and read or mutate that post's sync meta
+     * must gate on the per-post `edit_post` meta-capability, not the global
+     * `edit_posts` — otherwise any contributor/author could query (and, on the
+     * timeout path, mutate) the sync state of posts they cannot edit.
+     *
+     * @param WP_REST_Request $request Request object.
+     * @return bool
+     */
+    public function checkEditPostPermission($request) {
+        $postId = (int) $request->get_param('post_id');
+        if ($postId <= 0) {
+            return false;
+        }
+        return current_user_can('edit_post', $postId);
     }
 
     /**

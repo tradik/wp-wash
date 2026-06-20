@@ -970,6 +970,7 @@ class WashSync {
         // Auto-register shortcode if not exists (prevents WordPress from stripping it)
         if (!shortcode_exists($tag)) {
             add_shortcode($tag, function ($atts, $content) {
+                // phpcs:ignore WordPress.Security.EscapeOutput -- Passthrough for a custom Search & Replace shortcode, registered only so WordPress does not strip it. $content is a slice of post_content (already KSES-sanitized at save for users without unfiltered_html) and is rendered through the_content both on the front-end and when building the body synced to Shopify (WashSync::buildPostData, apply_filters('the_content')); escaping/sanitizing here would corrupt the outbound Shopify article body. Returned unchanged by design.
                 return $content ?? '';
             });
         }
@@ -1031,6 +1032,7 @@ class WashSync {
             if (function_exists('register_block_type') && !\WP_Block_Type_Registry::get_instance()->is_registered($fullBlockName)) {
                 register_block_type($fullBlockName, [
                     'render_callback' => function ($attributes, $content) {
+                        // phpcs:ignore WordPress.Security.EscapeOutput -- Passthrough for a custom Search & Replace block, registered only so WordPress does not strip it. $content is a slice of post_content (already KSES-sanitized at save for users without unfiltered_html) and is rendered through the_content both on the front-end and when building the body synced to Shopify (WashSync::buildPostData, apply_filters('the_content')); escaping/sanitizing here would corrupt the outbound Shopify article body. Returned unchanged by design.
                         return $content ?? '';
                     },
                 ]);

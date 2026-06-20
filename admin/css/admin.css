@@ -573,3 +573,25 @@ td.column-wash_sync span {
   margin-top: 0;
   border-top: 0;
 }
+
+/* WP 7.0 changed the admin `.button` line metrics: dashicons positioned with
+   `vertical-align: text-bottom` (as most of this plugin's icon buttons do
+   inline) now sag below the label — the icons look "dropped". Lay out any
+   plugin button that contains a dashicon as a centered inline-flex row. Flex
+   ignores a child's `vertical-align`, so the icon and label line up on every
+   WordPress version without having to touch each button's inline style. Only
+   buttons that actually contain a dashicon are affected; text-only buttons are
+   left untouched. */
+.wash-settings .button:has(.dashicons),
+.wash-settings a.button:has(.dashicons),
+.wash-settings button.button:has(.dashicons) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+}
+
+.wash-settings .button:has(.dashicons) .dashicons {
+  margin: 0;
+  line-height: 1;
+}

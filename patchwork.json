@@ -3,6 +3,8 @@
         "error_log",
         "header",
         "time",
-        "date"
+        "date",
+        "filemtime",
+        "sleep"
     ]
 }

@@ -532,6 +532,79 @@ class WashAdminSecurityTest extends TestCase
         unset($_GET['page'], $_GET['wash_callback'], $_GET['api_key']);
     }
 
+    public function testHandleCallbackRejectsMissingOrInvalidNonce(): void
+    {
+        $_GET['page'] = 'wash';
+        $_GET['wash_callback'] = '1';
+        $_GET['api_key'] = 'attacker-key';
+        // No wash_state nonce present — simulates a forged CSRF link.
+
+        Functions\when('current_user_can')->justReturn(true);
+        Functions\when('wp_verify_nonce')->justReturn(false);
+        Functions\when('admin_url')->alias(fn($p = '') => 'https://example.com/wp-admin/' . $p);
+
+        $updated = [];
+        Functions\when('update_option')->alias(function ($k, $v) use (&$updated) {
+            $updated[$k] = $v;
+            return true;
+        });
+        $redirectedTo = null;
+        Functions\when('wp_safe_redirect')->alias(function ($url) use (&$redirectedTo) {
+            $redirectedTo = $url;
+            throw new \RuntimeException('redirect'); // stand in for the exit; below
+        });
+
+        try {
+            $this->admin->handleCallback();
+            $this->fail('Expected redirect on missing nonce');
+        } catch (\RuntimeException $e) {
+            // expected
+        }
+
+        $this->assertStringContainsString('connect_error=state', (string) $redirectedTo);
+        $this->assertArrayNotHasKey(
+            'wash_api_key',
+            $updated,
+            'API key must NOT be written when the CSRF nonce is missing/invalid'
+        );
+
+        unset($_GET['page'], $_GET['wash_callback'], $_GET['api_key']);
+    }
+
+    public function testHandleCallbackAcceptsValidNonceAndStoresCredentials(): void
+    {
+        $_GET['page'] = 'wash';
+        $_GET['wash_callback'] = '1';
+        $_GET['wash_state'] = 'valid';
+        $_GET['api_key'] = 'issued-key';
+        $_GET['store'] = 'my-store';
+
+        Functions\when('current_user_can')->justReturn(true);
+        Functions\when('wp_verify_nonce')->alias(fn($nonce, $action) => $action === 'wash_connect' ? 1 : false);
+        Functions\when('admin_url')->alias(fn($p = '') => 'https://example.com/wp-admin/' . $p);
+        Functions\when('add_query_arg')->alias(fn($k, $v, $url) => $url . '&' . $k . '=' . $v);
+
+        $updated = [];
+        Functions\when('update_option')->alias(function ($k, $v) use (&$updated) {
+            $updated[$k] = $v;
+            return true;
+        });
+        Functions\when('wp_safe_redirect')->alias(function () {
+            throw new \RuntimeException('redirect'); // final redirect after the write
+        });
+
+        try {
+            $this->admin->handleCallback();
+        } catch (\RuntimeException $e) {
+            // redirect at the end of the success path
+        }
+
+        $this->assertSame('issued-key', $updated['wash_api_key'] ?? null);
+        $this->assertSame('my-store', $updated['wash_shopify_store'] ?? null);
+
+        unset($_GET['page'], $_GET['wash_callback'], $_GET['wash_state'], $_GET['api_key'], $_GET['store']);
+    }
+
     // ---------------------------------------------------------------
     // Nonce action specificity: different actions use different nonces
     // ---------------------------------------------------------------

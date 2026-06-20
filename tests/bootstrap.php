@@ -85,6 +85,41 @@ if (!function_exists('wp_parse_url')) {
         return parse_url($url, $component);
     }
 }
+// Canonical WP_Block_Type_Registry stub shared by all tests. Defining it once
+// here (with a complete is_registered()/register()) prevents per-test `eval`
+// stubs from racing — the first-loaded definition wins process-wide, and an
+// incomplete one would break every test that calls is_registered().
+if (!class_exists('WP_Block_Type_Registry')) {
+    class WP_Block_Type_Registry
+    {
+        private static $instance = null;
+        private array $registered = [];
+
+        public static function get_instance(): self
+        {
+            if (self::$instance === null) {
+                self::$instance = new self();
+            }
+            return self::$instance;
+        }
+
+        public function is_registered($name): bool
+        {
+            return isset($this->registered[$name]);
+        }
+
+        public function register($name, $args = [])
+        {
+            $this->registered[$name] = $args;
+            return $args;
+        }
+
+        public function get_all_registered(): array
+        {
+            return $this->registered;
+        }
+    }
+}
 if (!class_exists('WP_Error')) {
     class WP_Error
     {

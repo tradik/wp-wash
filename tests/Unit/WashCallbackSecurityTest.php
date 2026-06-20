@@ -143,6 +143,49 @@ class WashCallbackSecurityTest extends TestCase
     }
 
     // ---------------------------------------------------------------
+    // Per-post Edit Permission Check (checkEditPostPermission)
+    // ---------------------------------------------------------------
+
+    public function testCheckEditPostPermissionRejectsMissingPostId(): void
+    {
+        Functions\when('current_user_can')->justReturn(true);
+        $request = $this->createMockRequest([], [], []); // no post_id
+
+        $this->assertFalse($this->callback->checkEditPostPermission($request));
+    }
+
+    public function testCheckEditPostPermissionAcceptsUserWhoCanEditThatPost(): void
+    {
+        Functions\when('current_user_can')->alias(function ($cap, $id = null) {
+            return $cap === 'edit_post' && (int) $id === 42;
+        });
+        $request = $this->createMockRequest([], [], ['post_id' => '42']);
+
+        $this->assertTrue($this->callback->checkEditPostPermission($request));
+    }
+
+    /**
+     * The exact gap the wp.org reviewer flagged: a user with the GLOBAL
+     * edit_posts capability must still be denied sync-status for a post they
+     * cannot edit. The callback must consult the per-post edit_post meta-cap.
+     */
+    public function testCheckEditPostPermissionRejectsGlobalEditPostsWithoutPerPostCap(): void
+    {
+        $checked = [];
+        Functions\when('current_user_can')->alias(function ($cap, $id = null) use (&$checked) {
+            $checked[] = [$cap, $id];
+            if ($cap === 'edit_posts') {
+                return true;  // global cap granted (e.g. contributor/author)
+            }
+            return false;     // but NOT edit_post on this specific post
+        });
+        $request = $this->createMockRequest([], [], ['post_id' => '99']);
+
+        $this->assertFalse($this->callback->checkEditPostPermission($request));
+        $this->assertContains(['edit_post', 99], $checked, 'must check the per-post edit_post meta-cap');
+    }
+
+    // ---------------------------------------------------------------
     // Callback Handler: Input Validation
     // ---------------------------------------------------------------
 

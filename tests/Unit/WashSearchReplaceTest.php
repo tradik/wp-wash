@@ -298,4 +298,35 @@ class WashSearchReplaceTest extends TestCase
         // Rule 2: search='' (default) → skipped
         $this->assertSame('hello ', $ref->invoke($sync, 'hello yes'));
     }
+
+    // -- passthrough fidelity (wp.org "escape return values" item) --
+
+    /**
+     * The shortcode auto-registered by applyShortcodeRule() is a passthrough
+     * that MUST return its inner content verbatim. Its output is rendered into
+     * the body synced to Shopify (the_content at buildPostData), so escaping or
+     * sanitizing it would corrupt outbound content. This test pins that
+     * contract: if anyone later wraps the return in an escaping or wp_kses
+     * call, it fails.
+     */
+    public function testAutoRegisteredShortcodePassthroughReturnsContentVerbatim(): void
+    {
+        $captured = null;
+        Functions\when('shortcode_exists')->justReturn(false);
+        Functions\when('wp_strip_all_tags')->alias(fn($s) => strip_tags((string) $s));
+        Functions\when('add_shortcode')->alias(function ($tag, $cb) use (&$captured) {
+            $captured = $cb;
+        });
+
+        $ref = new \ReflectionMethod(\WashSync::class, 'applyShortcodeRule');
+        $ref->setAccessible(true);
+        $ref->invoke($this->sync, '[newsletter]hi[/newsletter]', '[newsletter]', '%content%');
+
+        $this->assertIsCallable($captured, 'a passthrough shortcode must be registered');
+
+        // Rich HTML — including a <script> — must come back byte-for-byte.
+        $html = '<strong>Bold</strong> <a href="https://x.test">link</a> <script>track()</script>';
+        $this->assertSame($html, $captured([], $html));
+        $this->assertSame('', $captured([], null));
+    }
 }

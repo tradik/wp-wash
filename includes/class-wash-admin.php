@@ -80,8 +80,6 @@ class WashAdmin {
 
         // Handle manual sync action
         add_action('admin_init', [$this, 'handleManualSync']);
-        // Handle "Refresh status from Shopify" row action
-        add_action('admin_init', [$this, 'handleRefreshStatus']);
         // Daily cron: clear old _wash_sync_error meta on currently-published posts
         add_action('wash_clear_stale_errors', [$this, 'clearStaleErrors']);
         // Hidden admin page: JS-driven progress view for inline bulk publish
@@ -313,22 +311,29 @@ class WashAdmin {
      *
      * This is the post-OAuth handoff from the Shopify-hosted app to WordPress:
      * the user clicks "Connect" inside the Shopify admin and the Shopify app
-     * server-side-redirects back to `wp-admin/options-general.php?page=wash&wash_callback=1&api_key=...&store=...`.
-     * The Shopify app never sees a WordPress nonce, so authentication relies on
-     * (1) the merchant being logged into wp-admin (current_user_can check) and
-     * (2) the api_key value itself, which only the Shopify-side issuer can
-     * generate. WordPress nonces are intentionally not applicable here.
+     * server-side-redirects back to `wp-admin/options-general.php?page=wash&wash_callback=1&wash_state=...&api_key=...&store=...`.
+     *
+     * CSRF protection: the connect button embeds a `wash_connect` nonce in the
+     * `return_url` it hands to the Shopify app, which redirects that URL back
+     * verbatim (it only appends api_key/store via URL::searchParams.set). We
+     * verify that nonce here before writing any credentials, so a forged link
+     * cannot trick a logged-in admin into overwriting their stored API key.
+     * Capability (`manage_options`) is checked in addition to the nonce.
      */
-    // phpcs:disable WordPress.Security.NonceVerification.Recommended -- see method docblock; this is a server-to-server credential handoff from the Shopify app, gated by capability + api_key, not by a WP nonce.
     public function handleCallback() {
-        if (!isset($_GET['page']) || $_GET['page'] !== 'wash') {
-            return;
-        }
-        if (!isset($_GET['wash_callback'])) {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- routing guards only; the wash_connect nonce is verified below before any write.
+        if (!isset($_GET['page']) || $_GET['page'] !== 'wash' || !isset($_GET['wash_callback'])) {
             return;
         }
         if (!current_user_can('manage_options')) {
             return;
+        }
+
+        // CSRF gate: reject callbacks that don't carry the one-time nonce we issued.
+        $state = isset($_GET['wash_state']) ? sanitize_text_field(wp_unslash($_GET['wash_state'])) : '';
+        if (!wp_verify_nonce($state, 'wash_connect')) {
+            wp_safe_redirect(admin_url('options-general.php?page=wash&connect_error=state'));
+            exit;
         }
 
         // Receive credentials from Shopify app callback
@@ -361,7 +366,6 @@ class WashAdmin {
             }
         }
     }
-    // phpcs:enable WordPress.Security.NonceVerification.Recommended
 
     /**
      * Restore plugin settings from Shopify App backup.
@@ -1940,76 +1944,19 @@ class WashAdmin {
             );
         }
 
-        // "Refresh status" — reconcile local meta with shopify-app DB
-        $refreshUrl = wp_nonce_url(
-            add_query_arg([
-                'action' => 'wash_refresh_status',
-                'post_id' => $post->ID,
-            ], admin_url('edit.php')),
-            'wash_refresh_status_' . $post->ID
-        );
-        $actions['wash_refresh'] = sprintf(
-            '<a href="%s" style="color: #2271b1;" title="%s">↻ %s</a>',
-            esc_url($refreshUrl),
-            esc_attr__('Compare local sync state with Shopify and clear stale errors', 'wash-blog-manager'),
-            __('Refresh status', 'wash-blog-manager')
-        );
-
+        // No per-post "Refresh status" action here by design: reconciling sync
+        // state is a bulk operation, exposed as "Refresh all sync statuses" on
+        // Settings → Wash → Sync. A per-row refresh was noise — it implied each
+        // post needed individual reconciliation, which was never the intent.
         return $actions;
     }
-
-    /**
-     * Handle "Refresh status" row action.
-     * Calls /api/check-status for the post and reconciles local meta
-     * (_wash_article_id / _wash_sync_error) with shopify-app's source of truth.
-     */
-    // phpcs:disable WordPress.Security.NonceVerification.Recommended -- the action/post_id checks below are guards on which path to enter; the actual security gate is the wp_verify_nonce() call further down (handler returns 403/wp_die on mismatch) plus the user-capability check inside the API call. Reading $_GET to dispatch is intentional and standard practice for admin row actions.
-    public function handleRefreshStatus() {
-        if (!isset($_GET['action']) || $_GET['action'] !== 'wash_refresh_status') {
-            return;
-        }
-        if (!isset($_GET['post_id'])) {
-            return;
-        }
-
-        $postId = absint($_GET['post_id']);
-        if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'] ?? '')), 'wash_refresh_status_' . $postId)) {
-            wp_die(esc_html__('Security check failed', 'wash-blog-manager'));
-        }
-        if (!current_user_can('edit_post', $postId)) {
-            wp_die(esc_html__('Permission denied', 'wash-blog-manager'));
-        }
-
-        $redirectUrl = wp_get_referer() ?: admin_url('edit.php');
-
-        if (!$this->apiClient->isConfigured()) {
-            wp_safe_redirect(add_query_arg('wash_error', 'not_configured', $redirectUrl));
-            exit;
-        }
-
-        $response = $this->apiClient->post('/api/check-status', [
-            'wpPostIds' => [$postId],
-            'wpSiteId' => get_current_blog_id(),
-        ]);
-
-        if (is_wp_error($response) || !is_array($response) || empty($response['success'])) {
-            wp_safe_redirect(add_query_arg('wash_refresh_result', 'error', $redirectUrl));
-            exit;
-        }
-
-        $status = $response['statuses'][(string) $postId] ?? $response['statuses'][$postId] ?? null;
-        $result = $this->applyStatusToPostMeta($postId, $status);
-        wp_safe_redirect(add_query_arg('wash_refresh_result', $result, $redirectUrl));
-        exit;
-    }
-    // phpcs:enable WordPress.Security.NonceVerification.Recommended
 
     /**
      * Reconcile one post's local sync meta with shopify-app's check-status entry.
      * Restores _wash_article_id/_wash_blog_id/_wash_blog_handle/_wash_synced_at
      * (and clears stale errors) when the article exists on Shopify; clears all of
-     * them when it doesn't. Shared by the per-post "Refresh status" row action and
-     * the bulk "Refresh all statuses" button so both behave identically.
+     * them when it doesn't. Used by the bulk "Refresh all sync statuses" button
+     * (Settings → Wash → Sync) via ajaxRefreshAllStatuses().
      *
      * @param int        $postId
      * @param array|null $status One `statuses` entry from /api/check-status.
@@ -2236,6 +2183,29 @@ class WashAdmin {
             'wash_bulk_errors'    => '__errors__',
         ], $returnUrl);
 
+        // wp.org compliance: enqueue the progress driver instead of an inline
+        // script element. This hidden submenu page isn't covered by enqueueAssets(),
+        // so register the asset here; called during page output it still prints
+        // in the admin footer. Dynamic config is passed via wp_localize_script().
+        wp_enqueue_script(
+            'wash-bulk-progress',
+            washPluginUrl() . 'admin/js/bulk-progress.js',
+            [],
+            WASH_VERSION . '.' . filemtime(WASH_PLUGIN_DIR . 'admin/js/bulk-progress.js'),
+            true
+        );
+        wp_localize_script('wash-bulk-progress', 'WashBulkProgress', [
+            'token'         => $token,
+            'nonce'         => $nonce,
+            'total'         => $total,
+            'finalRedirect' => $finalRedirect,
+            'ajaxUrl'       => $ajaxUrl,
+            'i18n'          => [
+                'done'    => __('done', 'wash-blog-manager'),
+                'working' => __('working…', 'wash-blog-manager'),
+            ],
+        ]);
+
         ?>
         <div class="wrap">
             <h1><?php echo esc_html($actionLabel); ?></h1>
@@ -2263,70 +2233,6 @@ class WashAdmin {
                 </a>
             </p>
         </div>
-        <script>
-        (function() {
-            const TOKEN = <?php echo wp_json_encode($token); ?>;
-            const NONCE = <?php echo wp_json_encode($nonce); ?>;
-            const TOTAL = <?php echo (int) $total; ?>;
-            const FINAL = <?php echo wp_json_encode($finalRedirect); ?>;
-            const URL   = <?php echo wp_json_encode($ajaxUrl); ?>;
-            const $progress = document.getElementById('wash-bulk-progress');
-            const $done     = document.getElementById('wash-bulk-done');
-            const $status   = document.getElementById('wash-bulk-status');
-            const $errors   = document.getElementById('wash-bulk-errors');
-            let totalProcessed = 0;
-            let totalErrors = 0;
-            let cancelled = false;
-            document.getElementById('wash-bulk-cancel').addEventListener('click', () => { cancelled = true; });
-
-            async function runBatch(offset) {
-                const body = new URLSearchParams();
-                body.append('action', 'wash_bulk_sync_batch');
-                body.append('token', TOKEN);
-                body.append('nonce', NONCE);
-                body.append('offset', String(offset));
-                const res = await fetch(URL, { method: 'POST', credentials: 'same-origin', body });
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                const json = await res.json();
-                if (!json.success) throw new Error(json.data || 'Unknown error');
-                return json.data;
-            }
-
-            async function loop() {
-                let offset = 0;
-                while (offset < TOTAL) {
-                    if (cancelled) return;
-                    try {
-                        const r = await runBatch(offset);
-                        totalProcessed += (r.processed || 0);
-                        totalErrors    += (r.errors || 0);
-                        offset = r.nextOffset;
-                        $progress.value = offset;
-                        $done.textContent = String(offset);
-                        $status.lastChild.textContent = ' — ' + (r.done ? '<?php echo esc_js(__('done', 'wash-blog-manager')); ?>' : '<?php echo esc_js(__('working…', 'wash-blog-manager')); ?>');
-                        if (r.errorMessages && r.errorMessages.length) {
-                            r.errorMessages.forEach(m => {
-                                const li = document.createElement('li');
-                                li.textContent = m;
-                                $errors.appendChild(li);
-                            });
-                        }
-                        if (r.done) break;
-                    } catch (err) {
-                        const li = document.createElement('li');
-                        li.textContent = String(err);
-                        $errors.appendChild(li);
-                        totalErrors++;
-                        break;
-                    }
-                }
-                const url = FINAL.replace('__processed__', String(totalProcessed)).replace('__errors__', String(totalErrors));
-                setTimeout(() => { window.location.href = url; }, 1500);
-            }
-
-            loop();
-        })();
-        </script>
         <?php
     }
 
@@ -2500,10 +2406,14 @@ class WashAdmin {
             }
         }
 
-        // Show persistent notice when plugin is not connected to Shopify
-        if (!$this->apiClient->isConfigured()) {
+        // Setup notice when the plugin isn't connected. Scoped to the content
+        // screens where it is actionable (post list + editor) and dismissible —
+        // never shown dashboard-wide, so it doesn't hijack the admin (Guideline 11).
+        if (!$this->apiClient->isConfigured()
+            && $screen && in_array($screen->base, ['edit', 'post'], true)
+        ) {
             $settingsUrl = admin_url('options-general.php?page=wash');
-            echo '<div class="notice notice-warning"><p>';
+            echo '<div class="notice notice-warning is-dismissible"><p>';
             echo '<strong>Wash:</strong> ';
             printf(
                 /* translators: %1$s = opening link tag, %2$s = closing link tag */

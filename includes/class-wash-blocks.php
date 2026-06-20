@@ -770,7 +770,16 @@ class WashBlocks {
             return;
         }
 
+        // Passthrough render/shortcode callback for custom Search & Replace
+        // entities. Registered only so Gutenberg/the_content do not strip these
+        // blocks/shortcodes. $content is a slice of post_content (already
+        // KSES-sanitized at save for users without unfiltered_html) and is
+        // rendered through the_content both on the front-end and when building
+        // the body synced to Shopify (WashSync::buildPostData,
+        // apply_filters('the_content')); escaping/sanitizing here would corrupt
+        // the outbound Shopify article body, so it is returned unchanged by design.
         $passthrough = function ($atts, $content) {
+            // phpcs:ignore WordPress.Security.EscapeOutput -- see comment above: intentional passthrough of already-sanitized post content destined for Shopify.
             return $content ?? '';
         };
 

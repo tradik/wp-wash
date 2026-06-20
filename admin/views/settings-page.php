@@ -273,6 +273,18 @@ function wash_render_permission_locked_banner() {
 }
 ?>
 <div class="wrap wash-settings">
+    <?php
+    // Connection was rejected because the CSRF nonce was missing/expired
+    // (handleCallback()). Read-only display on this manage_options-gated page.
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only notice, no state change.
+    if (isset($_GET['connect_error']) && $_GET['connect_error'] === 'state') : ?>
+    <div class="notice notice-error is-dismissible" style="margin: 15px 0;">
+        <p>
+            <strong>Wash:</strong>
+            <?php esc_html_e('Connection could not be verified (the security token was missing or expired). Please click "Connect to Shopify" again to retry.', 'wash-blog-manager'); ?>
+        </p>
+    </div>
+    <?php endif; ?>
     <?php if ($wash_forceRefreshPlan && empty($wash_connectionError)) : ?>
     <div class="notice notice-success is-dismissible" style="margin: 15px 0;">
         <p><?php esc_html_e('Plan information refreshed successfully.', 'wash-blog-manager'); ?></p>
@@ -436,7 +448,7 @@ function wash_render_permission_locked_banner() {
                                     printf(
                                         /* translators: 1: opening anchor tag to the Privacy Policy, 2: closing anchor tag, 3: opening anchor to the External services section of readme.txt rendered on wordpress.org, 4: closing anchor tag */
                                         esc_html__('I understand that connecting this plugin will send my WordPress post content, images, custom fields, and site URL to the Tradik Wash service at app-wash.tradik.com (the broker that talks to Shopify). I have read the %1$sPrivacy Policy%2$s and the %3$sfull list of external services%4$s.', 'wash-blog-manager'),
-                                        '<a href="https://wash.tradik.com/privacy-policy.html" target="_blank" rel="noopener noreferrer">',
+                                        '<a href="https://wash.tradik.com/privacy-policy/" target="_blank" rel="noopener noreferrer">',
                                         '</a>',
                                         '<a href="https://wordpress.org/plugins/wash-blog-manager/#description" target="_blank" rel="noopener noreferrer">',
                                         '</a>'
@@ -1126,7 +1138,7 @@ function wash_render_permission_locked_banner() {
                                 <strong><?php esc_html_e('Note:', 'wash-blog-manager'); ?></strong> <?php esc_html_e('Shopify Markets works independently of this plugin. Use this feature when Markets is not available or you need custom hreflang handling.', 'wash-blog-manager'); ?>
                             </p>
                         </div>
-                        <a href="https://wash.tradik.com/docs/hreflangs.html" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0;">
+                        <a href="https://wash.tradik.com/docs/hreflangs/" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0;">
                             <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
                             <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                         </a>
@@ -1211,7 +1223,13 @@ function wash_render_permission_locked_banner() {
                 </table>
             <?php endif; ?>
 
-            <script>
+            <?php
+            // wp.org compliance: deliver this admin JS via wp_add_inline_script()
+            // instead of an inline script element. The block is buffered so all
+            // PHP interpolations (esc_js, wp_json_encode) resolve to pure JS,
+            // then attached after the already-enqueued `wash-admin` handle.
+            ob_start();
+            ?>
             (function() {
                 var fieldConfig = <?php echo wp_json_encode($wash_fieldConfig); ?>;
                 var saveTimer = null;
@@ -1277,10 +1295,10 @@ function wash_render_permission_locked_banner() {
                     });
                 });
             })();
-            </script>
+            <?php wp_add_inline_script('wash-admin', ob_get_clean(), 'after'); ?>
 
             <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                <a href="https://wash.tradik.com/docs/custom-fields.html" target="_blank" rel="noopener noreferrer" class="button" style="margin-right: 10px;">
+                <a href="https://wash.tradik.com/docs/custom-fields/" target="_blank" rel="noopener noreferrer" class="button" style="margin-right: 10px;">
                     <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
                     <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                 </a>
@@ -1384,7 +1402,7 @@ function wash_render_permission_locked_banner() {
                             <li><strong><?php esc_html_e('Use cases:', 'wash-blog-manager'); ?></strong> <?php esc_html_e('Pen names, company branding, consistent author attribution across sites', 'wash-blog-manager'); ?></li>
                         </ul>
                     </div>
-                    <a href="https://wash.tradik.com/docs/author-mapping.html" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0;">
+                    <a href="https://wash.tradik.com/docs/author-mapping/" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0;">
                         <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
                         <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                     </a>
@@ -1617,7 +1635,7 @@ function wash_render_permission_locked_banner() {
                                 <?php esc_html_e('Images are automatically synced when publishing a post. The sync rewrites WordPress URLs to Shopify CDN URLs in the content.', 'wash-blog-manager'); ?>
                             </span>
                         </div>
-                        <a href="https://wash.tradik.com/docs/images-and-files.html" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0; margin-left: 15px;">
+                        <a href="https://wash.tradik.com/docs/images-and-files/" target="_blank" rel="noopener noreferrer" class="button" style="flex-shrink: 0; margin-left: 15px;">
                             <span class="dashicons dashicons-book" style="vertical-align: text-bottom; margin-right: 4px;"></span>
                             <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                         </a>
@@ -1721,7 +1739,7 @@ function wash_render_permission_locked_banner() {
             </table>
 
             <div style="margin-top: 20px;">
-                <a href="https://wash.tradik.com/docs/page-sync.html" target="_blank" rel="noopener noreferrer" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                <a href="https://wash.tradik.com/docs/page-sync/" target="_blank" rel="noopener noreferrer" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
                     <span class="dashicons dashicons-book" style="font-size: 16px; width: 16px; height: 16px;"></span>
                     <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                 </a>
@@ -1766,7 +1784,7 @@ function wash_render_permission_locked_banner() {
                     <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">chat-*</code> — <?php esc_html_e('Chat widgets (Tidio, Intercom, etc.)', 'wash-blog-manager'); ?><br />
                     <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px;">mddb-*</code> — <?php esc_html_e('MDDB custom elements', 'wash-blog-manager'); ?>
                 </div>
-                <a href="https://wash.tradik.com/docs/content-processing.html" target="_blank" rel="noopener noreferrer" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                <a href="https://wash.tradik.com/docs/content-processing/" target="_blank" rel="noopener noreferrer" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
                     <span class="dashicons dashicons-book" style="font-size: 16px; width: 16px; height: 16px;"></span>
                     <?php esc_html_e('Documentation', 'wash-blog-manager'); ?>
                 </a>
@@ -2043,7 +2061,12 @@ function wash_render_permission_locked_banner() {
     </form>
 </div>
 
-<script>
+<?php
+// wp.org compliance: deliver this admin JS via wp_add_inline_script() instead of
+// an inline script element. Buffered so PHP interpolations resolve to pure JS,
+// then attached after the already-enqueued `wash-admin` handle.
+ob_start();
+?>
 (function() {
     // Sync Post Types checkboxes → hidden input
     var syncPtCheckboxes = document.querySelectorAll('.wash-sync-pt-checkbox');
@@ -2235,8 +2258,11 @@ function wash_render_permission_locked_banner() {
             // Verify store exists by checking if it responds
             fetch('https://' + store + '.myshopify.com/admin', { mode: 'no-cors', cache: 'no-store' })
                 .finally(function() {
-                    // Redirect regardless - Shopify will show proper error if store doesn't exist
-                    var returnUrl = encodeURIComponent(window.location.href.split('?')[0] + '?page=wash&wash_callback=1');
+                    // Redirect regardless - Shopify will show proper error if store doesn't exist.
+                    // CSRF: embed a one-time nonce in the return_url. The Shopify app
+                    // redirects this URL back verbatim (only appending api_key/store), so
+                    // handleCallback() can verify the request actually originated here.
+                    var returnUrl = encodeURIComponent(window.location.href.split('?')[0] + '?page=wash&wash_callback=1&wash_state=<?php echo esc_js(wp_create_nonce('wash_connect')); ?>');
                     var siteUrl = encodeURIComponent(window.location.protocol + '//' + window.location.host);
                     var siteName = encodeURIComponent('<?php echo esc_js(get_bloginfo('name')); ?>');
 
@@ -3620,4 +3646,4 @@ function wash_render_permission_locked_banner() {
     }
 
 })();
-</script>
+<?php wp_add_inline_script('wash-admin', ob_get_clean(), 'after'); ?>

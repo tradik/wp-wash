@@ -239,6 +239,61 @@ class WashAdminBulkProgressTest extends TestCase
         $this->assertStringNotContainsString('page=wash-bulk-progress', $result);
     }
 
+    // ---------------- renderBulkProgressPage: enqueue (wp.org compliance) ----------------
+
+    public function testRenderBulkProgressPageEnqueuesScriptInsteadOfInlineTag(): void
+    {
+        $_GET['token'] = 'TOKEN123';
+        $this->transients['wash_bulk_TOKEN123'] = [
+            'action' => 'wash_publish',
+            'postIds' => [11, 22, 33],
+            'skipped' => 0,
+            'returnUrl' => 'https://example.com/wp-admin/edit.php',
+        ];
+
+        $enqueued = [];
+        $localized = [];
+        Functions\when('wp_create_nonce')->justReturn('NONCEVAL');
+        Functions\when('washPluginUrl')->justReturn('https://example.com/wp-content/plugins/wash/');
+        Functions\when('wp_enqueue_script')->alias(
+            function ($handle, $src = '', $deps = [], $ver = '', $footer = false) use (&$enqueued) {
+                $enqueued[$handle] = compact('src', 'deps', 'ver', 'footer');
+            }
+        );
+        Functions\when('wp_localize_script')->alias(
+            function ($handle, $object, $data) use (&$localized) {
+                $localized[$handle] = ['object' => $object, 'data' => $data];
+            }
+        );
+        Functions\when('esc_html')->returnArg(1);
+        Functions\when('esc_attr')->returnArg(1);
+        Functions\when('esc_url')->returnArg(1);
+        Functions\when('esc_html_e')->alias(function ($t) { echo $t; });
+
+        ob_start();
+        $this->admin->renderBulkProgressPage();
+        $html = ob_get_clean();
+
+        // Driver is enqueued from an external file, loaded in the footer
+        $this->assertArrayHasKey('wash-bulk-progress', $enqueued);
+        $this->assertStringContainsString('admin/js/bulk-progress.js', $enqueued['wash-bulk-progress']['src']);
+        $this->assertTrue($enqueued['wash-bulk-progress']['footer']);
+
+        // Dynamic config travels via wp_localize_script(), not inline PHP echo
+        $this->assertArrayHasKey('wash-bulk-progress', $localized);
+        $this->assertSame('WashBulkProgress', $localized['wash-bulk-progress']['object']);
+        $cfg = $localized['wash-bulk-progress']['data'];
+        $this->assertSame('TOKEN123', $cfg['token']);
+        $this->assertSame('NONCEVAL', $cfg['nonce']);
+        $this->assertSame(3, $cfg['total']);
+        $this->assertArrayHasKey('i18n', $cfg);
+
+        // The rendered page must not contain a literal inline script element
+        $this->assertStringNotContainsString('<script', $html);
+
+        unset($_GET['token']);
+    }
+
     // ---------------- ajaxBulkSyncBatch security ----------------
 
     public function testAjaxBulkSyncBatchRejectsInvalidNonce(): void
