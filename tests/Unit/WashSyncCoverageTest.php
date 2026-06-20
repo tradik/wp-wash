@@ -1614,7 +1614,7 @@ class WashSyncCoverageTest extends TestCase
 
         Functions\when('get_option')->alias(fn($k, $d = '') => match ($k) {
             'wash_post_types'        => 'post,page',
-            'wash_hreflangs_enabled' => '0', // disabled so no hreflang call needed
+            'wash_hreflangs_enabled' => '0',
             'wash_shopify_store'     => 'test-store',
             'wash_api_key'           => 'test-key',
             'wash_app_url'           => 'https://app-wash.tradik.dev',
@@ -1623,13 +1623,16 @@ class WashSyncCoverageTest extends TestCase
             default                  => $d,
         });
 
-        // Mock what onDeletePost/onStatusTransition calls
         Functions\when('get_post_meta')->justReturn('');
-        Functions\when('delete_post_meta')->justReturn(true);
+        
+        $deletedCount = 0;
+        Functions\when('delete_post_meta')->alias(function ($postId, $key) use (&$deletedCount) {
+            $deletedCount++;
+            return true;
+        });
+        
         Functions\when('is_multisite')->justReturn(false);
-        // Note: is_plugin_active() is defined in bootstrap.php → cannot re-mock
 
-        // Mock the apiClient->post call indirectly via wp_remote_post
         Functions\when('wp_remote_post')->justReturn(['body' => '{"success":true}']);
         Functions\when('wp_remote_retrieve_response_code')->justReturn(200);
         Functions\when('wp_remote_retrieve_body')->justReturn('{"success":true}');
@@ -1638,9 +1641,109 @@ class WashSyncCoverageTest extends TestCase
         $sync = new \WashSync();
         $post = $this->makePost(['ID' => 10, 'post_type' => 'post']);
 
-        // Transition from publish → draft should NOT throw
         $sync->onStatusTransition('draft', 'publish', $post);
-        $this->assertTrue(true);
+        $this->assertSame(4, $deletedCount);
+    }
+
+    public function testOnStatusTransitionSkipsWhenNotConfigured(): void
+    {
+        require_once dirname(__DIR__, 2) . '/includes/class-wash-hreflangs.php';
+        require_once dirname(__DIR__, 2) . '/includes/class-wash-multisite.php';
+
+        Functions\when('get_option')->alias(fn($k, $d = '') => match ($k) {
+            'wash_post_types'        => 'post,page',
+            'wash_shopify_store'     => '',
+            'wash_api_key'           => '',
+            'wash_app_url'           => '',
+            default                  => $d,
+        });
+
+        $deletedCount = 0;
+        Functions\when('delete_post_meta')->alias(function ($postId, $key) use (&$deletedCount) {
+            $deletedCount++;
+            return true;
+        });
+
+        $sync = new \WashSync();
+        $post = $this->makePost(['ID' => 10, 'post_type' => 'post']);
+
+        $sync->onStatusTransition('draft', 'publish', $post);
+        $this->assertSame(0, $deletedCount);
+    }
+
+    public function testOnStatusTransitionPublishToDraftDoesNotClearMetaOnWpError(): void
+    {
+        require_once dirname(__DIR__, 2) . '/includes/class-wash-hreflangs.php';
+        require_once dirname(__DIR__, 2) . '/includes/class-wash-multisite.php';
+
+        Functions\when('get_option')->alias(fn($k, $d = '') => match ($k) {
+            'wash_post_types'        => 'post,page',
+            'wash_hreflangs_enabled' => '0',
+            'wash_shopify_store'     => 'test-store',
+            'wash_api_key'           => 'test-key',
+            'wash_app_url'           => 'https://app-wash.tradik.dev',
+            'wash_http_user'         => '',
+            'wash_http_pass'         => '',
+            default                  => $d,
+        });
+
+        Functions\when('get_post_meta')->justReturn('');
+        
+        $deletedCount = 0;
+        Functions\when('delete_post_meta')->alias(function ($postId, $key) use (&$deletedCount) {
+            $deletedCount++;
+            return true;
+        });
+        
+        Functions\when('is_multisite')->justReturn(false);
+
+        $wpError = new \WP_Error('test_error', 'Shopify delete failed');
+        Functions\when('wp_remote_post')->justReturn($wpError);
+        Functions\when('is_wp_error')->alias(fn($v) => $v instanceof \WP_Error);
+
+        $sync = new \WashSync();
+        $post = $this->makePost(['ID' => 10, 'post_type' => 'post']);
+
+        $sync->onStatusTransition('draft', 'publish', $post);
+        $this->assertSame(0, $deletedCount);
+    }
+
+    public function testOnStatusTransitionPublishToDraftDoesNotClearMetaOnApiError(): void
+    {
+        require_once dirname(__DIR__, 2) . '/includes/class-wash-hreflangs.php';
+        require_once dirname(__DIR__, 2) . '/includes/class-wash-multisite.php';
+
+        Functions\when('get_option')->alias(fn($k, $d = '') => match ($k) {
+            'wash_post_types'        => 'post,page',
+            'wash_hreflangs_enabled' => '0',
+            'wash_shopify_store'     => 'test-store',
+            'wash_api_key'           => 'test-key',
+            'wash_app_url'           => 'https://app-wash.tradik.dev',
+            'wash_http_user'         => '',
+            'wash_http_pass'         => '',
+            default                  => $d,
+        });
+
+        Functions\when('get_post_meta')->justReturn('');
+        
+        $deletedCount = 0;
+        Functions\when('delete_post_meta')->alias(function ($postId, $key) use (&$deletedCount) {
+            $deletedCount++;
+            return true;
+        });
+        
+        Functions\when('is_multisite')->justReturn(false);
+
+        Functions\when('wp_remote_post')->justReturn(['body' => '{"error":"Shopify delete failed"}']);
+        Functions\when('wp_remote_retrieve_response_code')->justReturn(200);
+        Functions\when('wp_remote_retrieve_body')->justReturn('{"error":"Shopify delete failed"}');
+        Functions\when('is_wp_error')->alias(fn($v) => $v instanceof \WP_Error);
+
+        $sync = new \WashSync();
+        $post = $this->makePost(['ID' => 10, 'post_type' => 'post']);
+
+        $sync->onStatusTransition('draft', 'publish', $post);
+        $this->assertSame(0, $deletedCount);
     }
 
     // ---------------------------------------------------------------

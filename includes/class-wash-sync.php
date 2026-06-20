@@ -139,6 +139,10 @@ class WashSync {
             return;
         }
 
+        if (!$this->apiClient->isConfigured()) {
+            return;
+        }
+
         if ($oldStatus === 'publish' && $newStatus !== 'publish') {
             washLog("[wash] onStatusTransition: {$oldStatus} → {$newStatus} for post {$post->ID}");
             $endpoint = $this->resolveEndpoint($post->post_type);
@@ -159,9 +163,14 @@ class WashSync {
 
             $result = $this->apiClient->post($endpoint, $payload);
 
-            // Clear local sync meta so republishing creates a fresh article
-            $this->clearSyncMeta($post->ID);
-            washLog("[wash] onStatusTransition: Cleared sync meta for post {$post->ID}");
+            if (!is_wp_error($result) && !(is_array($result) && isset($result['error']))) {
+                // Clear local sync meta so republishing creates a fresh article
+                $this->clearSyncMeta($post->ID);
+                washLog("[wash] onStatusTransition: Cleared sync meta for post {$post->ID}");
+            } else {
+                $errorMessage = is_wp_error($result) ? $result->get_error_message() : $result['error'];
+                washLog("[wash] onStatusTransition failed to delete post {$post->ID} from Shopify: " . $errorMessage);
+            }
         }
     }
 
