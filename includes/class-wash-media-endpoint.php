@@ -108,19 +108,35 @@ class WashMediaEndpoint {
      */
     public function serveMedia($request) {
         $id = (int) $request->get_param('id');
+        $siteId = (int) ($request->get_param('site') ?? 1);
 
-        if (!$this->isAttachmentPublic($id)) {
-            return new WP_Error('not_found', 'Attachment not available', ['status' => 404]);
+        // Multisite: the signed `site` param was verified but never honored, so a
+        // subsite attachment id resolved against the network-root blog — serving
+        // the wrong file (or 404). Switch to the requesting blog before reading
+        // the attachment and restore afterwards (MED-19, #161).
+        $switched = is_multisite() && $siteId > 1;
+        if ($switched) {
+            switch_to_blog($siteId);
         }
 
-        $path = get_attached_file($id);
-        if (!$path || !file_exists($path) || !is_readable($path)) {
-            return new WP_Error('not_found', 'File missing on disk', ['status' => 404]);
-        }
+        try {
+            if (!$this->isAttachmentPublic($id)) {
+                return new WP_Error('not_found', 'Attachment not available', ['status' => 404]);
+            }
 
-        $mime = (string) get_post_mime_type($id);
-        if ($mime === '') {
-            $mime = 'application/octet-stream';
+            $path = get_attached_file($id);
+            if (!$path || !file_exists($path) || !is_readable($path)) {
+                return new WP_Error('not_found', 'File missing on disk', ['status' => 404]);
+            }
+
+            $mime = (string) get_post_mime_type($id);
+            if ($mime === '') {
+                $mime = 'application/octet-stream';
+            }
+        } finally {
+            if ($switched) {
+                restore_current_blog();
+            }
         }
 
         $this->streamFile($path, $mime, $id);

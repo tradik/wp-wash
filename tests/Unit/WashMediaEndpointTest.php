@@ -35,6 +35,8 @@ class WashMediaEndpointTest extends TestCase
         parent::setUp();
         Monkey\setUp();
 
+        // serveMedia() now consults is_multisite() (#161); default to single-site.
+        Functions\when('is_multisite')->justReturn(false);
         Functions\when('wp_unslash')->returnArg(1);
         Functions\when('sanitize_text_field')->returnArg(1);
 

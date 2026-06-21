@@ -31,6 +31,8 @@ class WashMediaEndpointCoverageTest extends TestCase
         parent::setUp();
         Monkey\setUp();
 
+        // serveMedia() now consults is_multisite() (#161); default to single-site.
+        Functions\when('is_multisite')->justReturn(false);
         Functions\when('wp_unslash')->returnArg(1);
         Functions\when('sanitize_text_field')->returnArg(1);
 
@@ -278,6 +280,46 @@ class WashMediaEndpointCoverageTest extends TestCase
         $this->assertSame('application/octet-stream', $endpoint->capturedMime);
     }
 
+    public function testServeMediaSwitchesToRequestedBlogOnMultisite(): void
+    {
+        // MED-19 (#161): on multisite, a subsite attachment (site=2) must be read
+        // after switch_to_blog(2), else the network-root blob is served.
+        $switchedTo = null;
+        $restored   = false;
+        Functions\when('is_multisite')->justReturn(true);
+        Functions\when('switch_to_blog')->alias(function ($blogId) use (&$switchedTo) {
+            $switchedTo = (int) $blogId;
+            return true;
+        });
+        Functions\when('restore_current_blog')->alias(function () use (&$restored) {
+            $restored = true;
+            return true;
+        });
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'wash_test_');
+        file_put_contents($tmpFile, 'subsite image');
+        Functions\when('get_post')->justReturn((object) [
+            'post_type'   => 'attachment',
+            'post_status' => 'inherit',
+            'post_parent' => 0,
+        ]);
+        Functions\when('get_attached_file')->justReturn($tmpFile);
+        Functions\when('get_post_mime_type')->justReturn('image/jpeg');
+
+        $endpoint = new class extends \WashMediaEndpoint {
+            protected function streamFile($path, $mime, $id): void
+            {
+                // Do not exit.
+            }
+        };
+
+        $endpoint->serveMedia($this->validSignedRequest([], ['site' => 2]));
+        @unlink($tmpFile);
+
+        $this->assertSame(2, $switchedTo);
+        $this->assertTrue($restored);
+    }
+
     public function testServeMediaPassesRealMimeToStreamFile(): void
     {
         $tmpFile = tempnam(sys_get_temp_dir(), 'wash_test_');
@@ -468,7 +510,7 @@ class WashMediaEndpointCoverageTest extends TestCase
         return $ref->invoke($endpoint, $id);
     }
 
-    private function validSignedRequest(array $overrides = []): \WP_REST_Request
+    private function validSignedRequest(array $overrides = [], array $paramOverrides = []): \WP_REST_Request
     {
         $ts  = (string) time();
         $sig = hash_hmac('sha256', $ts . ':' . self::ATTACHMENT_ID . ':' . self::SITE_ID, self::API_KEY);
@@ -479,7 +521,7 @@ class WashMediaEndpointCoverageTest extends TestCase
             'X-Wash-Signature' => $sig,
         ], $overrides);
 
-        $params = ['id' => self::ATTACHMENT_ID, 'site' => self::SITE_ID];
+        $params = array_merge(['id' => self::ATTACHMENT_ID, 'site' => self::SITE_ID], $paramOverrides);
 
         return new class($params, $headers) extends \WP_REST_Request {
             private array $headers;
