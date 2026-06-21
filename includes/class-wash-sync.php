@@ -524,6 +524,11 @@ class WashSync {
         $data['_debug_pluginVersion'] = WASH_VERSION;
         $data['_debug_cssLength'] = strlen($pageBuilderCss ?? '');
 
+        // Let integrations (and WashMultisite::injectSiteData, which registers this
+        // filter) adjust the outbound payload. Without applying it the documented
+        // multisite per-site blog-name override was dead code (LOW-14, #175).
+        $data = apply_filters('wash_sync_data', $data, $postId);
+
         return $data;
     }
 

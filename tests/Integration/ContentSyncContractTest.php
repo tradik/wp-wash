@@ -142,6 +142,30 @@ class ContentSyncContractTest extends TestCase
     }
 
     /**
+     * @test buildPostData applies the wash_sync_data filter (LOW-14, #175) — the
+     * filter was registered (WashMultisite::injectSiteData) but never applied.
+     */
+    public function testBuildPostDataAppliesWashSyncDataFilter(): void
+    {
+        Functions\when('get_post_meta')->justReturn('');
+        Functions\when('wp_get_post_tags')->justReturn([]);
+        Functions\when('get_the_category')->justReturn([]);
+        Functions\when('get_the_author_meta')->justReturn('Author');
+        // Honor only the wash_sync_data hook; pass every other apply_filters through.
+        Functions\when('apply_filters')->alias(function ($hook, $value) {
+            if ($hook === 'wash_sync_data') {
+                $value['_injectedByFilter'] = 'yes';
+            }
+            return $value;
+        });
+
+        $post = $this->createMockPost();
+        $data = $this->invokePrivate('buildPostData', [42, $post, 'create']);
+
+        $this->assertSame('yes', $data['_injectedByFilter']);
+    }
+
+    /**
      * @test Contract: tags field is array of strings (Go: []string).
      */
     public function testTagsIsArrayOfStrings(): void
