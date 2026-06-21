@@ -35,21 +35,17 @@ class WashMultisite {
     }
 
     /**
-     * When a new site is created in the network, register it for blog mapping.
+     * When a new site is created in the network, store its blog name. The blog
+     * registers with the app lazily on its first content sync (the create flow
+     * upserts the mapping), so there is no eager registration call — the old
+     * POST /api/content-sync {action: 'register_blog'} was an unknown action the
+     * app always rejected with 400, and the error was discarded (MED-18, #160).
      *
      * @param \WP_Site $newSite The newly created site
      */
     public function onSiteCreated($newSite) {
         $siteId = $newSite->blog_id;
         $blogName = get_blog_details($siteId)->blogname;
-
-        $apiClient = new WashApiClient();
-        $apiClient->post('/api/content-sync', [
-            'action'     => 'register_blog',
-            'wpSiteId'   => $siteId,
-            'wpBlogName' => $blogName,
-        ]);
-
         update_blog_option($siteId, 'wash_blog_name', $blogName);
     }
 

@@ -103,29 +103,23 @@ class WashMultisiteCoverageTest extends TestCase
     // onSiteCreated()
     // ---------------------------------------------------------------
 
-    public function testOnSiteCreatedCallsApiAndUpdatesBlogOption(): void
+    public function testOnSiteCreatedStoresBlogNameWithoutDeadRegisterCall(): void
     {
-        $apiPostCalled = false;
-        $updateCalled  = false;
+        // The blog registers with the app lazily on first sync; the old eager
+        // POST /api/content-sync {action: register_blog} (always 400) is gone, so
+        // onSiteCreated only persists the blog name now (MED-18, #160).
+        $postCalled = false;
 
-        Functions\when('get_blog_details')->alias(function ($siteId) {
-            return (object) ['blogname' => 'New Blog'];
+        Functions\when('get_blog_details')->justReturn((object) ['blogname' => 'New Blog']);
+        Functions\when('wp_remote_post')->alias(function () use (&$postCalled) {
+            $postCalled = true;
+            return ['response' => ['code' => 200], 'body' => '{}'];
         });
-        Functions\when('update_blog_option')->alias(function ($siteId, $key, $value) use (&$updateCalled) {
-            $updateCalled = true;
-        });
-        // WashApiClient constructor needs these options — already set in setUp.
-        // Stub wp_remote_post so the real HTTP call is suppressed.
-        Functions\when('wp_remote_post')->justReturn(['response' => ['code' => 200], 'body' => '{}']);
-        Functions\when('is_wp_error')->justReturn(false);
-        Functions\when('wp_remote_retrieve_response_code')->justReturn(200);
-        Functions\when('wp_remote_retrieve_body')->justReturn('{}');
+        Functions\expect('update_blog_option')->once()->with(3, 'wash_blog_name', 'New Blog');
 
-        $newSite = (object) ['blog_id' => 3];
+        $this->multisite->onSiteCreated((object) ['blog_id' => 3]);
 
-        $this->multisite->onSiteCreated($newSite);
-
-        $this->assertTrue($updateCalled);
+        $this->assertFalse($postCalled, 'no register_blog HTTP call should be made');
     }
 
     // ---------------------------------------------------------------
