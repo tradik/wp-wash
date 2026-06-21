@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Wash: Blog Manager
  * Description:       Synchronize WordPress content, images, and metafields to Shopify blogs.
- * Version:           1.26.8
+ * Version:           1.26.9
  * Requires at least: 6.3
  * Requires PHP:      8.0
  * Author:            Tradik
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WASH_VERSION', '1.26.8');
+define('WASH_VERSION', '1.26.9');
 define('WASH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WASH_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
@@ -55,6 +55,11 @@ require_once WASH_PLUGIN_DIR . 'includes/class-wash-callback.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-media-endpoint.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-blocks.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-page-builders.php';
+// The self-updater ships only in the direct (Shopify-app) build — wp.org forbids
+// custom updaters and strips this file, so load it only when present (#167).
+if (file_exists(WASH_PLUGIN_DIR . 'includes/class-wash-updater.php')) {
+    require_once WASH_PLUGIN_DIR . 'includes/class-wash-updater.php';
+}
 
 register_activation_hook(__FILE__, ['WashActivator', 'activate']);
 register_deactivation_hook(__FILE__, ['WashActivator', 'deactivate']);
@@ -91,6 +96,13 @@ function washInit() {
 
     $mediaEndpoint = new WashMediaEndpoint();
     $mediaEndpoint->register();
+
+    // Plugin auto-updater (direct/Shopify-app build only — see require guard above).
+    // Checks the connected Shopify app for new releases, deferring to wp.org (#167).
+    if (class_exists('WashUpdater')) {
+        $updater = new WashUpdater();
+        $updater->register();
+    }
 
     if (is_multisite()) {
         $multisite = new WashMultisite();

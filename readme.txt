@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.26.8
+Stable tag: 1.26.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -85,6 +85,17 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.26.9 =
+Hardening release — bundles the post-launch code audit (CRIT / HIGH / MED / LOW fixes).
+
+* **Reliable image sync** — the image-sync callback loop is now closed end-to-end, so body images consistently rehost to the Shopify CDN instead of staying on the WordPress host (CRIT-3, #133). Two cases that could serve or reference the wrong image bytes are fixed (MED-10/19, #152/#161).
+* **Safer multi-locale publishing** — a bulk *Unpublish* no longer deletes a Shopify article shared across locales (HIGH-4, #138). Sync status is no longer cleared when the app returns an error, so a transient failure can no longer mark an already-synced post "not synced" (HIGH-8, #141).
+* **Metafields no longer silently dropped** when syncing (MED-8/11/12, #150/#153/#154).
+* **Signed, replay-protected callbacks** on the Shopify → WordPress write path (MED-13 / LOW-3, #155/#164).
+* **Plugin self-update** — WordPress now shows the standard "update available" notice and the plugin updates itself from the connected Shopify app (LOW-6, #167).
+* **Host-agnostic internal links** — internal article links are rewritten by path, so they survive WordPress/Shopify domain differences (#179).
+* **Robustness** — atomic redirect lock + canonical site-URL handling (LOW-12/4, #173/#165), rate-limiter throttle-pause and dead-code removal (MED-18 / LOW-2, #160/#163), WP↔app↔worker payload-contract alignment (LOW-17, #178), batched cleanup and opt-in data purge on uninstall (LOW-8/11/15, #169/#172/#176/#174), and timestamp / usage-record / definition-cache / filter edge-case fixes (LOW-5/7/10/14).
 
 = 1.26.8 =
 * wp.org Plugin Directory review fix — **"not connected" admin notice no longer shown dashboard-wide** (Guideline 11 — do not hijack the admin dashboard). The setup notice was hooked to `admin_notices` with no screen check and wasn't dismissible, so it appeared on every wp-admin page. It is now scoped to the content screens where it is actionable (post list + post editor) and is dismissible. The Shopify product/collection sync notices were already scoped to the Media library screen.
