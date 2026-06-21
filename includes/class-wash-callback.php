@@ -775,14 +775,18 @@ class WashCallback {
             return;
         }
 
-        // Acquire transient lock to prevent concurrent callbacks for the same post
-        // creating duplicate redirects (race between meta read and API call).
+        // Acquire an ATOMIC lock so concurrent callbacks for the same post can't
+        // both create the redirect. wp_cache_add() adds the key only if it does
+        // not already exist (returns false otherwise) — unlike get_transient() +
+        // set_transient(), whose read-then-write gap let two callbacks slip
+        // through (LOW-12, #173). With a persistent object cache this serialises
+        // across requests; the app's /api/redirections is idempotent (dedupes by
+        // `from`, see the `skipped` count) as the final safety net.
         $lockKey = 'wash_redirect_lock_' . $postId;
-        if (get_transient($lockKey)) {
+        if (!wp_cache_add($lockKey, 1, 'wash_locks', 60)) {
             washLog("[wash] createAutomaticRedirect: Another callback already creating redirect for post {$postId}, skipping");
             return;
         }
-        set_transient($lockKey, 1, 60); // 60s safety expiration
 
         try {
             // Re-check meta after acquiring lock (another callback may have just finished)
@@ -815,7 +819,7 @@ class WashCallback {
             washLog("[wash] createAutomaticRedirect: Post {$postId} redirect {$normalizedWpPath} -> {$normalizedShopifyPath} (created: {$created}, skipped: {$skipped})");
             return;
         } finally {
-            delete_transient($lockKey);
+            wp_cache_delete($lockKey, 'wash_locks');
         }
     }
 

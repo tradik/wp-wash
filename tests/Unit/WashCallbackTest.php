@@ -48,6 +48,9 @@ class WashCallbackTest extends TestCase
         Functions\when('get_transient')->justReturn(false);
         Functions\when('set_transient')->justReturn(true);
         Functions\when('delete_transient')->justReturn(true);
+        // Redirect dedupe lock now uses the atomic object cache (LOW-12).
+        Functions\when('wp_cache_add')->justReturn(true);
+        Functions\when('wp_cache_delete')->justReturn(true);
     }
 
     protected function tearDown(): void
@@ -404,5 +407,48 @@ class WashCallbackTest extends TestCase
         ]));
 
         $this->assertSame('/blogs/art/my-article', $redirectTo);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testRedirectSkippedWhenLockHeldByConcurrentCallback(): void
+    {
+        Functions\when('get_option')->alias(function ($key, $default = '') {
+            return match ($key) {
+                'wash_redirections_enabled' => '1',
+                'wash_shopify_store' => 'test',
+                'wash_sync_metafields' => '0',
+                'wash_api_key' => 'test-key',
+                'wash_app_url' => 'https://app-wash.tradik.dev',
+                'wash_http_user' => '',
+                'wash_http_pass' => '',
+                default => $default,
+            };
+        });
+        Functions\when('get_permalink')->justReturn('https://example.com/uk/art/my-article');
+        Functions\when('get_post_meta')->justReturn('');
+        // The atomic lock is already held by a concurrent callback (LOW-12, #173).
+        Functions\when('wp_cache_add')->justReturn(false);
+
+        $hrefMock = Mockery::mock('overload:WashHreflangs');
+        $hrefMock->shouldReceive('getTranslationGroupSource')->andReturn(null);
+
+        $metaMock = Mockery::mock('overload:WashMetafields');
+        $metaMock->shouldReceive('syncAllMetafields')->never();
+
+        // The redirect API must NOT be hit while the lock is contended.
+        $apiMock = Mockery::mock('overload:WashApiClient');
+        $apiMock->shouldReceive('post')->with('/api/redirections', Mockery::type('array'))->never();
+
+        $cb = $this->loadCallback();
+        $result = $cb->handleCallback($this->makeRequest([
+            'shopifyBlogHandle' => 'art',
+            'shopifyHandle' => 'my-article',
+        ]));
+
+        // The callback still succeeds — the redirect is simply skipped this round.
+        $this->assertInstanceOf(\WP_REST_Response::class, $result);
     }
 }
