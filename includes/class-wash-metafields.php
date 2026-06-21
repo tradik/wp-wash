@@ -1034,11 +1034,18 @@ class WashMetafields {
      * Public so WashSync::getCustomFields() uses the SAME canonical sanitizer as
      * the enabled-field set (MED-12, #154): otherwise `my--field` or keys >64
      * chars sanitize differently on each side and an enabled field is dropped.
+     *
+     * Canonical metafield-key spec (must match the queue-worker's
+     * sanitizeMetafieldKey in contentSync.js — LOW-17, #178): lowercase, every
+     * non `[a-z0-9_]` char to `_`, collapse runs of `_`, strip LEADING and
+     * TRAILING `_`, cap at 64 chars. The worker re-sanitises field names, so a
+     * trailing `_` kept here produced a different key on each side and split the
+     * metafield definition.
      */
     public function sanitizeKey($key) {
         $sanitized = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '_', $key));
         $sanitized = preg_replace('/_+/', '_', $sanitized);
-        return substr(ltrim($sanitized, '_'), 0, 64);
+        return substr(trim($sanitized, '_'), 0, 64);
     }
 
     /**

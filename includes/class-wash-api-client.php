@@ -718,6 +718,12 @@ class WashApiClient {
             'postTypes'        => get_option('wash_post_types', 'post,page'),
             'blockRobots'      => get_option('wash_block_robots', '1'),
             'metaFieldConfig'  => json_decode(get_option('wash_meta_field_config', '[]'), true),
+            // Per-source metafield flags. Without these the app coerces missing
+            // values to false on every WP-side save, silently resetting them (LOW-17, #178).
+            'metaWpCore'       => get_option('wash_meta_wp_core', '1'),
+            'metaYoast'        => get_option('wash_meta_yoast', '0'),
+            'metaRankmath'     => get_option('wash_meta_rankmath', '0'),
+            'metaAcf'          => get_option('wash_meta_acf', '0'),
             'hreflangsEnabled' => get_option('wash_hreflangs_enabled', '0'),
             'authorsEnabled'   => get_option('wash_authors_enabled', '0'),
             'authorMappings'   => get_option('wash_author_mappings', []),

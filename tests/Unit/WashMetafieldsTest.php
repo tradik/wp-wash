@@ -73,12 +73,14 @@ class WashMetafieldsTest extends TestCase
 
     public function testSanitizeKeyRemovesSpecialCharsAndLowercases(): void
     {
-        $this->assertSame('my_field_name_', $this->invokePrivate('sanitizeKey', ['My-Field.Name!']));
+        // Trailing `_` is now stripped to match the queue-worker's
+        // sanitizeMetafieldKey (LOW-17, #178).
+        $this->assertSame('my_field_name', $this->invokePrivate('sanitizeKey', ['My-Field.Name!']));
     }
 
-    public function testSanitizeKeyTrimsLeadingUnderscores(): void
+    public function testSanitizeKeyTrimsLeadingAndTrailingUnderscores(): void
     {
-        $this->assertSame('hidden_key', $this->invokePrivate('sanitizeKey', ['__hidden_key']));
+        $this->assertSame('hidden_key', $this->invokePrivate('sanitizeKey', ['__hidden_key__']));
     }
 
     public function testSanitizeKeyTruncatesTo64Chars(): void

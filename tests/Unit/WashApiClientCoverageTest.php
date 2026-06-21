@@ -1378,6 +1378,14 @@ class WashApiClientCoverageTest extends TestCase
 
         $this->assertArrayHasKey('Authorization', $capturedArgs['headers']);
         $this->assertSame('Basic ' . base64_encode('user:pass'), $capturedArgs['headers']['Authorization']);
+
+        // The per-source metafield flags must be in the backup payload, else the
+        // app coerces them to false and resets them on every save (LOW-17, #178).
+        $sentBody = json_decode($capturedArgs['body'], true);
+        $this->assertArrayHasKey('metaWpCore', $sentBody);
+        $this->assertArrayHasKey('metaYoast', $sentBody);
+        $this->assertArrayHasKey('metaRankmath', $sentBody);
+        $this->assertArrayHasKey('metaAcf', $sentBody);
     }
 
     // -----------------------------------------------------------------------
