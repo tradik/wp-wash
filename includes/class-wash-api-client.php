@@ -776,15 +776,17 @@ class WashApiClient {
             'redirectionsEnabled' => 'wash_redirections_enabled',
         ];
 
+        // The push is HMAC-authenticated, but never trust the payload blindly:
+        // sanitize every value before it lands in an option (MED-13, defence in depth).
         foreach ($optionMap as $key => $option) {
             if (isset($settings[$key])) {
-                update_option($option, $settings[$key]);
+                update_option($option, $this->sanitizeSettingValue($settings[$key]));
             }
         }
 
         // Per-field metafield config (JSON array)
         if (isset($settings['metaFieldConfig'])) {
-            $value = $settings['metaFieldConfig'];
+            $value = $this->sanitizeSettingValue($settings['metaFieldConfig']);
             if (is_array($value)) {
                 $value = wp_json_encode($value);
             }
@@ -795,5 +797,23 @@ class WashApiClient {
         $washRestoreInProgress = false;
 
         return true;
+    }
+
+    /**
+     * Sanitize a pushed setting value before it is written to an option.
+     * Booleans become the plugin's '1'/'0' convention; arrays are sanitized
+     * recursively; everything else is treated as text (MED-13).
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    private function sanitizeSettingValue($value) {
+        if (is_array($value)) {
+            return array_map([$this, 'sanitizeSettingValue'], $value);
+        }
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+        return sanitize_text_field((string) $value);
     }
 }

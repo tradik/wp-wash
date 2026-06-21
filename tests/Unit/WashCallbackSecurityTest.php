@@ -109,13 +109,62 @@ class WashCallbackSecurityTest extends TestCase
         $this->assertInstanceOf(\WP_Error::class, $result);
     }
 
-    public function testVerifyCallbackAcceptsValidKey(): void
+    public function testVerifyCallbackRejectsValidKeyWithoutSignature(): void
     {
+        // The bare API key is no longer enough — a captured key must not be
+        // replayable without a fresh timestamp + signature (MED-13 / LOW-3).
         $request = $this->createMockRequest([], ['X-Wash-Key' => 'stored-secret-key']);
 
         $result = $this->callback->verifyCallback($request);
 
+        $this->assertInstanceOf(\WP_Error::class, $result);
+        $this->assertSame('unauthorized', $result->get_error_code());
+    }
+
+    public function testVerifyCallbackAcceptsValidSignedRequest(): void
+    {
+        $body = '{"success":true,"jobId":"j1"}';
+        $request = $this->createMockRequest([], $this->signedHeaders($body), [], $body);
+
+        $result = $this->callback->verifyCallback($request);
+
         $this->assertTrue($result);
+    }
+
+    public function testVerifyCallbackRejectsStaleTimestamp(): void
+    {
+        $body = '{"success":true}';
+        // 400s old — outside the 300s window.
+        $request = $this->createMockRequest([], $this->signedHeaders($body, time() - 400), [], $body);
+
+        $result = $this->callback->verifyCallback($request);
+
+        $this->assertInstanceOf(\WP_Error::class, $result);
+        $this->assertSame('unauthorized', $result->get_error_code());
+    }
+
+    public function testVerifyCallbackRejectsTamperedBody(): void
+    {
+        // Signature computed for the original body, but a replay swaps the body.
+        $headers = $this->signedHeaders('{"wpPostId":1}');
+        $request = $this->createMockRequest([], $headers, [], '{"wpPostId":999}');
+
+        $result = $this->callback->verifyCallback($request);
+
+        $this->assertInstanceOf(\WP_Error::class, $result);
+        $this->assertSame('unauthorized', $result->get_error_code());
+    }
+
+    public function testVerifyCallbackRejectsSignatureFromWrongKey(): void
+    {
+        $body = '{"success":true}';
+        // Valid envelope but signed with an attacker key.
+        $request = $this->createMockRequest([], $this->signedHeaders($body, null, 'attacker-key'), [], $body);
+
+        $result = $this->callback->verifyCallback($request);
+
+        $this->assertInstanceOf(\WP_Error::class, $result);
+        $this->assertSame('unauthorized', $result->get_error_code());
     }
 
     // ---------------------------------------------------------------
@@ -378,17 +427,19 @@ class WashCallbackSecurityTest extends TestCase
     // Helper: Create Mock Request
     // ---------------------------------------------------------------
 
-    private function createMockRequest(array $params = [], array $headers = [], array $urlParams = []): \WP_REST_Request
+    private function createMockRequest(array $params = [], array $headers = [], array $urlParams = [], string $body = ''): \WP_REST_Request
     {
-        $request = new class($params, $headers, $urlParams) extends \WP_REST_Request {
+        $request = new class($params, $headers, $urlParams, $body) extends \WP_REST_Request {
             private array $headers;
             private array $urlParams;
+            private string $rawBody;
 
-            public function __construct(array $params = [], array $headers = [], array $urlParams = [])
+            public function __construct(array $params = [], array $headers = [], array $urlParams = [], string $body = '')
             {
                 parent::__construct($params);
                 $this->headers = $headers;
                 $this->urlParams = $urlParams;
+                $this->rawBody = $body;
             }
 
             public function get_header(string $key): ?string
@@ -400,8 +451,27 @@ class WashCallbackSecurityTest extends TestCase
             {
                 return $this->urlParams[$key] ?? null;
             }
+
+            public function get_body(): string
+            {
+                return $this->rawBody;
+            }
         };
 
         return $request;
+    }
+
+    /**
+     * Build a valid signed-request header set (X-Wash-Key + Timestamp + HMAC over
+     * "${ts}:${body}") matching WashCallback::verifySignedRequest().
+     */
+    private function signedHeaders(string $body = '', ?int $ts = null, string $key = 'stored-secret-key'): array
+    {
+        $ts = (string) ($ts ?? time());
+        return [
+            'X-Wash-Key'       => $key,
+            'X-Wash-Timestamp' => $ts,
+            'X-Wash-Signature' => hash_hmac('sha256', $ts . ':' . $body, $key),
+        ];
     }
 }

@@ -28,6 +28,9 @@ class WashCallbackCoverageTest extends TestCase
         parent::setUp();
         Monkey\setUp();
 
+        // restoreSettings() sanitizes every pushed value (MED-13).
+        Functions\when('sanitize_text_field')->returnArg();
+
         Functions\when('get_option')->alias(function ($key, $default = '') {
             return match ($key) {
                 'wash_api_key'   => 'test-api-key',

@@ -12,6 +12,13 @@ if (!defined('ABSPATH')) {
 
 class WashCallback {
     /**
+     * Max age (seconds) a signed write request's timestamp may be. Matches the
+     * app's WP->Shopify window (300s); wider than the media endpoint's 60s
+     * because callbacks can be retried by a backed-up queue (MED-13 / LOW-3).
+     */
+    public const SIGNATURE_WINDOW = 300;
+
+    /**
      * Register REST API routes.
      */
     public function register() {
@@ -65,11 +72,13 @@ class WashCallback {
             'permission_callback' => [$this, 'verifyApiKey'],
         ]);
 
-        // Settings push endpoint - receives settings updates from Shopify App
+        // Settings push endpoint - receives settings updates from Shopify App.
+        // Signed (HMAC + timestamp) like /callback: it overwrites plugin options
+        // wholesale, so a captured request must not be replayable (MED-13).
         register_rest_route('wash/v1', '/settings-push', [
             'methods'             => 'POST',
             'callback'            => [$this, 'handleSettingsPush'],
-            'permission_callback' => [$this, 'verifyApiKey'],
+            'permission_callback' => [$this, 'verifySignedRequest'],
         ]);
     }
 
@@ -80,10 +89,12 @@ class WashCallback {
      * @return bool|WP_Error
      */
     public function verifyApiKey($request) {
-        $apiKey = $request->get_header('X-Wash-Key');
-        $storedApiKey = get_option('wash_api_key');
+        $apiKey = (string) $request->get_header('X-Wash-Key');
+        $storedApiKey = (string) get_option('wash_api_key', '');
 
-        if (empty($apiKey) || $apiKey !== $storedApiKey) {
+        // Constant-time compare (MED-13); guard an unconfigured stored key so an
+        // empty X-Wash-Key can never match an empty option.
+        if ($storedApiKey === '' || $apiKey === '' || !hash_equals($storedApiKey, $apiKey)) {
             return new WP_Error(
                 'unauthorized',
                 'Invalid or missing API key',
@@ -455,24 +466,51 @@ class WashCallback {
     }
 
     /**
-     * Verify callback authenticity using API key.
+     * Verify a signed write request (callback / settings-push).
+     *
+     * The strongest write paths into WP must not be replayable with a captured
+     * API key, so — like the media endpoint — they carry a timestamp and an
+     * HMAC over `${timestamp}:${rawBody}` keyed by the shared API key. The body
+     * is bound into the signature, so a captured request cannot be replayed with
+     * a different payload, and the timestamp window bounds replay of the same
+     * one (MED-13 / LOW-3).
+     *
+     * @param WP_REST_Request $request Request object.
+     * @return bool|WP_Error
+     */
+    public function verifySignedRequest($request) {
+        $apiKey   = (string) $request->get_header('X-Wash-Key');
+        $tsHeader = (string) $request->get_header('X-Wash-Timestamp');
+        $sig      = (string) $request->get_header('X-Wash-Signature');
+        $stored   = (string) get_option('wash_api_key', '');
+
+        // One opaque error for every failure mode — don't tell a probe which
+        // check (key / timestamp / signature) it tripped.
+        $tsValid  = $tsHeader !== '' && ctype_digit($tsHeader)
+            && abs(time() - (int) $tsHeader) <= self::SIGNATURE_WINDOW;
+        $expected = $tsValid
+            ? hash_hmac('sha256', $tsHeader . ':' . (string) $request->get_body(), $stored)
+            : '';
+
+        $authorized = $stored !== '' && $apiKey !== '' && hash_equals($stored, $apiKey)
+            && $tsValid && $sig !== '' && hash_equals($expected, $sig);
+
+        if (!$authorized) {
+            return new WP_Error('unauthorized', 'Invalid or missing credentials', ['status' => 401]);
+        }
+
+        return true;
+    }
+
+    /**
+     * Verify the sync-completion callback. Delegates to the shared signed-write
+     * verifier so a captured callback can't be replayed (MED-13 / LOW-3).
      *
      * @param WP_REST_Request $request Request object.
      * @return bool|WP_Error
      */
     public function verifyCallback($request) {
-        $apiKey = $request->get_header('X-Wash-Key');
-        $storedApiKey = get_option('wash_api_key');
-
-        if (empty($apiKey) || $apiKey !== $storedApiKey) {
-            return new WP_Error(
-                'unauthorized',
-                'Invalid or missing API key',
-                ['status' => 401]
-            );
-        }
-
-        return true;
+        return $this->verifySignedRequest($request);
     }
 
     /**

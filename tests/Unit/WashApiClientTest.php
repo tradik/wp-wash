@@ -24,6 +24,8 @@ class WashApiClientTest extends TestCase
         Monkey\setUp();
         Functions\when('get_site_url')->justReturn('https://example.com');
         Functions\when('error_log')->justReturn(true);
+        // restoreSettings() sanitizes every pushed value (MED-13).
+        Functions\when('sanitize_text_field')->returnArg();
     }
 
     protected function tearDown(): void

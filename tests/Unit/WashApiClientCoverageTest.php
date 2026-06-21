@@ -59,6 +59,8 @@ class WashApiClientCoverageTest extends TestCase
         parent::setUp();
         Monkey\setUp();
         Functions\when('error_log')->justReturn(true);
+        // restoreSettings() sanitizes every pushed value (MED-13).
+        Functions\when('sanitize_text_field')->returnArg();
     }
 
     protected function tearDown(): void
@@ -1422,6 +1424,31 @@ class WashApiClientCoverageTest extends TestCase
 
         $this->assertTrue($result);
         $this->assertSame('[{"key":"x"}]', $updateCalls['wash_meta_field_config']);
+    }
+
+    public function testRestoreSettingsSanitizesArrayAndBooleanValues(): void
+    {
+        // MED-13: booleans collapse to the plugin's '1'/'0', arrays are sanitized
+        // recursively, everything else goes through sanitize_text_field.
+        Functions\when('get_site_url')->justReturn('https://example.com');
+        $this->mockOptions();
+
+        $updateCalls = [];
+        Functions\when('update_option')->alias(function ($k, $v) use (&$updateCalls) {
+            $updateCalls[$k] = $v;
+        });
+
+        $client = new \WashApiClient();
+        $result = $client->restoreSettings([
+            'syncOnPublish'  => true,                          // bool -> '1'
+            'blockRobots'    => false,                         // bool -> '0'
+            'authorMappings' => [5 => 'Jane', 7 => 'Bob'],     // array -> recursed
+        ]);
+
+        $this->assertTrue($result);
+        $this->assertSame('1', $updateCalls['wash_sync_on_publish']);
+        $this->assertSame('0', $updateCalls['wash_block_robots']);
+        $this->assertSame([5 => 'Jane', 7 => 'Bob'], $updateCalls['wash_author_mappings']);
     }
 
     public function testRestoreSettingsNonArrayInputReturnsFalse(): void
