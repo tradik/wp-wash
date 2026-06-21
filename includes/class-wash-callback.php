@@ -425,15 +425,14 @@ class WashCallback {
         if ($syncError) {
             $status = 'error';
         } elseif ($syncStatus === 'queued' || $jobId) {
-            // Check for timeout - if queued for more than 5 minutes, consider it failed
+            // Check for timeout - if queued for more than 5 minutes, consider it failed.
+            // This is a GET, so only REPORT the timeout — never write (REST prefetch /
+            // repeated polling must not flip a still-in-flight sync to an error). The
+            // stale meta is reconciled by the wash_clear_stale_errors cron / a late
+            // callback (LOW-15, #176).
             $queueTimeout = 5 * MINUTE_IN_SECONDS;
             if ($queuedAt && (current_time('timestamp') - strtotime($queuedAt)) > $queueTimeout) {
                 $status = 'timeout';
-                // Clear stale queue status
-                delete_post_meta($postId, '_wash_sync_status');
-                delete_post_meta($postId, '_wash_job_id');
-                delete_post_meta($postId, '_wash_queued_at');
-                update_post_meta($postId, '_wash_sync_error', __('Sync timed out. The callback may not have reached WordPress.', 'wash-blog-manager'));
             } else {
                 $status = 'queued';
             }

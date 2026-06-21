@@ -2,69 +2,56 @@
 /**
  * Uninstall script for Wash: Blog Manager.
  * Runs when the plugin is deleted via the WordPress admin.
- * Cleans up all plugin options and database tables.
+ *
+ * Data is preserved by default — it is only removed when the merchant explicitly
+ * opted in via the "Remove all Wash data on uninstall" setting
+ * (wash_uninstall_remove_data). This keeps a reinstall / accidental delete from
+ * losing every post's Shopify mapping.
  */
 
 if (!defined('WP_UNINSTALL_PLUGIN')) {
     exit;
 }
 
-$wash_optionKeys = [
-    'wash_shopify_store',
-    'wash_api_key',
-    'wash_http_user',
-    'wash_http_pass',
-    'wash_sync_on_publish',
-    'wash_files_enabled',
-    'wash_sync_metafields',
-    'wash_post_types',
-    'wash_block_robots',
-    'wash_meta_wp_core',
-    'wash_meta_yoast',
-    'wash_meta_rankmath',
-    'wash_meta_acf',
-    'wash_meta_field_config',
-    'wash_hreflangs_enabled',
-    'wash_auto_clear_errors',
-    'wash_sync_inline',
-    'wash_consent_accepted',
-    'wash_consent_accepted_at',
-];
+/**
+ * Purge all Wash data for the current blog. Only called when the merchant opted
+ * in for that blog.
+ *
+ * Options and post-meta are removed with a single LIKE sweep each: it is complete
+ * by construction (no key list to keep in sync with the rest of the plugin, so no
+ * orphaned wash_* rows can be left behind — LOW-11, #172) and covers any future
+ * keys automatically.
+ */
+function washPurgeCurrentBlog() {
+    global $wpdb;
+
+    // Every wash_* option (includes wash_uninstall_remove_data itself).
+    $optionLike = $wpdb->esc_like('wash_') . '%';
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- uninstall-time teardown; caching is irrelevant once the plugin is gone.
+    $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $optionLike));
+
+    // Every _wash_* post-meta key.
+    $metaLike = $wpdb->esc_like('_wash_') . '%';
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- uninstall-time teardown; caching is irrelevant once the plugin is gone.
+    $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->postmeta} WHERE meta_key LIKE %s", $metaLike));
+
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- DROP TABLE cannot bind its identifier; $wpdb->prefix is trusted.
+    $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}wash_sync");
+
+    wp_clear_scheduled_hook('wash_clear_stale_errors');
+    wp_clear_scheduled_hook('wash_ping_shopify');
+}
 
 if (is_multisite()) {
     $wash_siteIds = get_sites(['fields' => 'ids', 'number' => 1000]);
     foreach ($wash_siteIds as $wash_siteId) {
         switch_to_blog($wash_siteId);
-        foreach ($wash_optionKeys as $wash_key) {
-            delete_option($wash_key);
+        // Per-site opt-in: only purge sites whose admin asked to remove data.
+        if (get_option('wash_uninstall_remove_data')) {
+            washPurgeCurrentBlog();
         }
-        global $wpdb;
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- uninstall-time schema cleanup; DROP TABLE cannot use prepared values for the identifier, $wpdb->prefix is trusted, and caching is irrelevant on a teardown query.
-        $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}wash_sync");
         restore_current_blog();
     }
-} else {
-    foreach ($wash_optionKeys as $wash_key) {
-        delete_option($wash_key);
-    }
-    global $wpdb;
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- see above; same teardown pattern for single-site installs.
-    $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}wash_sync");
+} elseif (get_option('wash_uninstall_remove_data')) {
+    washPurgeCurrentBlog();
 }
-
-// Clean up post meta across all posts
-delete_metadata('post', 0, '_wash_article_id', '', true);
-delete_metadata('post', 0, '_wash_blog_id', '', true);
-delete_metadata('post', 0, '_wash_blog_handle', '', true);
-delete_metadata('post', 0, '_wash_synced_at', '', true);
-delete_metadata('post', 0, '_wash_file_id', '', true);
-delete_metadata('post', 0, '_wash_cdn_url', '', true);
-delete_metadata('post', 0, '_wash_sync_status', '', true);
-delete_metadata('post', 0, '_wash_sync_error', '', true);
-delete_metadata('post', 0, '_wash_sync_error_at', '', true);
-delete_metadata('post', 0, '_wash_queued_at', '', true);
-delete_metadata('post', 0, '_wash_job_id', '', true);
-
-// Clear scheduled events
-wp_clear_scheduled_hook('wash_clear_stale_errors');
-wp_clear_scheduled_hook('wash_ping_shopify');

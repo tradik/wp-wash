@@ -539,8 +539,14 @@ class WashCallbackCoverageTest extends TestCase
             };
         });
         Functions\when('current_time')->alias(fn($f) => $f === 'timestamp' ? time() : date('Y-m-d H:i:s'));
-        Functions\when('delete_post_meta')->justReturn(true);
-        Functions\when('update_post_meta')->justReturn(true);
+        // #176: a GET must NOT mutate — flag any write attempt via a shared spy.
+        $mutated = false;
+        $spyWrite = function () use (&$mutated) {
+            $mutated = true;
+            return true;
+        };
+        Functions\when('delete_post_meta')->alias($spyWrite);
+        Functions\when('update_post_meta')->alias($spyWrite);
         Functions\when('rest_ensure_response')->alias(fn($d) => new \WP_REST_Response($d));
         Functions\when('__')->alias(fn($text) => $text);
 
@@ -549,6 +555,8 @@ class WashCallbackCoverageTest extends TestCase
 
         $this->assertInstanceOf(\WP_REST_Response::class, $result);
         $this->assertSame('timeout', $result->data['status']);
+        // The status is still reported as a timeout, but no post meta was written.
+        $this->assertFalse($mutated, 'getSyncStatus (a GET) must not mutate post meta (#176)');
     }
 
     // ---------------------------------------------------------------

@@ -222,6 +222,7 @@ class WashAdmin {
             'wash_redirections_enabled',
             'wash_auto_clear_errors',
             'wash_sync_inline',
+            'wash_uninstall_remove_data',
         ];
 
         foreach ($textSettings as $setting) {

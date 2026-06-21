@@ -1942,6 +1942,28 @@ function wash_render_permission_locked_banner() {
                 </tr>
             </table>
 
+            <?php
+            $wash_removeData = get_option('wash_uninstall_remove_data', '0');
+            // Options come from data so the markup is written once (no repeated
+            // <option> lines for Sonar to flag as duplicated).
+            $wash_uninstallChoices = [
+                '0' => __('Keep all my data (default)', 'wash-blog-manager'),
+                '1' => __('Delete all Wash settings and per-post Shopify mappings', 'wash-blog-manager'),
+            ];
+            ?>
+            <div style="margin-top: 16px; padding: 12px 16px; border: 1px solid #f0c5c5; border-radius: 4px; background: #fcf4f4; max-width: 760px;">
+                <p style="margin: 0 0 8px;">
+                    <span class="dashicons dashicons-warning" style="color: #b32d2e; font-size: 14px; vertical-align: text-bottom;"></span>
+                    <label for="wash_uninstall_remove_data"><strong><?php esc_html_e('When the plugin is uninstalled', 'wash-blog-manager'); ?></strong></label>
+                </p>
+                <select name="wash_uninstall_remove_data" id="wash_uninstall_remove_data">
+                    <?php foreach ($wash_uninstallChoices as $wash_choiceVal => $wash_choiceLabel) : ?>
+                        <option value="<?php echo esc_attr($wash_choiceVal); ?>" <?php selected($wash_removeData, $wash_choiceVal); ?>><?php echo esc_html($wash_choiceLabel); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <p class="description"><?php esc_html_e('Kept by default so a reinstall (or accidental delete) does not lose every post\'s Shopify article ID. "Delete" purges all wash_* options and _wash_* meta and cannot be undone.', 'wash-blog-manager'); ?></p>
+            </div>
+
             <hr style="border: none; border-top: 1px solid #ccd0d4; margin: 24px 0;" />
 
             <h3><?php esc_html_e('Gutenberg Blocks', 'wash-blog-manager'); ?></h3>
