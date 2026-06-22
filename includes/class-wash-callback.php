@@ -89,6 +89,7 @@ class WashCallback {
      * @return bool|WP_Error
      */
     public function verifyApiKey($request) {
+        $this->routeToConnection($request);
         $apiKey = (string) $request->get_header('X-Wash-Key');
         $storedApiKey = (string) WashContext::connection()['apiKey'];
 
@@ -103,6 +104,21 @@ class WashCallback {
         }
 
         return true;
+    }
+
+    /**
+     * Route the request to the connection that owns the incoming X-Wash-Key so the
+     * verification — and the handler that follows — operate on that connection's
+     * namespaced state. An unknown key leaves the active connection as primary,
+     * where the credential check then fails.
+     *
+     * @param WP_REST_Request $request
+     */
+    private function routeToConnection($request) {
+        $connectionId = WashConnection::getByApiKey((string) $request->get_header('X-Wash-Key'));
+        if ($connectionId !== null) {
+            WashContext::setActiveId($connectionId);
+        }
     }
 
     /**
@@ -483,6 +499,7 @@ class WashCallback {
      * @return bool|WP_Error
      */
     public function verifySignedRequest($request) {
+        $this->routeToConnection($request);
         $apiKey   = (string) $request->get_header('X-Wash-Key');
         $tsHeader = (string) $request->get_header('X-Wash-Timestamp');
         $sig      = (string) $request->get_header('X-Wash-Signature');

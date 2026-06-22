@@ -9,14 +9,18 @@ if (!defined('ABSPATH')) {
 
 class WashSync {
 
-    /** @var WashApiClient */
-    private $apiClient;
-
     /** @var bool Prevents recursive sync calls */
     private $isSyncing = false;
 
-    public function __construct() {
-        $this->apiClient = new WashApiClient();
+    /**
+     * The API client for the currently active connection. During fan-out the sync
+     * loop calls WashContext::setActiveId() per connection, so this returns that
+     * connection's client (memoized). For single-store it is the primary client.
+     *
+     * @return WashApiClient
+     */
+    private function apiClient() {
+        return WashContext::apiClient();
     }
 
     /**
@@ -38,22 +42,13 @@ class WashSync {
     public function onSavePost($postId, $post, $update) {
         washLog("[wash] onSavePost called for post {$postId}, type: {$post->post_type}, status: {$post->post_status}");
 
-        if ($this->shouldSkipSync($postId, $post)) {
-            washLog("[wash] Skipping sync - shouldSkipSync returned true");
-            return;
-        }
-
-        if (WashContext::option('wash_sync_on_publish', '1') !== '1') {
-            washLog("[wash] Skipping sync - wash_sync_on_publish is not '1', value: " . WashContext::option('wash_sync_on_publish', '1'));
-            return;
-        }
-
         if ($post->post_status !== 'publish') {
             washLog("[wash] Skipping sync - post_status is not 'publish', status: {$post->post_status}");
             return;
         }
 
-        $this->doSync($postId, $post);
+        // Fan out to every enabled connection, honoring each one's sync-on-publish toggle.
+        $this->dispatch($postId, $post, true);
     }
 
     /**
@@ -66,17 +61,60 @@ class WashSync {
     public function syncManually($postId, $post) {
         washLog("[wash] syncManually called for post {$postId}, type: {$post->post_type}, status: {$post->post_status}");
 
-        if ($this->shouldSkipSync($postId, $post)) {
-            washLog("[wash] Skipping manual sync - shouldSkipSync returned true");
-            return;
-        }
-
         if ($post->post_status !== 'publish') {
             washLog("[wash] Skipping manual sync - post_status is not 'publish', status: {$post->post_status}");
             return;
         }
 
-        $this->doSync($postId, $post);
+        // Manual sync bypasses each connection's sync-on-publish toggle.
+        $this->dispatch($postId, $post, false);
+    }
+
+    /**
+     * Fan a post out to every enabled connection, applying each connection's own
+     * gating (skip rules, post types, API config, and — for auto syncs — its
+     * sync-on-publish toggle). Single-store installs resolve to just the primary
+     * connection, so behaviour is unchanged.
+     *
+     * @param int      $postId   Post ID
+     * @param \WP_Post $post     Post object
+     * @param bool     $autoOnly Whether to honor the per-connection sync-on-publish toggle
+     */
+    private function dispatch($postId, $post, $autoOnly) {
+        foreach ($this->targetConnections($postId, $post, $autoOnly) as $connectionId) {
+            WashContext::setActiveId($connectionId);
+            $this->doSync($postId, $post);
+        }
+        WashContext::setActiveId(null);
+    }
+
+    /**
+     * The enabled connections this post should sync to, each evaluated with its own
+     * settings/credentials. Pure routing decision (no network), so it is unit-tested
+     * directly.
+     *
+     * @param int      $postId
+     * @param \WP_Post $post
+     * @param bool     $autoOnly
+     * @return string[] Connection ids to sync to
+     */
+    private function targetConnections($postId, $post, $autoOnly) {
+        $targets = array();
+        foreach (WashConnection::all() as $connectionId => $connection) {
+            if (empty($connection['enabled'])) {
+                continue;
+            }
+            WashContext::setActiveId($connectionId);
+            if ($this->shouldSkipSync($postId, $post)) {
+                continue;
+            }
+            if ($autoOnly && WashContext::option('wash_sync_on_publish', '1') !== '1') {
+                continue;
+            }
+            $targets[] = $connectionId;
+        }
+        WashContext::setActiveId(null);
+        return $targets;
     }
 
     /**
@@ -105,10 +143,33 @@ class WashSync {
      */
     public function onDeletePost($postId) {
         $post = get_post($postId);
-        if (!$post || !$this->isAllowedPostType($post->post_type)) {
+        if (!$post) {
             return;
         }
 
+        // Remove the post from every enabled connection it may have synced to.
+        foreach (WashConnection::all() as $connectionId => $connection) {
+            if (empty($connection['enabled'])) {
+                continue;
+            }
+            WashContext::setActiveId($connectionId);
+            if (!$this->isAllowedPostType($post->post_type)) {
+                continue;
+            }
+            $result = $this->sendDelete($postId, $post);
+            $this->logSync($postId, 'delete', $result);
+        }
+        WashContext::setActiveId(null);
+    }
+
+    /**
+     * Build and send a translation-aware delete request for the active connection.
+     *
+     * @param int      $postId
+     * @param \WP_Post $post
+     * @return array|\WP_Error API client response
+     */
+    private function sendDelete($postId, $post) {
         $endpoint = $this->resolveEndpoint($post->post_type);
         $payload = [
             'action'   => 'delete',
@@ -117,17 +178,15 @@ class WashSync {
             'language' => $this->getPostLanguage($postId),
         ];
 
-        // Translation-aware delete: include group info so queue worker knows
-        // whether to delete whole article (source) or just remove locale variant
+        // Translation-aware delete: include group info so the queue worker knows
+        // whether to delete the whole article (source) or just a locale variant.
         $hreflangs = new WashHreflangs();
         $group = $hreflangs->getTranslationGroupSource($postId);
         if ($group) {
             $payload['translationGroup'] = $group;
         }
 
-        $result = $this->apiClient->post($endpoint, $payload);
-
-        $this->logSync($postId, 'delete', $result);
+        return $this->apiClient()->post($endpoint, $payload);
     }
 
     /**
@@ -135,42 +194,43 @@ class WashSync {
      * Deletes article from Shopify and clears local meta when unpublishing.
      */
     public function onStatusTransition($newStatus, $oldStatus, $post) {
-        if ($this->isSyncing || !$this->isAllowedPostType($post->post_type)) {
+        if ($this->isSyncing) {
             return;
         }
-
-        if (!$this->apiClient->isConfigured()) {
+        if (!($oldStatus === 'publish' && $newStatus !== 'publish')) {
             return;
         }
+        washLog("[wash] onStatusTransition: {$oldStatus} → {$newStatus} for post {$post->ID}");
 
-        if ($oldStatus === 'publish' && $newStatus !== 'publish') {
-            washLog("[wash] onStatusTransition: {$oldStatus} → {$newStatus} for post {$post->ID}");
-            $endpoint = $this->resolveEndpoint($post->post_type);
-
-            $payload = [
-                'action'   => 'delete',
-                'wpPostId' => $post->ID,
-                'wpSiteId' => $this->getCurrentSiteId(),
-                'language' => $this->getPostLanguage($post->ID),
-            ];
-
-            // Translation-aware delete: include group info
-            $hreflangs = new WashHreflangs();
-            $group = $hreflangs->getTranslationGroupSource($post->ID);
-            if ($group) {
-                $payload['translationGroup'] = $group;
+        // Unpublishing removes the article from every enabled connection.
+        foreach (WashConnection::all() as $connectionId => $connection) {
+            if (empty($connection['enabled'])) {
+                continue;
             }
-
-            $result = $this->apiClient->post($endpoint, $payload);
-
-            if (!is_wp_error($result) && !(is_array($result) && isset($result['error']))) {
-                // Clear local sync meta so republishing creates a fresh article
-                $this->clearSyncMeta($post->ID);
-                washLog("[wash] onStatusTransition: Cleared sync meta for post {$post->ID}");
-            } else {
-                $errorMessage = is_wp_error($result) ? $result->get_error_message() : $result['error'];
-                washLog("[wash] onStatusTransition failed to delete post {$post->ID} from Shopify: " . $errorMessage);
+            WashContext::setActiveId($connectionId);
+            if (!$this->isAllowedPostType($post->post_type) || !$this->apiClient()->isConfigured()) {
+                continue;
             }
+            $this->deleteForUnpublish($post->ID, $post);
+        }
+        WashContext::setActiveId(null);
+    }
+
+    /**
+     * Delete an unpublished post from the active connection and, on success, clear
+     * its local sync meta so a future republish creates a fresh article.
+     *
+     * @param int      $postId
+     * @param \WP_Post $post
+     */
+    private function deleteForUnpublish($postId, $post) {
+        $result = $this->sendDelete($postId, $post);
+        if (!is_wp_error($result) && !(is_array($result) && isset($result['error']))) {
+            $this->clearSyncMeta($postId);
+            washLog("[wash] onStatusTransition: Cleared sync meta for post {$postId}");
+        } else {
+            $errorMessage = is_wp_error($result) ? $result->get_error_message() : $result['error'];
+            washLog("[wash] onStatusTransition failed to delete post {$postId} from Shopify: " . $errorMessage);
         }
     }
 
@@ -211,7 +271,7 @@ class WashSync {
         washLog("[wash] syncPost() - Post title: {$postData['title']}, slug: {$postData['slug']}");
         washLog("[wash] syncPost() - Tags being sent: " . json_encode($postData['tags']));
 
-        $result = $this->apiClient->post($endpoint, $postData);
+        $result = $this->apiClient()->post($endpoint, $postData);
 
         if (is_wp_error($result)) {
             washLog("[wash] syncPost() - API returned error: " . $result->get_error_message());
@@ -950,7 +1010,7 @@ class WashSync {
         }
 
         // Search & Replace requires BUSINESS+ plan
-        if (!$this->apiClient->hasFeature('searchReplace')) {
+        if (!$this->apiClient()->hasFeature('searchReplace')) {
             return $content;
         }
 
@@ -1699,7 +1759,7 @@ class WashSync {
             washLog("[wash] shouldSkipSync: post_type '{$post->post_type}' not allowed");
             return true;
         }
-        if (!$this->apiClient->isConfigured()) {
+        if (!$this->apiClient()->isConfigured()) {
             washLog("[wash] shouldSkipSync: API client not configured (missing api_key or api_secret)");
             return true;
         }

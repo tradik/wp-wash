@@ -108,6 +108,26 @@ class WashConnection {
         return $id === self::PRIMARY;
     }
 
+    /**
+     * Find a connection id by its API key (primary included). The callback/media
+     * endpoint use this to route an incoming X-Wash-Key request to the connection
+     * that owns the key, so per-connection meta/options resolve correctly.
+     *
+     * @param string $apiKey
+     * @return string|null Connection id, or null when no connection owns the key.
+     */
+    public static function getByApiKey($apiKey) {
+        if ((string) $apiKey === '') {
+            return null;
+        }
+        foreach (self::all() as $id => $conn) {
+            if (!empty($conn['apiKey']) && hash_equals((string) $conn['apiKey'], (string) $apiKey)) {
+                return $id;
+            }
+        }
+        return null;
+    }
+
     /** Total connection count (always >= 1 — primary). */
     public static function count() {
         return count(self::all());

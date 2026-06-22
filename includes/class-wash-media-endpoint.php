@@ -76,6 +76,13 @@ class WashMediaEndpoint {
         $tsHeader = (string) $request->get_header('X-Wash-Timestamp');
         $sig      = (string) $request->get_header('X-Wash-Signature');
 
+        // Route to the connection that owns the incoming key so its credentials
+        // verify the request (an unknown key leaves primary active and fails below).
+        $connectionId = WashConnection::getByApiKey($apiKey);
+        if ($connectionId !== null) {
+            WashContext::setActiveId($connectionId);
+        }
+
         $stored = (string) WashContext::connection()['apiKey'];
         if ($stored === '' || $apiKey === '' || !hash_equals($stored, $apiKey)) {
             return new WP_Error('unauthorized', 'Invalid API key', ['status' => 401]);
