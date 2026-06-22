@@ -90,7 +90,7 @@ class WashCallback {
      */
     public function verifyApiKey($request) {
         $apiKey = (string) $request->get_header('X-Wash-Key');
-        $storedApiKey = (string) get_option('wash_api_key', '');
+        $storedApiKey = (string) WashContext::connection()['apiKey'];
 
         // Constant-time compare (MED-13); guard an unconfigured stored key so an
         // empty X-Wash-Key can never match an empty option.
@@ -116,8 +116,12 @@ class WashCallback {
         $postCounts = wp_count_posts('post');
         $pageCounts = wp_count_posts('page');
 
-        // Count synced posts (have _wash_article_id meta)
+        // Count synced posts (have the article-id meta)
         global $wpdb;
+
+        // Per-connection article-id meta key — for primary this is the historical
+        // _wash_article_id, so the count is unchanged on single-store installs.
+        $articleIdMeta = esc_sql(WashContext::metaKey('_wash_article_id'));
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- COUNT() over the postmeta join; running this through WP_Query with meta_query+counting_only is slower and the values feed a REST status endpoint called by the Shopify app, not a hot path.
         $syncedPosts = (int) $wpdb->get_var(
@@ -126,7 +130,7 @@ class WashCallback {
              INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
              WHERE p.post_type = 'post'
              AND p.post_status IN ('publish', 'draft', 'pending', 'private')
-             AND pm.meta_key = '_wash_article_id'
+             AND pm.meta_key = '{$articleIdMeta}'
              AND pm.meta_value != ''"
         );
 
@@ -137,7 +141,7 @@ class WashCallback {
              INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
              WHERE p.post_type = 'page'
              AND p.post_status IN ('publish', 'draft', 'pending', 'private')
-             AND pm.meta_key = '_wash_article_id'
+             AND pm.meta_key = '{$articleIdMeta}'
              AND pm.meta_value != ''"
         );
 
@@ -420,16 +424,16 @@ class WashCallback {
             );
         }
 
-        $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
-        $shopifyBlogId = get_post_meta($postId, '_wash_blog_id', true);
-        $shopifyBlogHandle = get_post_meta($postId, '_wash_blog_handle', true);
-        $shopifyHandle = get_post_meta($postId, '_wash_handle', true);
-        $shopifyUrl = get_post_meta($postId, '_wash_shopify_url', true);
-        $syncedAt = get_post_meta($postId, '_wash_synced_at', true);
-        $syncStatus = get_post_meta($postId, '_wash_sync_status', true);
-        $jobId = get_post_meta($postId, '_wash_job_id', true);
-        $queuedAt = get_post_meta($postId, '_wash_queued_at', true);
-        $syncError = get_post_meta($postId, '_wash_sync_error', true);
+        $shopifyArticleId = get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true);
+        $shopifyBlogId = get_post_meta($postId, WashContext::metaKey('_wash_blog_id'), true);
+        $shopifyBlogHandle = get_post_meta($postId, WashContext::metaKey('_wash_blog_handle'), true);
+        $shopifyHandle = get_post_meta($postId, WashContext::metaKey('_wash_handle'), true);
+        $shopifyUrl = get_post_meta($postId, WashContext::metaKey('_wash_shopify_url'), true);
+        $syncedAt = get_post_meta($postId, WashContext::metaKey('_wash_synced_at'), true);
+        $syncStatus = get_post_meta($postId, WashContext::metaKey('_wash_sync_status'), true);
+        $jobId = get_post_meta($postId, WashContext::metaKey('_wash_job_id'), true);
+        $queuedAt = get_post_meta($postId, WashContext::metaKey('_wash_queued_at'), true);
+        $syncError = get_post_meta($postId, WashContext::metaKey('_wash_sync_error'), true);
 
         // Determine status
         $status = 'not_synced';
@@ -482,7 +486,7 @@ class WashCallback {
         $apiKey   = (string) $request->get_header('X-Wash-Key');
         $tsHeader = (string) $request->get_header('X-Wash-Timestamp');
         $sig      = (string) $request->get_header('X-Wash-Signature');
-        $stored   = (string) get_option('wash_api_key', '');
+        $stored   = (string) WashContext::connection()['apiKey'];
 
         // One opaque error for every failure mode — don't tell a probe which
         // check (key / timestamp / signature) it tripped.
@@ -580,21 +584,21 @@ class WashCallback {
             $shopifyId = $shopifyArticleId ?: $shopifyPageId;
 
             if ($shopifyId) {
-                update_post_meta($wpPostId, '_wash_article_id', $shopifyId);
-                update_post_meta($wpPostId, '_wash_synced_at', current_time('mysql'));
+                update_post_meta($wpPostId, WashContext::metaKey('_wash_article_id'), $shopifyId);
+                update_post_meta($wpPostId, WashContext::metaKey('_wash_synced_at'), current_time('mysql'));
 
                 if ($shopifyBlogId) {
-                    update_post_meta($wpPostId, '_wash_blog_id', $shopifyBlogId);
+                    update_post_meta($wpPostId, WashContext::metaKey('_wash_blog_id'), $shopifyBlogId);
                 }
                 if ($shopifyBlogHandle) {
-                    update_post_meta($wpPostId, '_wash_blog_handle', $shopifyBlogHandle);
+                    update_post_meta($wpPostId, WashContext::metaKey('_wash_blog_handle'), $shopifyBlogHandle);
                 }
                 if ($shopifyHandle) {
-                    update_post_meta($wpPostId, '_wash_handle', $shopifyHandle);
+                    update_post_meta($wpPostId, WashContext::metaKey('_wash_handle'), $shopifyHandle);
                 }
 
                 // Build Shopify URL with locale prefix for non-primary markets
-                $shopifyStore = get_option('wash_shopify_store', '');
+                $shopifyStore = WashContext::connection()['store'];
                 $shopifyDomain = $shopifyStore ? "{$shopifyStore}.myshopify.com" : '';
                 if ($shopifyDomain && $shopifyHandle) {
                     // Locale prefix for market subfolders (e.g., /de-eu, /fr-eu)
@@ -610,7 +614,7 @@ class WashCallback {
                         $shopifyUrl = "https://{$shopifyDomain}{$localePrefix}/pages/{$shopifyHandle}";
                         $shopifyPath = "{$localePrefix}/pages/{$shopifyHandle}";
                     }
-                    update_post_meta($wpPostId, '_wash_shopify_url', $shopifyUrl);
+                    update_post_meta($wpPostId, WashContext::metaKey('_wash_shopify_url'), $shopifyUrl);
 
                     // Create automatic redirect if enabled.
                     // Skip for translation syncs — source post creates one redirect,
@@ -618,7 +622,7 @@ class WashCallback {
                     // Otherwise we'd get N duplicate redirects (one per locale variant)
                     // pointing to different Shopify handles, racing each other.
                     $isTranslationSync = $translationGroup && isset($translationGroup['isSource']) && !$translationGroup['isSource'];
-                    if (!$isTranslationSync && get_option('wash_redirections_enabled', '0') === '1') {
+                    if (!$isTranslationSync && WashContext::option('wash_redirections_enabled', '0') === '1') {
                         $this->createAutomaticRedirect($wpPostId, $shopifyPath);
                     }
                 }
@@ -627,7 +631,7 @@ class WashCallback {
             // Sync metafields (ACF, custom fields, SEO) to Shopify
             // Skip for non-source translations — they share the source article's metafields
             $isNonSourceTranslation = $translationGroup && isset($translationGroup['isSource']) && !$translationGroup['isSource'];
-            if ($shopifyId && get_option('wash_sync_metafields') === '1' && !$isNonSourceTranslation) {
+            if ($shopifyId && WashContext::option('wash_sync_metafields') === '1' && !$isNonSourceTranslation) {
                 $metafieldsHandler = new WashMetafields();
                 $metaResult = $metafieldsHandler->syncAllMetafields($wpPostId, $shopifyId);
 
@@ -642,7 +646,7 @@ class WashCallback {
             }
 
             // Sync hreflangs to Shopify
-            if ($shopifyId && get_option('wash_hreflangs_enabled') === '1') {
+            if ($shopifyId && WashContext::option('wash_hreflangs_enabled') === '1') {
                 $hreflangsHandler = new WashHreflangs();
                 $hrefResult = $hreflangsHandler->syncHreflangs($wpPostId, $shopifyId);
 
@@ -655,11 +659,11 @@ class WashCallback {
             }
 
             // Clear queued status
-            delete_post_meta($wpPostId, '_wash_sync_status');
-            delete_post_meta($wpPostId, '_wash_job_id');
-            delete_post_meta($wpPostId, '_wash_queued_at');
-            delete_post_meta($wpPostId, '_wash_sync_error');
-            delete_post_meta($wpPostId, '_wash_sync_error_at');
+            delete_post_meta($wpPostId, WashContext::metaKey('_wash_sync_status'));
+            delete_post_meta($wpPostId, WashContext::metaKey('_wash_job_id'));
+            delete_post_meta($wpPostId, WashContext::metaKey('_wash_queued_at'));
+            delete_post_meta($wpPostId, WashContext::metaKey('_wash_sync_error'));
+            delete_post_meta($wpPostId, WashContext::metaKey('_wash_sync_error_at'));
 
             washLog("[wash] Callback: Post {$wpPostId} synced successfully, shopifyId: {$shopifyId}");
 
@@ -668,10 +672,10 @@ class WashCallback {
 
         } else {
             // Store error with timestamp so the auto-clear cron can age them out.
-            update_post_meta($wpPostId, '_wash_sync_error', $error ?: 'Unknown error');
-            update_post_meta($wpPostId, '_wash_sync_error_at', current_time('mysql'));
-            delete_post_meta($wpPostId, '_wash_sync_status');
-            delete_post_meta($wpPostId, '_wash_job_id');
+            update_post_meta($wpPostId, WashContext::metaKey('_wash_sync_error'), $error ?: 'Unknown error');
+            update_post_meta($wpPostId, WashContext::metaKey('_wash_sync_error_at'), current_time('mysql'));
+            delete_post_meta($wpPostId, WashContext::metaKey('_wash_sync_status'));
+            delete_post_meta($wpPostId, WashContext::metaKey('_wash_job_id'));
 
             washLog("[wash] Callback: Post {$wpPostId} sync failed: {$error}");
 
@@ -713,14 +717,14 @@ class WashCallback {
         }
 
         if ($success && $shopifyFileId) {
-            update_post_meta($wpAttachmentId, '_wash_file_id', $shopifyFileId);
-            update_post_meta($wpAttachmentId, '_wash_cdn_url', $shopifyCdnUrl);
-            update_post_meta($wpAttachmentId, '_wash_synced_at', current_time('mysql'));
-            delete_post_meta($wpAttachmentId, '_wash_sync_pending');
+            update_post_meta($wpAttachmentId, WashContext::metaKey('_wash_file_id'), $shopifyFileId);
+            update_post_meta($wpAttachmentId, WashContext::metaKey('_wash_cdn_url'), $shopifyCdnUrl);
+            update_post_meta($wpAttachmentId, WashContext::metaKey('_wash_synced_at'), current_time('mysql'));
+            delete_post_meta($wpAttachmentId, WashContext::metaKey('_wash_sync_pending'));
             washLog("[wash] Image callback: attachment {$wpAttachmentId} synced, file {$shopifyFileId}, CDN: " . ($shopifyCdnUrl ?: 'EMPTY'));
             do_action('wash_image_callback_success', $wpAttachmentId, $body);
         } else {
-            delete_post_meta($wpAttachmentId, '_wash_sync_pending');
+            delete_post_meta($wpAttachmentId, WashContext::metaKey('_wash_sync_pending'));
             $error = $body['error'] ?? 'Unknown error';
             washLog("[wash] Image callback: attachment {$wpAttachmentId} sync failed: {$error}");
             do_action('wash_image_callback_error', $wpAttachmentId, $error, $body);
@@ -769,7 +773,7 @@ class WashCallback {
         }
 
         // Already created? Same WP path stored in meta means we've handled this post.
-        $existingRedirect = get_post_meta($postId, '_wash_redirect_created', true);
+        $existingRedirect = get_post_meta($postId, WashContext::metaKey('_wash_redirect_created'), true);
         if ($existingRedirect === $normalizedWpPath) {
             washLog("[wash] createAutomaticRedirect: Redirect already created for post {$postId}");
             return;
@@ -790,7 +794,7 @@ class WashCallback {
 
         try {
             // Re-check meta after acquiring lock (another callback may have just finished)
-            $existingRedirect = get_post_meta($postId, '_wash_redirect_created', true);
+            $existingRedirect = get_post_meta($postId, WashContext::metaKey('_wash_redirect_created'), true);
             if ($existingRedirect === $normalizedWpPath) {
                 washLog("[wash] createAutomaticRedirect: Redirect created by concurrent callback, skipping");
                 return;
@@ -811,8 +815,8 @@ class WashCallback {
                 return;
             }
 
-            update_post_meta($postId, '_wash_redirect_created', $normalizedWpPath);
-            update_post_meta($postId, '_wash_redirect_to', $normalizedShopifyPath);
+            update_post_meta($postId, WashContext::metaKey('_wash_redirect_created'), $normalizedWpPath);
+            update_post_meta($postId, WashContext::metaKey('_wash_redirect_to'), $normalizedShopifyPath);
 
             $created = $result['created'] ?? 0;
             $skipped = $result['skipped'] ?? 0;

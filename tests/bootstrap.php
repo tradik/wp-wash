@@ -92,6 +92,14 @@ if (!function_exists('wp_parse_url')) {
         return parse_url($url, $component);
     }
 }
+// esc_sql() escapes a value for use in a raw SQL string; getContentStats() uses it
+// on the per-connection meta key. Pure function (no test mocks it), so define it here
+// rather than per-test — mirrors the real WP behaviour (addslashes-style escaping).
+if (!function_exists('esc_sql')) {
+    function esc_sql($data) {
+        return is_array($data) ? array_map('addslashes', $data) : addslashes((string) $data);
+    }
+}
 // Canonical WP_Block_Type_Registry stub shared by all tests. Defining it once
 // here (with a complete is_registered()/register()) prevents per-test `eval`
 // stubs from racing — the first-loaded definition wins process-wide, and an
