@@ -49,6 +49,7 @@ require_once WASH_PLUGIN_DIR . 'includes/class-wash-connection.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-context.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-api-client.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-admin.php';
+require_once WASH_PLUGIN_DIR . 'includes/class-wash-connections-admin.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-sync.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-images.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-metafields.php';
@@ -76,6 +77,9 @@ WashActivator::init();
 function washInit() {
     $admin = new WashAdmin();
     $admin->init();
+
+    $connectionsAdmin = new WashConnectionsAdmin();
+    $connectionsAdmin->init();
 
     $sync = new WashSync();
     $sync->init();
