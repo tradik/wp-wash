@@ -735,7 +735,7 @@ class WashBlocks {
      */
     public function registerCustomBlocks() {
         // Check if blocks are enabled
-        if (get_option('wash_blocks_enabled', '1') !== '1') {
+        if (WashContext::option('wash_blocks_enabled', '1') !== '1') {
             return;
         }
 
@@ -765,7 +765,7 @@ class WashBlocks {
      * Ensures they exist in WordPress so Gutenberg shows them and content isn't stripped.
      */
     private function registerSearchReplaceEntities() {
-        $rules = get_option('wash_search_replace_rules', []);
+        $rules = WashContext::option('wash_search_replace_rules', []);
         if (!is_array($rules) || empty($rules)) {
             return;
         }
@@ -813,14 +813,14 @@ class WashBlocks {
      */
     public function enqueueBlockEditorAssets() {
         // Check if blocks are enabled
-        if (get_option('wash_blocks_enabled', '1') !== '1') {
+        if (WashContext::option('wash_blocks_enabled', '1') !== '1') {
             return;
         }
 
         // Pass data to block editor
         wp_localize_script('wash-blocks-editor', 'washBlocksData', [
-            'apiUrl'    => get_option('wash_api_url', ''),
-            'apiKey'    => get_option('wash_api_key', ''),
+            'apiUrl'    => WashContext::option('wash_api_url', ''),
+            'apiKey'    => WashContext::connection()['apiKey'],
             'restUrl'   => rest_url('wash/v1/'),
             'nonce'     => wp_create_nonce('wp_rest'),
         ]);
