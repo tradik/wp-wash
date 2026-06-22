@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.26.9
+Stable tag: 1.27.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -85,6 +85,14 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.27.0 =
+Multi-store — connect multiple Shopify stores from one WordPress site (#216).
+
+* **Connections manager** (Settings → Wash: Connections) — add a store via Shopify OAuth or by pasting its API key, then enable/disable or remove it. Each additional store keeps its own sync settings.
+* **Fan-out sync** — publishing (and unpublish/delete) now reaches every enabled store; inbound sync results route back to the right store by its API key.
+* **Plan-gated** — adding stores requires the Business or Enterprise plan; a downgrade automatically disables the additional stores.
+* Single-store installs are unchanged — existing setups keep working exactly as before, with no migration.
 
 = 1.26.9 =
 Hardening release — bundles the post-launch code audit (CRIT / HIGH / MED / LOW fixes).
