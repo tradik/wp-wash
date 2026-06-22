@@ -192,8 +192,8 @@ class WashPageBuilders {
         ];
 
         // Add HTTP Basic Auth — try WP option first, then detect from current request
-        $httpUser = get_option('wash_http_user', '');
-        $httpPass = get_option('wash_http_pass', '');
+        $httpUser = WashContext::connection()['httpUser'];
+        $httpPass = WashContext::connection()['httpPass'];
 
         // Fallback: detect auth from current request (nginx/apache basic auth)
         if (empty($httpUser) && !empty($_SERVER['PHP_AUTH_USER'])) {

@@ -1116,8 +1116,8 @@ class WashAdmin {
         }
 
         $redirections = [];
-        $shopifyStore = get_option('wash_shopify_store', '');
-        $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+        $shopifyStore = WashContext::connection()['store'];
+        $allowedTypes = array_map('trim', explode(',', WashContext::option('wash_post_types', 'post,page')));
 
         $posts = get_posts([
             'post_type'      => $allowedTypes,
@@ -1303,7 +1303,7 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $rules = get_option('wash_search_replace_rules', []);
+        $rules = WashContext::option('wash_search_replace_rules', []);
         if (!is_array($rules)) {
             $rules = [];
         }
@@ -1370,7 +1370,7 @@ class WashAdmin {
             return;
         }
 
-        $postTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+        $postTypes = array_map('trim', explode(',', WashContext::option('wash_post_types', 'post,page')));
 
         $posts = get_posts([
             'post_type'      => $postTypes,
@@ -1718,7 +1718,7 @@ class WashAdmin {
      * @return string|null Shopify article URL or null if not synced.
      */
     private function getShopifyArticleUrl($postId) {
-        $shopifyStore = get_option('wash_shopify_store', '');
+        $shopifyStore = WashContext::connection()['store'];
         if (empty($shopifyStore)) {
             return null;
         }
@@ -1911,7 +1911,7 @@ class WashAdmin {
             return $actions;
         }
 
-        $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+        $allowedTypes = array_map('trim', explode(',', WashContext::option('wash_post_types', 'post,page')));
         if (!in_array($post->post_type, $allowedTypes, true)) {
             return $actions;
         }
@@ -2015,7 +2015,7 @@ class WashAdmin {
 
         // Prepare phase: enumerate published posts of the configured types once.
         if ($token === '') {
-            $postTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+            $postTypes = array_map('trim', explode(',', WashContext::option('wash_post_types', 'post,page')));
             $ids = get_posts([
                 'post_type'      => $postTypes,
                 'post_status'    => 'publish',
@@ -2090,7 +2090,7 @@ class WashAdmin {
      * Disabled if `wash_auto_clear_errors` option is '0'.
      */
     public function clearStaleErrors() {
-        if (get_option('wash_auto_clear_errors', '1') !== '1') {
+        if (WashContext::option('wash_auto_clear_errors', '1') !== '1') {
             return;
         }
 
@@ -2101,7 +2101,7 @@ class WashAdmin {
 
         global $wpdb;
         $cutoff = gmdate('Y-m-d H:i:s', strtotime("-{$retentionDays} days"));
-        $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+        $allowedTypes = array_map('trim', explode(',', WashContext::option('wash_post_types', 'post,page')));
         $typePlaceholders = implode(',', array_fill(0, count($allowedTypes), '%s'));
 
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $typePlaceholders is a comma-separated list of %s placeholders; every value (cutoff + post types) is bound through prepare() below.
@@ -2486,7 +2486,7 @@ class WashAdmin {
                 return;
         }
 
-        $shopifyStore = get_option('wash_shopify_store', '');
+        $shopifyStore = WashContext::connection()['store'];
         $upgradeUrl = $shopifyStore ? "https://{$shopifyStore}.myshopify.com/admin/apps/wash-1" : '';
 
         echo '<div class="notice ' . esc_attr($class) . ' is-dismissible"><p><strong>Wash:</strong> ' . esc_html($message);
@@ -2697,7 +2697,7 @@ class WashAdmin {
             return add_query_arg('wash_bulk_error', 'not_configured', $redirectTo);
         }
 
-        $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+        $allowedTypes = array_map('trim', explode(',', WashContext::option('wash_post_types', 'post,page')));
 
         // Pre-validate: split into "to act on" vs "skipped". Per-post action-specific
         // skip rules: already-synced for publish, never-synced for republish/unpublish,
@@ -2736,7 +2736,7 @@ class WashAdmin {
             ], $redirectTo);
         }
 
-        $inlineMode = get_option('wash_sync_inline', '1') === '1';
+        $inlineMode = WashContext::option('wash_sync_inline', '1') === '1';
 
         if ($inlineMode) {
             // Hand off to a JS-driven progress page that AJAX-batches the work.

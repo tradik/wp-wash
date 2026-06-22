@@ -20,7 +20,7 @@ class WashImages {
      * Register WordPress hooks for file sync.
      */
     public function init() {
-        if (get_option('wash_files_enabled', '1') !== '1') {
+        if (WashContext::option('wash_files_enabled', '1') !== '1') {
             return;
         }
 
@@ -187,7 +187,7 @@ class WashImages {
             return false;
         }
 
-        $allowedTypes = get_option('wash_allowed_file_types', ['images']);
+        $allowedTypes = WashContext::option('wash_allowed_file_types', ['images']);
         if (!is_array($allowedTypes)) {
             $allowedTypes = ['images'];
         }

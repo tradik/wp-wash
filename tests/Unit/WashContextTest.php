@@ -143,4 +143,39 @@ class WashContextTest extends TestCase
         $this->assertSame('1', $this->options['wash_sync_on_publish']);
         $this->assertArrayNotHasKey('wash_c_primary_wash_sync_on_publish', $this->options);
     }
+
+    /**
+     * Credentials must NOT route through prefixed options — for primary they are the
+     * historical unprefixed values (zero-migration), so callers that switched from
+     * get_option('wash_shopify_store') to connection()['store'] are byte-identical.
+     */
+    public function testConnectionReturnsPrimaryBaseCredentials(): void
+    {
+        $this->options = [
+            'wash_shopify_store' => 'myshop', 'wash_api_key' => 'wp4s_primary',
+            'wash_app_url' => 'https://app.example', 'wash_http_user' => 'hu', 'wash_http_pass' => 'hp',
+        ];
+        \WashContext::setActiveId('primary');
+
+        $c = \WashContext::connection();
+        $this->assertSame('myshop', $c['store']);
+        $this->assertSame('wp4s_primary', $c['apiKey']);
+        $this->assertSame('hu', $c['httpUser']);
+        $this->assertSame('hp', $c['httpPass']);
+        $this->assertTrue($c['isPrimary']);
+    }
+
+    public function testConnectionReturnsRegistryCredentialsForNonPrimary(): void
+    {
+        $this->options['wash_connections'] = [
+            'x1' => ['id' => 'x1', 'store' => 'shop2', 'apiKey' => 'wp4s_2', 'httpUser' => 'u2', 'httpPass' => 'p2', 'enabled' => true, 'isPrimary' => false],
+        ];
+        \WashContext::setActiveId('x1');
+
+        $c = \WashContext::connection();
+        $this->assertSame('shop2', $c['store']);
+        $this->assertSame('wp4s_2', $c['apiKey']);
+        $this->assertSame('u2', $c['httpUser']);
+        $this->assertFalse($c['isPrimary']);
+    }
 }

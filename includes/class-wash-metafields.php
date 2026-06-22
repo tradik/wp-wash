@@ -97,7 +97,7 @@ class WashMetafields {
      * Register hooks for metafield sync.
      */
     public function init() {
-        if (get_option('wash_sync_metafields') !== '1') {
+        if (WashContext::option('wash_sync_metafields') !== '1') {
             return;
         }
 
@@ -120,7 +120,7 @@ class WashMetafields {
             return self::$fieldConfigCache;
         }
 
-        $raw = get_option('wash_meta_field_config', '');
+        $raw = WashContext::option('wash_meta_field_config', '');
         if (!empty($raw)) {
             $config = is_string($raw) ? json_decode($raw, true) : $raw;
             if (is_array($config)) {
@@ -173,10 +173,10 @@ class WashMetafields {
      * @return array Migrated field config
      */
     public function migrateFromPluginToggles() {
-        $wpCoreEnabled = get_option('wash_meta_wp_core', '1') === '1';
-        $yoastEnabled = get_option('wash_meta_yoast', '0') === '1';
-        $rankmathEnabled = get_option('wash_meta_rankmath', '0') === '1';
-        $acfEnabled = get_option('wash_meta_acf', '0') === '1';
+        $wpCoreEnabled = WashContext::option('wash_meta_wp_core', '1') === '1';
+        $yoastEnabled = WashContext::option('wash_meta_yoast', '0') === '1';
+        $rankmathEnabled = WashContext::option('wash_meta_rankmath', '0') === '1';
+        $acfEnabled = WashContext::option('wash_meta_acf', '0') === '1';
 
         $fields = $this->detectAvailableFields();
 
@@ -276,7 +276,7 @@ class WashMetafields {
         }
 
         // Scan recent posts for ACF + custom fields
-        $postTypes = get_option('wash_post_types', 'post,page');
+        $postTypes = WashContext::option('wash_post_types', 'post,page');
         $postTypesArray = array_map('trim', explode(',', $postTypes));
 
         $recentPosts = get_posts([
@@ -469,7 +469,7 @@ class WashMetafields {
      * @return array|WP_Error Sync result
      */
     public function syncAllMetafields($postId, $shopifyId) {
-        if (get_option('wash_sync_metafields') !== '1') {
+        if (WashContext::option('wash_sync_metafields') !== '1') {
             return ['skipped' => true, 'reason' => 'Metafields sync disabled'];
         }
 

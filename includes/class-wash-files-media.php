@@ -20,7 +20,7 @@ class WashFilesMedia {
      * Initialize hooks if Files & Media feature is enabled.
      */
     public function init() {
-        if (get_option('wash_files_enabled', '1') !== '1') {
+        if (WashContext::option('wash_files_enabled', '1') !== '1') {
             return;
         }
 

@@ -88,6 +88,19 @@ class WashContext {
     }
 
     /**
+     * The active connection definition (id, store, apiKey, appUrl, httpUser,
+     * httpPass, enabled, …). Use this for raw credentials — they do NOT live in
+     * prefixed options for non-primary connections (they are held in the registry),
+     * so WashContext::option('wash_api_key') would not find them. For primary this
+     * returns the historical unprefixed credentials, so behaviour is unchanged.
+     *
+     * @return array<string,mixed>
+     */
+    public static function connection() {
+        return WashConnection::get(self::activeId());
+    }
+
+    /**
      * Option name for the active connection: base key for primary, prefixed
      * `wash_c_<id>_<key>` otherwise.
      *
