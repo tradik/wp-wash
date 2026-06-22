@@ -43,6 +43,10 @@ function washLog($message) {
 }
 
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-activator.php';
+// Multi-store foundation (#216): the connection registry + active-connection
+// context must load before WashApiClient and every class that reads wash_* state.
+require_once WASH_PLUGIN_DIR . 'includes/class-wash-connection.php';
+require_once WASH_PLUGIN_DIR . 'includes/class-wash-context.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-api-client.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-admin.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-sync.php';
