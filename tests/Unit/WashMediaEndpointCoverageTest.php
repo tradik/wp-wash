@@ -353,6 +353,42 @@ class WashMediaEndpointCoverageTest extends TestCase
     }
 
     // ---------------------------------------------------------------
+    // discardBufferedOutput() — the #249 image-corruption fix
+    // ---------------------------------------------------------------
+
+    /**
+     * Stray output buffered before the binary stream (a blank line from another
+     * plugin/theme) used to be flushed ahead of the image bytes, breaking the
+     * JPEG magic number so Shopify rejected the upload (#249). The fix discards
+     * every pending buffer so the file starts at byte 0.
+     */
+    public function testDiscardBufferedOutputClearsEveryPendingBuffer(): void
+    {
+        $endpoint  = new \WashMediaEndpoint();
+        $baseLevel = ob_get_level();
+
+        // Simulate stray output a foreign plugin/theme left in the buffer.
+        ob_start();
+        echo "\n";          // the exact byte (0x0A) seen corrupting prod JPEGs
+        ob_start();
+        echo 'whitespace junk';
+
+        $method = new \ReflectionMethod($endpoint, 'discardBufferedOutput');
+        $method->setAccessible(true);
+
+        try {
+            $method->invoke($endpoint);
+            // All buffers gone → readfile() would write the image as byte 0.
+            $this->assertSame(0, ob_get_level());
+        } finally {
+            // Restore PHPUnit's own output buffers so teardown stays consistent.
+            while (ob_get_level() < $baseLevel) {
+                ob_start();
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------
     // checkRateLimit() and clientIpForRateLimit() — via reflection
     // ---------------------------------------------------------------
 

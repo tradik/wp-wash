@@ -557,6 +557,9 @@ class WashCallback {
         $shopifyHandle = $body['shopifyHandle'] ?? null;
         $shopifyLocale = $body['shopifyLocale'] ?? null;
         $translationGroup = $body['translationGroup'] ?? null;
+        // Body images that stayed on the WP source host (not rehosted to the CDN);
+        // always an array so the success path can store it without branching.
+        $imageWarnings = array_map('sanitize_text_field', is_array($body['imageWarnings'] ?? null) ? $body['imageWarnings'] : []);
 
         // Image-sync (attachment) callback — keyed by wpAttachmentId, no wpPostId.
         // Closes the async image loop by writing the attachment's Shopify file
@@ -603,6 +606,10 @@ class WashCallback {
             if ($shopifyId) {
                 update_post_meta($wpPostId, WashContext::metaKey('_wash_article_id'), $shopifyId);
                 update_post_meta($wpPostId, WashContext::metaKey('_wash_synced_at'), current_time('mysql'));
+
+                // Record body images Shopify couldn't host (still served from the
+                // source) so a partial success isn't silent in the posts list (#249).
+                update_post_meta($wpPostId, WashContext::metaKey('_wash_image_warnings'), $imageWarnings);
 
                 if ($shopifyBlogId) {
                     update_post_meta($wpPostId, WashContext::metaKey('_wash_blog_id'), $shopifyBlogId);

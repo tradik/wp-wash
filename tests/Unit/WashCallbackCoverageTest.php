@@ -669,6 +669,44 @@ class WashCallbackCoverageTest extends TestCase
         $this->assertSame('https://mystore.myshopify.com/pages/about', $storedUrl);
     }
 
+    public function testHandleCallbackStoresImageWarnings(): void
+    {
+        Functions\when('get_post')->justReturn((object) ['ID' => 21, 'post_type' => 'post']);
+        Functions\when('delete_post_meta')->justReturn(true);
+        Functions\when('do_action')->justReturn(null);
+        Functions\when('get_post_meta')->justReturn('');
+        Functions\when('current_time')->justReturn('2026-01-01 00:00:00');
+        Functions\when('get_option')->alias(function ($key, $default = '') {
+            return match ($key) {
+                'wash_shopify_store'        => 'mystore',
+                'wash_redirections_enabled' => '0',
+                default                     => $default,
+            };
+        });
+
+        $stored = null;
+        Functions\when('update_post_meta')->alias(function ($postId, $key, $value) use (&$stored) {
+            if ($key === '_wash_image_warnings') {
+                $stored = $value;
+            }
+            return true;
+        });
+
+        $request = new \WP_REST_Request([
+            'wpPostId'         => 21,
+            'success'          => true,
+            'shopifyArticleId' => 'gid://shopify/Article/77',
+            'shopifyHandle'    => 'post-handle',
+            'imageWarnings'    => ['foo-1024x881.jpg', 'bar.jpg'],
+        ]);
+
+        $result = $this->callback->handleCallback($request);
+
+        $this->assertSame(200, $result->status);
+        // The reason the post is a partial success is persisted for the posts list (#249).
+        $this->assertSame(['foo-1024x881.jpg', 'bar.jpg'], $stored);
+    }
+
     // ---------------------------------------------------------------
     // handleCallback — failure path (success=false)
     // ---------------------------------------------------------------

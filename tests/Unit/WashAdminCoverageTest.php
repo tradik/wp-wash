@@ -495,6 +495,23 @@ class WashAdminCoverageTest extends TestCase
         $this->assertStringContainsString('dashicons-yes-alt', $html);
     }
 
+    public function testRenderShopifyColumnFlagsImageWarningsOnPartialSuccess(): void
+    {
+        Functions\when('_n')->alias(fn($s, $p, $n) => $n === 1 ? $s : $p);
+        $this->mockPost(44, 'post', 'publish', 'synced');
+        $this->postMetaStore[44]['_wash_article_id'] = 'gid://shopify/Article/2';
+        $this->postMetaStore[44]['_wash_blog_handle'] = 'news';
+        $this->postMetaStore[44]['_wash_image_warnings'] = ['hero-1024x881.jpg', 'inline.jpg'];
+
+        ob_start();
+        $this->admin->renderShopifyColumn('wash_sync', 44);
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('dashicons-yes-alt', $html);  // still synced
+        $this->assertStringContainsString('dashicons-warning', $html);  // partial-success flag (#249)
+        $this->assertStringContainsString('hero-1024x881.jpg', $html);  // reason shown in tooltip
+    }
+
     public function testRenderShopifyColumnShowsQueuedIcon(): void
     {
         $this->mockPost(41, 'post', 'publish', 'queued');

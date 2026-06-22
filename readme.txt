@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.27.0
+Stable tag: 1.27.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -85,6 +85,12 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.27.1 =
+Fix — content images no longer stay on the WordPress source after sync (#249).
+
+* The signed media endpoint now flushes any buffered output before streaming a file, so a stray newline from another plugin/theme can't corrupt the image bytes (Shopify was rejecting them as "invalid image data", leaving the post pointing at the source).
+* Synced posts that still have an image served from the source are now flagged in the posts list (hover the Shopify column) instead of showing a silent success.
 
 = 1.27.0 =
 Multi-store — connect multiple Shopify stores from one WordPress site (#216).

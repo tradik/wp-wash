@@ -1856,6 +1856,7 @@ class WashAdmin {
         $syncStatus = get_post_meta($postId, '_wash_sync_status', true);
         $syncError = get_post_meta($postId, '_wash_sync_error', true);
         $queuedAt = get_post_meta($postId, '_wash_queued_at', true);
+        $imageWarnings = get_post_meta($postId, '_wash_image_warnings', true);
 
         if (!empty($shopifyArticleId)) {
             $shopifyUrl = $this->getShopifyArticleUrl($postId);
@@ -1867,6 +1868,17 @@ class WashAdmin {
             echo '<a href="' . esc_url($shopifyUrl) . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr($title) . '">';
             echo '<span class="dashicons dashicons-yes-alt" style="color: #46b450;"></span>';
             echo '</a>';
+            // Partial success: some body images couldn't be hosted on Shopify and
+            // are still served from the source host (#249).
+            if (!empty($imageWarnings) && is_array($imageWarnings)) {
+                $warnTitle = sprintf(
+                    // translators: %1$d is the number of images; %2$s is a comma-separated filename list.
+                    _n('%1$d image could not be uploaded to Shopify (still served from source): %2$s', '%1$d images could not be uploaded to Shopify (still served from source): %2$s', count($imageWarnings), 'wash-blog-manager'),
+                    count($imageWarnings),
+                    implode(', ', $imageWarnings)
+                );
+                echo ' <span class="dashicons dashicons-warning" style="color: #dba617;" title="' . esc_attr($warnTitle) . '"></span>';
+            }
         } elseif ($syncStatus === 'queued') {
             $title = sprintf(
                 // translators: %s is the formatted date/time the sync was queued.

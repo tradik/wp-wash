@@ -157,6 +157,8 @@ class WashMediaEndpoint {
      * @param int    $id    Attachment id (for response header).
      */
     protected function streamFile($path, $mime, $id) {
+        // Binary stream must start at byte 0 — clear any pending output first (#249).
+        $this->discardBufferedOutput();
         if (!headers_sent()) {
             header('Content-Type: ' . $mime);
             header('Content-Length: ' . (string) filesize($path));
@@ -166,6 +168,23 @@ class WashMediaEndpoint {
         // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- streaming attachment bytes to the client; readfile() streams without loading the whole file into memory, unlike WP_Filesystem::get_contents().
         readfile($path);
         exit;
+    }
+
+    /**
+     * Discard ALL pending output buffers so the streamed file starts at byte 0.
+     *
+     * Another plugin or the active theme on the customer's site can emit stray
+     * whitespace/newlines (e.g. a blank line after a closing PHP tag). That output
+     * would otherwise be flushed BEFORE the image bytes, so the file no longer
+     * starts at its magic number (\n + FFD8 instead of FFD8) — Shopify's async
+     * processing then rejects the upload as "invalid image data" and the post
+     * keeps the source URL (#249). Extracted from streamFile() so it is testable
+     * without exit()/readfile().
+     */
+    protected function discardBufferedOutput() {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
     }
 
     /**
