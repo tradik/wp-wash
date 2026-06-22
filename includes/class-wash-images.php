@@ -52,7 +52,7 @@ class WashImages {
             return;
         }
 
-        $shopifyFileId = get_post_meta($attachmentId, '_wash_file_id', true);
+        $shopifyFileId = get_post_meta($attachmentId, WashContext::metaKey('_wash_file_id'), true);
         if ($shopifyFileId) {
             $this->deleteFromShopify($attachmentId);
         }
@@ -139,7 +139,7 @@ class WashImages {
         // the attachment meta. Treat "queued" as success-pending, not failure —
         // returning false here is what made every image re-enqueue on each save.
         if (!empty($result['queued'])) {
-            update_post_meta($attachmentId, '_wash_sync_pending', current_time('mysql'));
+            update_post_meta($attachmentId, WashContext::metaKey('_wash_sync_pending'), current_time('mysql'));
             washLog("[wash] uploadToShopify() - Attachment {$attachmentId} queued (async); awaiting callback");
             return true;
         }
@@ -152,8 +152,8 @@ class WashImages {
         $cdnUrl = $result['shopifyCdnUrl'] ?? '';
         washLog("[wash] uploadToShopify() - Attachment {$attachmentId} synced. CDN URL: " . ($cdnUrl ?: 'EMPTY'));
 
-        update_post_meta($attachmentId, '_wash_file_id', $result['shopifyFileId']);
-        update_post_meta($attachmentId, '_wash_cdn_url', $cdnUrl);
+        update_post_meta($attachmentId, WashContext::metaKey('_wash_file_id'), $result['shopifyFileId']);
+        update_post_meta($attachmentId, WashContext::metaKey('_wash_cdn_url'), $cdnUrl);
 
         return !empty($cdnUrl);
     }
@@ -170,8 +170,8 @@ class WashImages {
         ]);
 
         if (!is_wp_error($result)) {
-            delete_post_meta($attachmentId, '_wash_file_id');
-            delete_post_meta($attachmentId, '_wash_cdn_url');
+            delete_post_meta($attachmentId, WashContext::metaKey('_wash_file_id'));
+            delete_post_meta($attachmentId, WashContext::metaKey('_wash_cdn_url'));
         }
     }
 
@@ -279,6 +279,6 @@ class WashImages {
      * @return string|null Shopify CDN URL or null
      */
     public static function getShopifyCdnUrl($attachmentId) {
-        return get_post_meta($attachmentId, '_wash_cdn_url', true) ?: null;
+        return get_post_meta($attachmentId, WashContext::metaKey('_wash_cdn_url'), true) ?: null;
     }
 }

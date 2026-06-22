@@ -994,7 +994,7 @@ class WashMetafields {
      * Get Shopify resource ID (article or page) for a WordPress post.
      */
     private function getShopifyResourceId($postId) {
-        $articleId = get_post_meta($postId, '_wash_article_id', true);
+        $articleId = get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true);
         return $articleId ?: null;
     }
 

@@ -35,7 +35,7 @@ class WashHreflangs {
      * Initialize hreflang hooks.
      */
     public function init() {
-        if (get_option('wash_hreflangs_enabled') !== '1') {
+        if (WashContext::option('wash_hreflangs_enabled') !== '1') {
             return;
         }
 
@@ -66,7 +66,7 @@ class WashHreflangs {
      * @return array|WP_Error Sync result
      */
     public function syncHreflangs($postId, $shopifyId) {
-        if (get_option('wash_hreflangs_enabled') !== '1') {
+        if (WashContext::option('wash_hreflangs_enabled') !== '1') {
             return ['skipped' => true, 'reason' => 'Hreflangs sync disabled'];
         }
 
@@ -631,12 +631,12 @@ class WashHreflangs {
      * @return string|null Shopify URL or null
      */
     private function getShopifyUrlForPost($postId) {
-        $shopifyStore = get_option('wash_shopify_store', '');
+        $shopifyStore = WashContext::connection()['store'];
         if (empty($shopifyStore)) {
             return null;
         }
 
-        $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
+        $shopifyArticleId = get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true);
         if (empty($shopifyArticleId)) {
             return null;
         }
@@ -653,7 +653,7 @@ class WashHreflangs {
             return $baseUrl . '/pages/' . $post->post_name;
         }
 
-        $blogHandle = get_post_meta($postId, '_wash_blog_handle', true);
+        $blogHandle = get_post_meta($postId, WashContext::metaKey('_wash_blog_handle'), true);
         if (empty($blogHandle)) {
             $blogHandle = 'news';
         }
