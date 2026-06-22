@@ -89,7 +89,7 @@ class WashMultisite {
                 'siteId'    => $site->blog_id,
                 'blogName'  => get_bloginfo('name'),
                 'siteUrl'   => get_site_url(),
-                'isActive'  => get_option('wash_sync_on_publish') === '1',
+                'isActive'  => WashContext::option('wash_sync_on_publish') === '1',
                 'blogMapping' => get_option('wash_blog_name', ''),
             ];
             restore_current_blog();

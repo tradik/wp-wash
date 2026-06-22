@@ -28,6 +28,12 @@ class WashConnectionsAdmin {
         add_action('admin_post_wash_remove_connection', [$this, 'handleRemove']);
         add_action('admin_post_wash_toggle_connection', [$this, 'handleToggle']);
         add_action('admin_post_wash_save_connection_settings', [$this, 'handleSaveConnectionSettings']);
+
+        // Background plan-downgrade enforcement for merchants who never open the page.
+        add_action('wash_enforce_plan', [$this, 'enforcePlanDowngrade']);
+        if (!wp_next_scheduled('wash_enforce_plan')) {
+            wp_schedule_event(time() + 60, 'daily', 'wash_enforce_plan');
+        }
     }
 
     /**
@@ -120,11 +126,48 @@ class WashConnectionsAdmin {
         }
     }
 
+    /**
+     * Whether the merchant's plan permits additional stores. Multi-store is gated on
+     * the PRIMARY connection's plan (Business/Enterprise). Fail-open on an API error
+     * (consistent with WashApiClient::hasFeature) so a transient outage never blocks
+     * a legitimate paying merchant.
+     *
+     * @return bool
+     */
+    public static function planAllowsMultiStore() {
+        WashContext::setActiveId(WashConnection::PRIMARY);
+        $info = WashContext::apiClient()->getPlanInfo();
+        WashContext::setActiveId(null);
+
+        if (!is_array($info)) {
+            return true;
+        }
+        $plan = strtoupper((string) (isset($info['plan']) ? $info['plan'] : ''));
+        return in_array($plan, array('BUSINESS', 'ENTERPRISE'), true);
+    }
+
+    /**
+     * Disable every additional connection when the plan no longer qualifies for
+     * multi-store (downgrade). The sync fan-out skips disabled connections, so this
+     * stops content reaching the extra stores. Re-upgrading re-enables them by hand.
+     */
+    public function enforcePlanDowngrade() {
+        if (self::planAllowsMultiStore()) {
+            return;
+        }
+        foreach (WashConnection::all() as $id => $conn) {
+            if (empty($conn['isPrimary']) && !empty($conn['enabled'])) {
+                WashConnection::setEnabled($id, false);
+            }
+        }
+    }
+
     /** Render the connections manager (list + add forms). */
     public function renderManager() {
         if (!current_user_can('manage_options')) {
             return;
         }
+        $this->enforcePlanDowngrade(); // reflect a lapsed plan the moment the page opens
         include_once WASH_PLUGIN_DIR . 'admin/views/connections-page.php';
     }
 
@@ -146,6 +189,9 @@ class WashConnectionsAdmin {
     /** Manual "paste credentials" add. */
     public function handleManualAdd() {
         $this->guard('wash_add_connection');
+        if (!self::planAllowsMultiStore()) {
+            $this->redirectManager('error', 'plan');
+        }
 
         $store  = isset($_POST['store']) ? sanitize_text_field(wp_unslash($_POST['store'])) : '';
         $apiKey = isset($_POST['apiKey']) ? sanitize_text_field(wp_unslash($_POST['apiKey'])) : '';
@@ -223,6 +269,9 @@ class WashConnectionsAdmin {
         $store  = isset($_GET['store']) ? sanitize_text_field(wp_unslash($_GET['store'])) : '';
         if ($apiKey === '' || $store === '') {
             $this->redirectManager('error', 'missing');
+        }
+        if (!self::planAllowsMultiStore()) {
+            $this->redirectManager('error', 'plan');
         }
 
         $id = WashConnection::add($store, $apiKey);

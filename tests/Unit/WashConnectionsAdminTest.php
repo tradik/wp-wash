@@ -57,6 +57,12 @@ class WashConnectionsAdminTest extends TestCase
         Functions\when('esc_url_raw')->returnArg();
         Functions\when('sanitize_key')->alias(fn($k) => strtolower(preg_replace('/[^a-z0-9_\-]/i', '', (string) $k)));
         Functions\when('wp_generate_password')->justReturn('abc123');
+        Functions\when('get_site_url')->justReturn('https://example.com');
+        Functions\when('is_wp_error')->alias(fn($thing) => $thing instanceof \WP_Error);
+        Functions\when('get_transient')->justReturn(['plan' => 'BUSINESS']); // qualifying by default
+        Functions\when('set_transient')->justReturn(true);
+        Functions\when('wp_next_scheduled')->justReturn(true); // cron already scheduled → no re-schedule
+        Functions\when('wp_schedule_event')->justReturn(true);
         Functions\when('admin_url')->alias(fn($p = '') => 'http://wp/wp-admin/' . $p);
         Functions\when('add_query_arg')->alias(fn($k, $v, $url) => $url . (strpos($url, '?') !== false ? '&' : '?') . $k . '=' . $v);
         Functions\when('wp_safe_redirect')->alias(function ($url) {
@@ -283,5 +289,65 @@ class WashConnectionsAdminTest extends TestCase
         Functions\when('current_user_can')->justReturn(false);
         $url = $this->expectRedirect(fn() => $this->admin->handleManualAdd());
         $this->assertSame('wp_die', $url); // guard() calls wp_die() before any work
+    }
+
+    public function testPlanAllowsMultiStoreForQualifyingPlans(): void
+    {
+        Functions\when('get_transient')->justReturn(['plan' => 'BUSINESS']);
+        $this->assertTrue(\WashConnectionsAdmin::planAllowsMultiStore());
+        Functions\when('get_transient')->justReturn(['plan' => 'enterprise']); // case-insensitive
+        $this->assertTrue(\WashConnectionsAdmin::planAllowsMultiStore());
+    }
+
+    public function testPlanBlocksMultiStoreForLowerPlans(): void
+    {
+        Functions\when('get_transient')->justReturn(['plan' => 'FREE']);
+        $this->assertFalse(\WashConnectionsAdmin::planAllowsMultiStore());
+        Functions\when('get_transient')->justReturn(['plan' => 'PRO']);
+        $this->assertFalse(\WashConnectionsAdmin::planAllowsMultiStore());
+    }
+
+    public function testPlanCheckFailsOpenOnApiError(): void
+    {
+        Functions\when('get_transient')->justReturn(false);             // not cached → fetch
+        Functions\when('wp_remote_get')->justReturn(new \WP_Error('http', 'down'));
+        $this->assertTrue(\WashConnectionsAdmin::planAllowsMultiStore()); // don't block on outage
+    }
+
+    public function testManualAddRejectedWhenPlanDoesNotQualify(): void
+    {
+        Functions\when('get_transient')->justReturn(['plan' => 'FREE']);
+        $_POST = ['store' => 'shop.myshopify.com', 'apiKey' => 'wp4s_new'];
+        $url = $this->expectRedirect(fn() => $this->admin->handleManualAdd());
+        $this->assertStringContainsString('error=plan', $url);
+        $this->assertArrayNotHasKey('wash_connections', $this->options); // nothing added
+    }
+
+    public function testEnforcePlanDowngradeDisablesAdditionalConnections(): void
+    {
+        Functions\when('get_transient')->justReturn(['plan' => 'FREE']); // lapsed
+        $this->seedConnection('x1');
+        $this->admin->enforcePlanDowngrade();
+        $this->assertFalse($this->options['wash_connections']['x1']['enabled']);
+    }
+
+    public function testEnforcePlanDowngradeKeepsConnectionsWhenPlanQualifies(): void
+    {
+        Functions\when('get_transient')->justReturn(['plan' => 'ENTERPRISE']);
+        $this->seedConnection('x1');
+        $this->admin->enforcePlanDowngrade();
+        $this->assertTrue($this->options['wash_connections']['x1']['enabled']);
+    }
+
+    public function testOAuthAddRejectedWhenPlanDoesNotQualify(): void
+    {
+        Functions\when('get_transient')->justReturn(['plan' => 'FREE']);
+        $_GET = [
+            'page' => 'wash-connections', 'wash_callback' => '1', 'wash_add' => '1',
+            'wash_state' => 'nonce', 'api_key' => 'wp4s_oauth', 'store' => 'shop3',
+        ];
+        $url = $this->expectRedirect(fn() => $this->admin->handleOAuthAddCallback());
+        $this->assertStringContainsString('error=plan', $url);
+        $this->assertArrayNotHasKey('wash_connections', $this->options);
     }
 }

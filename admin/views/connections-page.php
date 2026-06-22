@@ -9,6 +9,7 @@ if (!defined('ABSPATH')) {
 }
 
 $washConnections = WashConnection::all();
+$washCanAdd      = WashConnectionsAdmin::planAllowsMultiStore();
 
 // Status notices from redirect query args (read-only; no state change).
 // phpcs:disable WordPress.Security.NonceVerification.Recommended
@@ -19,6 +20,8 @@ if (isset($_GET['added'])) {
     $washNotice = __('Connection removed.', 'wash-blog-manager');
 } elseif (isset($_GET['toggled'])) {
     $washNotice = __('Connection updated.', 'wash-blog-manager');
+} elseif (isset($_GET['error']) && $_GET['error'] === 'plan') {
+    $washNotice = __('Adding stores requires the Business or Enterprise plan.', 'wash-blog-manager');
 } elseif (isset($_GET['error'])) {
     $washNotice = __('Could not complete the request. Please check the details and try again.', 'wash-blog-manager');
 }
@@ -91,6 +94,11 @@ $washIsError = isset($_GET['error']);
         </tbody>
     </table>
 
+    <?php if (!$washCanAdd) : ?>
+        <div class="notice notice-warning inline" style="margin-top:2em;">
+            <p><?php esc_html_e('Adding more stores requires the Business or Enterprise plan. Existing connections keep working — upgrade to add another store.', 'wash-blog-manager'); ?></p>
+        </div>
+    <?php else : ?>
     <h2 style="margin-top:2em;"><?php esc_html_e('Add a store', 'wash-blog-manager'); ?></h2>
     <div style="display:flex;gap:2em;flex-wrap:wrap;max-width:900px;">
         <div style="flex:1;min-width:320px;">
@@ -134,4 +142,5 @@ $washIsError = isset($_GET['error']);
             </form>
         </div>
     </div>
+    <?php endif; ?>
 </div>
