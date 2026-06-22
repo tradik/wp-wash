@@ -24,11 +24,25 @@ class WashApiClient {
     /** @var int Maximum retry attempts for rate-limited requests */
     private $maxRetries = 3;
 
-    public function __construct() {
+    /** @var array<string,mixed> The connection this client operates on (#216). */
+    private $connection;
+
+    /**
+     * @param array<string,mixed>|null $connection A connection from
+     *   WashConnection::get(); null resolves the active connection via
+     *   WashContext. For the primary connection the credentials come from the
+     *   historical unprefixed options, so single-store behaviour is unchanged.
+     */
+    public function __construct($connection = null) {
+        if (!is_array($connection)) {
+            // activeId() always resolves to a real id, so get() returns an array.
+            $connection = WashConnection::get(WashContext::activeId());
+        }
+        $this->connection = $connection;
+        $this->apiKey    = isset($connection['apiKey'])   ? $connection['apiKey']   : '';
+        $this->httpUser  = isset($connection['httpUser']) ? $connection['httpUser'] : '';
+        $this->httpPass  = isset($connection['httpPass']) ? $connection['httpPass'] : '';
         $this->appUrl    = $this->resolveAppUrl();
-        $this->apiKey    = get_option('wash_api_key', '');
-        $this->httpUser  = get_option('wash_http_user', '');
-        $this->httpPass  = get_option('wash_http_pass', '');
     }
 
     /**
@@ -48,19 +62,18 @@ class WashApiClient {
             return 'https://app-wash1.tradik.com';
         }
 
-        // Check if explicitly set in options
-        $configuredUrl = get_option('wash_app_url', '');
+        // Explicit app URL from the connection definition (for primary this is
+        // the historical wash_app_url option). Only a fallback — the Hilo host
+        // override above always wins, so both Hilo connections reach app-wash1.
+        $configuredUrl = isset($this->connection['appUrl']) ? $this->connection['appUrl'] : '';
         if (!empty($configuredUrl)) {
             return $configuredUrl;
         }
 
-        // Auto-detect dev environment
-        if (strpos($siteUrl, 'tradik.dev') !== false) {
-            return 'https://app-wash.tradik.dev';
-        }
-
-        // Default to production
-        return 'https://app-wash.tradik.com';
+        // Auto-detect dev environment; otherwise production.
+        return (strpos($siteUrl, 'tradik.dev') !== false)
+            ? 'https://app-wash.tradik.dev'
+            : 'https://app-wash.tradik.com';
     }
 
     /**
@@ -338,7 +351,7 @@ class WashApiClient {
      */
     public function getPermissions() {
         // Check cache first
-        $cached = get_transient('wash_permissions');
+        $cached = get_transient(WashContext::transientKey('wash_permissions'));
         if ($cached !== false) {
             return $cached;
         }
@@ -373,7 +386,7 @@ class WashApiClient {
         }
 
         // Cache for 5 minutes
-        set_transient('wash_permissions', $permissions, 5 * MINUTE_IN_SECONDS);
+        set_transient(WashContext::transientKey('wash_permissions'), $permissions, 5 * MINUTE_IN_SECONDS);
 
         return $permissions;
     }
@@ -425,7 +438,7 @@ class WashApiClient {
      * Call this when settings are changed from Shopify side.
      */
     public function clearPermissionsCache() {
-        delete_transient('wash_permissions');
+        delete_transient(WashContext::transientKey('wash_permissions'));
     }
 
     /**
@@ -637,7 +650,7 @@ class WashApiClient {
      * @return array|WP_Error Plan info or error.
      */
     public function getPlanInfo($forceRefresh = false) {
-        $cacheKey = 'wash_plan_info';
+        $cacheKey = WashContext::transientKey('wash_plan_info');
         $cached = get_transient($cacheKey);
 
         if ($cached !== false && !$forceRefresh) {
@@ -702,7 +715,7 @@ class WashApiClient {
      * Clear cached plan info.
      */
     public function clearPlanInfoCache() {
-        delete_transient('wash_plan_info');
+        delete_transient(WashContext::transientKey('wash_plan_info'));
     }
 
     /**
@@ -713,27 +726,29 @@ class WashApiClient {
      */
     public function backupSettings() {
         $settings = [
-            'syncOnPublish'    => get_option('wash_sync_on_publish', '1'),
-            'syncMetafields'   => get_option('wash_sync_metafields', '1'),
-            'postTypes'        => get_option('wash_post_types', 'post,page'),
+            'syncOnPublish'    => WashContext::option('wash_sync_on_publish', '1'),
+            'syncMetafields'   => WashContext::option('wash_sync_metafields', '1'),
+            'postTypes'        => WashContext::option('wash_post_types', 'post,page'),
+            // wash_block_robots stays a GLOBAL option (#216): the robots.txt block
+            // is site-wide, one per WordPress install, not per Shopify connection.
             'blockRobots'      => get_option('wash_block_robots', '1'),
-            'metaFieldConfig'  => json_decode(get_option('wash_meta_field_config', '[]'), true),
+            'metaFieldConfig'  => json_decode(WashContext::option('wash_meta_field_config', '[]'), true),
             // Per-source metafield flags. Without these the app coerces missing
             // values to false on every WP-side save, silently resetting them (LOW-17, #178).
-            'metaWpCore'       => get_option('wash_meta_wp_core', '1'),
-            'metaYoast'        => get_option('wash_meta_yoast', '0'),
-            'metaRankmath'     => get_option('wash_meta_rankmath', '0'),
-            'metaAcf'          => get_option('wash_meta_acf', '0'),
-            'hreflangsEnabled' => get_option('wash_hreflangs_enabled', '0'),
-            'authorsEnabled'   => get_option('wash_authors_enabled', '0'),
-            'authorMappings'   => get_option('wash_author_mappings', []),
-            'filesEnabled'     => get_option('wash_files_enabled', '1'),
-            'webpConvert'      => get_option('wash_webp_convert', '0'),
-            'allowedFileTypes' => get_option('wash_allowed_file_types', ['images']),
-            'blocksEnabled'    => get_option('wash_blocks_enabled', '1'),
-            'syncBlocksMeta'   => get_option('wash_sync_blocks_meta', '1'),
-            'syncBlocksCss'    => get_option('wash_sync_blocks_css', '0'),
-            'redirectionsEnabled' => get_option('wash_redirections_enabled', '0'),
+            'metaWpCore'       => WashContext::option('wash_meta_wp_core', '1'),
+            'metaYoast'        => WashContext::option('wash_meta_yoast', '0'),
+            'metaRankmath'     => WashContext::option('wash_meta_rankmath', '0'),
+            'metaAcf'          => WashContext::option('wash_meta_acf', '0'),
+            'hreflangsEnabled' => WashContext::option('wash_hreflangs_enabled', '0'),
+            'authorsEnabled'   => WashContext::option('wash_authors_enabled', '0'),
+            'authorMappings'   => WashContext::option('wash_author_mappings', []),
+            'filesEnabled'     => WashContext::option('wash_files_enabled', '1'),
+            'webpConvert'      => WashContext::option('wash_webp_convert', '0'),
+            'allowedFileTypes' => WashContext::option('wash_allowed_file_types', ['images']),
+            'blocksEnabled'    => WashContext::option('wash_blocks_enabled', '1'),
+            'syncBlocksMeta'   => WashContext::option('wash_sync_blocks_meta', '1'),
+            'syncBlocksCss'    => WashContext::option('wash_sync_blocks_css', '0'),
+            'redirectionsEnabled' => WashContext::option('wash_redirections_enabled', '0'),
         ];
 
         return $this->post('/api/settings-sync', $settings);

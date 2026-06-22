@@ -10,6 +10,13 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
 if (!defined('ABSPATH')) {
     define('ABSPATH', '/tmp/fake-wp/');
 }
+
+// Multi-store foundation (#216): WashApiClient (and the classes that use it)
+// reference WashConnection / WashContext, so — exactly like wash.php loads them
+// before WashApiClient — make them available process-wide for the whole suite.
+// Loaded AFTER ABSPATH because both files guard on `defined('ABSPATH')`.
+require_once dirname(__DIR__) . '/includes/class-wash-connection.php';
+require_once dirname(__DIR__) . '/includes/class-wash-context.php';
 if (!defined('WASH_VERSION')) {
     define('WASH_VERSION', '1.20.8');
 }

@@ -25,6 +25,9 @@ class WashContext {
     /** Memoized active connection id for this request (null = not yet resolved). */
     private static $activeId = null;
 
+    /** @var array<string,WashApiClient> Memoized API clients, keyed by connection id. */
+    private static $clients = array();
+
     /**
      * The active connection id. Resolution order:
      *   1. an explicit setActiveId() override (sync loop, AJAX),
@@ -66,6 +69,22 @@ class WashContext {
      */
     public static function setActiveId($id) {
         self::$activeId = ($id === null) ? null : (string) $id;
+        self::$clients  = array();
+    }
+
+    /**
+     * Memoized WashApiClient bound to the active connection. The per-connection
+     * sync loop calls setActiveId() then apiClient() to talk to each store with
+     * its own credentials/app URL.
+     *
+     * @return WashApiClient
+     */
+    public static function apiClient() {
+        $id = self::activeId();
+        if (!isset(self::$clients[$id])) {
+            self::$clients[$id] = new WashApiClient(WashConnection::get($id));
+        }
+        return self::$clients[$id];
     }
 
     /**
