@@ -43,8 +43,8 @@ class WashSync {
             return;
         }
 
-        if (get_option('wash_sync_on_publish', '1') !== '1') {
-            washLog("[wash] Skipping sync - wash_sync_on_publish is not '1', value: " . get_option('wash_sync_on_publish', '1'));
+        if (WashContext::option('wash_sync_on_publish', '1') !== '1') {
+            washLog("[wash] Skipping sync - wash_sync_on_publish is not '1', value: " . WashContext::option('wash_sync_on_publish', '1'));
             return;
         }
 
@@ -90,7 +90,7 @@ class WashSync {
         $this->isSyncing = true;
         // Determine action based on existing Shopify sync, not WordPress $update flag
         // WordPress passes $update=true even for new posts (auto-draft → publish)
-        $existingArticleId = get_post_meta($postId, '_wash_article_id', true);
+        $existingArticleId = get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true);
         $action = empty($existingArticleId) ? 'create' : 'update';
         washLog("[wash] Action determined: {$action} (existingArticleId: " . ($existingArticleId ?: 'none') . ")");
         $this->syncPost($postId, $post, $action);
@@ -181,10 +181,10 @@ class WashSync {
      * @param int $postId Post ID
      */
     private function clearSyncMeta($postId) {
-        delete_post_meta($postId, '_wash_article_id');
-        delete_post_meta($postId, '_wash_blog_id');
-        delete_post_meta($postId, '_wash_blog_handle');
-        delete_post_meta($postId, '_wash_synced_at');
+        delete_post_meta($postId, WashContext::metaKey('_wash_article_id'));
+        delete_post_meta($postId, WashContext::metaKey('_wash_blog_id'));
+        delete_post_meta($postId, WashContext::metaKey('_wash_blog_handle'));
+        delete_post_meta($postId, WashContext::metaKey('_wash_synced_at'));
     }
 
     /**
@@ -194,13 +194,13 @@ class WashSync {
         washLog("[wash] syncPost() - Starting sync for post {$postId}");
 
         // Sync images in content first (if Files & Media enabled)
-        if (get_option('wash_files_enabled', '1') === '1') {
+        if (WashContext::option('wash_files_enabled', '1') === '1') {
             $this->syncContentImages($post->post_content);
         }
 
         // Sync featured image if set
         $thumbnailId = get_post_thumbnail_id($postId);
-        if ($thumbnailId && get_option('wash_files_enabled', '1') === '1') {
+        if ($thumbnailId && WashContext::option('wash_files_enabled', '1') === '1') {
             $this->syncFeaturedImage($thumbnailId);
         }
 
@@ -221,50 +221,68 @@ class WashSync {
 
         $this->logSync($postId, $action, $result);
 
-        if (is_wp_error($result)) {
-            // Store error message for display
-            $errorMessage = $result->get_error_message();
-            update_post_meta($postId, '_wash_sync_error', $errorMessage);
-            washLog("[wash] syncPost() - Stored error: " . $errorMessage);
+        $shopifyId = $this->persistSyncOutcome($postId, $result);
+        if (!$shopifyId) {
+            // Error or still-queued — meta already recorded, nothing more to do.
             return;
         }
 
-        // Handle async queue response - job queued but not completed yet
+        // Sync metafields (ACF, custom fields, SEO)
+        $this->syncMetafields($postId, $shopifyId);
+
+        // Sync hreflangs (WPML, Polylang, TranslatePress, Weglot)
+        $this->syncHreflangs($postId, $shopifyId);
+
+        // Automatic redirects are created in callback handler (class-wash-callback.php)
+        // after Shopify confirms the article/page was synced — avoids duplicates.
+
+        // Fire action for extensibility
+        do_action('wash_post_synced', $postId, $shopifyId);
+    }
+
+    /**
+     * Persist the per-connection sync-result meta for a post and return the Shopify
+     * resource id on success (null for an API error or a still-queued job, so the
+     * caller skips the metafield/hreflang follow-up). Extracted from syncPost() so the
+     * meta writes are unit-testable without standing up the whole sync pipeline.
+     *
+     * @param int             $postId WordPress post id.
+     * @param array|\WP_Error $result API client response.
+     * @return string|null Shopify resource id, or null when nothing was persisted.
+     */
+    private function persistSyncOutcome($postId, $result) {
+        if (is_wp_error($result)) {
+            $errorMessage = $result->get_error_message();
+            update_post_meta($postId, WashContext::metaKey('_wash_sync_error'), $errorMessage);
+            washLog("[wash] syncPost() - Stored error: " . $errorMessage);
+            return null;
+        }
+
+        // Async queue response — job accepted but not completed yet.
         if (!empty($result['queued']) && !empty($result['jobId'])) {
             washLog("[wash] syncPost() - Job queued with ID: " . $result['jobId']);
-            update_post_meta($postId, '_wash_sync_status', 'queued');
-            update_post_meta($postId, '_wash_job_id', $result['jobId']);
-            update_post_meta($postId, '_wash_queued_at', current_time('mysql'));
-            delete_post_meta($postId, '_wash_sync_error');
-            return;
+            update_post_meta($postId, WashContext::metaKey('_wash_sync_status'), 'queued');
+            update_post_meta($postId, WashContext::metaKey('_wash_job_id'), $result['jobId']);
+            update_post_meta($postId, WashContext::metaKey('_wash_queued_at'), current_time('mysql'));
+            delete_post_meta($postId, WashContext::metaKey('_wash_sync_error'));
+            return null;
         }
 
-        // Handle successful sync with Shopify ID
         $shopifyId = $result['shopifyArticleId'] ?? $result['shopifyPageId'] ?? null;
         if ($shopifyId) {
             washLog("[wash] syncPost() - Updating post meta with Shopify ID: {$shopifyId}");
-            update_post_meta($postId, '_wash_article_id', $shopifyId);
-            update_post_meta($postId, '_wash_blog_id', $result['shopifyBlogId'] ?? '');
-            update_post_meta($postId, '_wash_blog_handle', $result['shopifyBlogHandle'] ?? '');
-            update_post_meta($postId, '_wash_synced_at', current_time('mysql'));
-            // Clear queued status and error
-            delete_post_meta($postId, '_wash_sync_status');
-            delete_post_meta($postId, '_wash_job_id');
-            delete_post_meta($postId, '_wash_queued_at');
-            delete_post_meta($postId, '_wash_sync_error');
-
-            // Sync metafields (ACF, custom fields, SEO)
-            $this->syncMetafields($postId, $shopifyId);
-
-            // Sync hreflangs (WPML, Polylang, TranslatePress, Weglot)
-            $this->syncHreflangs($postId, $shopifyId);
-
-            // Automatic redirects are created in callback handler (class-wash-callback.php)
-            // after Shopify confirms the article/page was synced — avoids duplicates.
-
-            // Fire action for extensibility
-            do_action('wash_post_synced', $postId, $shopifyId);
+            update_post_meta($postId, WashContext::metaKey('_wash_article_id'), $shopifyId);
+            update_post_meta($postId, WashContext::metaKey('_wash_blog_id'), $result['shopifyBlogId'] ?? '');
+            update_post_meta($postId, WashContext::metaKey('_wash_blog_handle'), $result['shopifyBlogHandle'] ?? '');
+            update_post_meta($postId, WashContext::metaKey('_wash_synced_at'), current_time('mysql'));
+            // Clear queued status and any prior error.
+            delete_post_meta($postId, WashContext::metaKey('_wash_sync_status'));
+            delete_post_meta($postId, WashContext::metaKey('_wash_job_id'));
+            delete_post_meta($postId, WashContext::metaKey('_wash_queued_at'));
+            delete_post_meta($postId, WashContext::metaKey('_wash_sync_error'));
         }
+
+        return $shopifyId;
     }
 
     /**
@@ -274,7 +292,7 @@ class WashSync {
      * @param string $shopifyId Shopify resource GID
      */
     private function syncMetafields($postId, $shopifyId) {
-        if (get_option('wash_sync_metafields') !== '1') {
+        if (WashContext::option('wash_sync_metafields') !== '1') {
             return;
         }
 
@@ -297,7 +315,7 @@ class WashSync {
      * @param string $shopifyId Shopify resource GID
      */
     private function syncHreflangs($postId, $shopifyId) {
-        if (get_option('wash_hreflangs_enabled') !== '1') {
+        if (WashContext::option('wash_hreflangs_enabled') !== '1') {
             return;
         }
 
@@ -374,7 +392,7 @@ class WashSync {
         // Convert RankMath FAQ blocks (rendered by the_content) into Shopify-safe
         // accordion markup + FAQPage JSON-LD. Shopify strips the rank-math-* divs,
         // so we rebuild them with <details>/<summary> and inline styles.
-        if (get_option('wash_transform_rankmath_faq', '1') === '1') {
+        if (WashContext::option('wash_transform_rankmath_faq', '1') === '1') {
             $content = $this->transformRankMathFaq($content);
         }
 
@@ -387,12 +405,12 @@ class WashSync {
         $content = $this->stripDuplicateTitle($content, $post->post_title);
 
         // Rewrite WordPress image URLs to Shopify CDN URLs
-        if (get_option('wash_files_enabled', '1') === '1') {
+        if (WashContext::option('wash_files_enabled', '1') === '1') {
             $content = $this->rewriteImageUrls($content);
         }
 
         // Rewrite internal WordPress links to Shopify URL format
-        if (get_option('wash_rewrite_internal_urls', '1') === '1') {
+        if (WashContext::option('wash_rewrite_internal_urls', '1') === '1') {
             $content = $this->rewriteInternalUrls($content);
         }
 
@@ -401,7 +419,7 @@ class WashSync {
 
         // Build blocks metafields if enabled
         $blocksMetafields = [];
-        if (!empty($blocksMeta) && get_option('wash_sync_blocks_meta', '1') === '1') {
+        if (!empty($blocksMeta) && WashContext::option('wash_sync_blocks_meta', '1') === '1') {
             $blocksMetafields = WashBlocks::buildBlockMetafields($blocksMeta);
         }
 
@@ -484,7 +502,7 @@ class WashSync {
             if ($acfFields) {
                 $data['acfFields'] = $acfFields;
             }
-        } elseif (get_option('wash_meta_acf', '0') === '1') {
+        } elseif (WashContext::option('wash_meta_acf', '0') === '1') {
             // Fallback: read raw ACF post_meta when ACF plugin is deactivated
             $acfRaw = WashMetafields::getRawAcfFields($postId);
             if (!empty($acfRaw)) {
@@ -503,7 +521,7 @@ class WashSync {
         }
 
         // Add blocks CSS if enabled and available
-        if (!empty($blocksCss) && get_option('wash_sync_blocks_css', '0') === '1') {
+        if (!empty($blocksCss) && WashContext::option('wash_sync_blocks_css', '0') === '1') {
             $data['blocksCss'] = $blocksCss;
             washLog("[wash] buildPostData() - Added block CSS (" . strlen($blocksCss) . " bytes)");
         }
@@ -610,7 +628,7 @@ class WashSync {
      * Shopify's HTML sanitizer and can be restored by the Shopify theme.
      */
     private function preserveCustomHtmlTags($content) {
-        $patterns = get_option('wash_allowed_html_tags', '');
+        $patterns = WashContext::option('wash_allowed_html_tags', '');
         if (empty($patterns)) {
             return $content;
         }
@@ -881,7 +899,7 @@ class WashSync {
         if ($post->post_type === 'page') {
             $shopifyPath = '/pages/' . $post->post_name;
         } else {
-            $blogHandle = get_post_meta($postId, '_wash_blog_handle', true);
+            $blogHandle = get_post_meta($postId, WashContext::metaKey('_wash_blog_handle'), true);
             if (empty($blogHandle)) {
                 $blogHandle = 'news'; // Default blog handle
             }
@@ -926,7 +944,7 @@ class WashSync {
      * @return string Content with replacements applied.
      */
     private function applySearchReplaceRules($content, $onlyTypes = null) {
-        $rules = get_option('wash_search_replace_rules', []);
+        $rules = WashContext::option('wash_search_replace_rules', []);
         if (!is_array($rules) || empty($rules)) {
             return $content;
         }
@@ -1206,19 +1224,11 @@ class WashSync {
                 continue;
             }
 
-            // Skip if already synced with valid CDN URL
-            $cdnUrl = WashImages::getShopifyCdnUrl($attachmentId);
-            $isValidCdnUrl = $cdnUrl && strpos($cdnUrl, 'cdn.shopify.com') !== false;
-            if ($isValidCdnUrl) {
+            // Skip if already synced with a still-valid CDN URL; otherwise stale meta is cleared.
+            $cdnUrl = $this->validCdnUrlOrClear($attachmentId);
+            if ($cdnUrl !== '') {
                 washLog("[wash] syncContentFiles() - File {$attachmentId} already synced to: {$cdnUrl}");
                 continue;
-            }
-
-            // Clear invalid CDN URL if present
-            if ($cdnUrl && !$isValidCdnUrl) {
-                washLog("[wash] syncContentFiles() - Clearing invalid CDN URL for file {$attachmentId}: {$cdnUrl}");
-                delete_post_meta($attachmentId, '_wash_cdn_url');
-                delete_post_meta($attachmentId, '_wash_file_id');
             }
 
             // Sync the file
@@ -1250,24 +1260,37 @@ class WashSync {
      *
      * @param int $attachmentId Featured image attachment ID.
      */
+    /**
+     * Resolve an attachment's still-valid Shopify CDN URL, or clear the now-stale
+     * per-connection file meta and return '' when the stored URL is no longer a
+     * cdn.shopify.com URL. Shared by syncFeaturedImage()/syncContentFiles() so the
+     * stale-meta cleanup lives (and is unit-tested) in one place.
+     *
+     * @param int $attachmentId
+     * @return string Valid CDN URL, or '' when none (stale meta cleared).
+     */
+    private function validCdnUrlOrClear($attachmentId) {
+        $cdnUrl = WashImages::getShopifyCdnUrl($attachmentId);
+        if ($cdnUrl && strpos($cdnUrl, 'cdn.shopify.com') !== false) {
+            return $cdnUrl;
+        }
+        if ($cdnUrl) {
+            delete_post_meta($attachmentId, WashContext::metaKey('_wash_cdn_url'));
+            delete_post_meta($attachmentId, WashContext::metaKey('_wash_file_id'));
+        }
+        return '';
+    }
+
     private function syncFeaturedImage($attachmentId) {
         if (!$attachmentId) {
             return;
         }
 
-        // Skip if already synced with valid CDN URL
-        $cdnUrl = WashImages::getShopifyCdnUrl($attachmentId);
-        $isValidCdnUrl = $cdnUrl && strpos($cdnUrl, 'cdn.shopify.com') !== false;
-        if ($isValidCdnUrl) {
+        // Skip if already synced with a still-valid CDN URL; otherwise stale meta is cleared.
+        $cdnUrl = $this->validCdnUrlOrClear($attachmentId);
+        if ($cdnUrl !== '') {
             washLog("[wash] syncFeaturedImage() - Featured image {$attachmentId} already synced to: {$cdnUrl}");
             return;
-        }
-
-        // Clear invalid CDN URL if present
-        if ($cdnUrl && !$isValidCdnUrl) {
-            washLog("[wash] syncFeaturedImage() - Clearing invalid CDN URL for featured image {$attachmentId}: {$cdnUrl}");
-            delete_post_meta($attachmentId, '_wash_cdn_url');
-            delete_post_meta($attachmentId, '_wash_file_id');
         }
 
         // Sync the featured image
@@ -1338,12 +1361,12 @@ class WashSync {
         }
 
         // Check if author mapping is enabled
-        if (get_option('wash_authors_enabled', '0') !== '1') {
+        if (WashContext::option('wash_authors_enabled', '0') !== '1') {
             return $defaultName;
         }
 
         // Get custom author mappings
-        $authorMappings = get_option('wash_author_mappings', []);
+        $authorMappings = WashContext::option('wash_author_mappings', []);
         if (!is_array($authorMappings)) {
             return $defaultName;
         }
@@ -1689,7 +1712,7 @@ class WashSync {
      * Check if the post type is allowed for syncing.
      */
     private function isAllowedPostType($postType) {
-        $allowedTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+        $allowedTypes = array_map('trim', explode(',', WashContext::option('wash_post_types', 'post,page')));
         return in_array($postType, $allowedTypes, true);
     }
 
@@ -1717,8 +1740,8 @@ class WashSync {
         if (!$permalink) return '';
 
         $args = ['timeout' => 30, 'sslverify' => false];
-        $httpUser = get_option('wash_http_user', '');
-        $httpPass = get_option('wash_http_pass', '');
+        $httpUser = WashContext::connection()['httpUser'];
+        $httpPass = WashContext::connection()['httpPass'];
         if (!empty($httpUser)) {
             $args['headers'] = ['Authorization' => 'Basic ' . base64_encode($httpUser . ':' . $httpPass)];
         }
