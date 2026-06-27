@@ -83,7 +83,7 @@ class WashSync {
     private function dispatch($postId, $post, $autoOnly) {
         foreach ($this->targetConnections($postId, $post, $autoOnly) as $connectionId) {
             WashContext::setActiveId($connectionId);
-            $this->doSync($postId, $post);
+            $this->doSync($postId, $post, $autoOnly);
         }
         WashContext::setActiveId(null);
     }
@@ -123,8 +123,33 @@ class WashSync {
      * @param int      $postId Post ID
      * @param \WP_Post $post   Post object
      */
-    private function doSync($postId, $post) {
+    private function doSync($postId, $post, $autoOnly = true) {
         washLog("[wash] Starting sync for post {$postId}");
+
+        // "Stay unpublished" gate (#255): a post that was explicitly unpublished
+        // from Shopify must NOT be re-pushed by auto-sync-on-save while it remains
+        // WordPress-published — otherwise unpublish never sticks. A MANUAL sync
+        // ($autoOnly === false: the user clicked "Sync to Shopify") is a deliberate
+        // re-publish, so it clears the flag and proceeds.
+        $skipKey = WashContext::metaKey('_wash_skip_autosync');
+        if (!$autoOnly) {
+            delete_post_meta($postId, $skipKey);
+        } elseif (get_post_meta($postId, $skipKey, true)) {
+            washLog("[wash] doSync: post {$postId} is unpublished from Shopify (skip-autosync) — not re-syncing on save");
+            return;
+        }
+
+        // No-mapping gate (#255): a post whose language/category matches no active
+        // blog-mapping rule has no defined Shopify destination — do NOT guess a
+        // blog. Flag it "No mapping" (shown in the posts list) and skip. Fails open
+        // when no rules are cached (API issue), so a transient error never blocks.
+        if (!WashBlogRouter::hasMapping($postId)) {
+            update_post_meta($postId, WashContext::metaKey('_wash_no_mapping'), '1');
+            washLog("[wash] doSync: no blog-mapping rule for post {$postId} (lang=" . (self::getPostLanguage($postId) ?: 'none') . ") — skipping publish");
+            return;
+        }
+        delete_post_meta($postId, WashContext::metaKey('_wash_no_mapping'));
+
         $this->isSyncing = true;
         // Determine action based on existing Shopify sync, not WordPress $update flag
         // WordPress passes $update=true even for new posts (auto-draft → publish)
@@ -175,7 +200,7 @@ class WashSync {
             'action'   => 'delete',
             'wpPostId' => $postId,
             'wpSiteId' => $this->getCurrentSiteId(),
-            'language' => $this->getPostLanguage($postId),
+            'language' => self::getPostLanguage($postId),
         ];
 
         // Translation-aware delete: include group info so the queue worker knows
@@ -507,7 +532,7 @@ class WashSync {
         ];
 
         // Add language for rule-based blog mapping (WPML, Polylang, etc.)
-        $data['language'] = $this->getPostLanguage($postId);
+        $data['language'] = self::getPostLanguage($postId);
 
         // Add categories for rule-based blog mapping
         $data['categories'] = $this->getPostCategories($postId);
@@ -1459,7 +1484,7 @@ class WashSync {
      * @param int $postId Post ID
      * @return string|null Language code (e.g., 'en', 'de', 'pl')
      */
-    public function getPostLanguage($postId) {
+    public static function getPostLanguage($postId) {
         // Manual override via custom field (highest priority)
         $manualLang = get_post_meta($postId, '_wash_language', true);
         if ($manualLang) {

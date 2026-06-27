@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.27.1
+Stable tag: 1.27.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -85,6 +85,15 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.27.2 =
+Fix — "View on Shopify" links lost the market subfolder, and unpublish didn't stick (#255).
+
+* **Correct market subfolder** — "View on Shopify" links (posts list, editor, Gutenberg) now build the URL from your Shopify Markets web presence, so a localized post links to e.g. `/de-ch/blogs/...` (or `/fr-eu/...`) and uses your real storefront domain, instead of dropping the prefix and 404-ing on the localized market. The market is derived automatically from the rule's country (e.g. `fr-fr` → the market that covers France) when no market is set on the rule.
+* **No-mapping guard** — a post whose language matches no blog-mapping rule is flagged "No mapping" in the posts list and is no longer published to a guessed blog; blog-mapping rules without a Shopify market assigned are flagged in Settings ("no market — no localized URL").
+* **Unpublish sticks** — "Unpublish from Shopify" now clears the synced status and pauses auto-sync, so a still-published post is not immediately re-pushed; the delete callback no longer re-stores the article id (which made the "synced" icon come back).
+* **Bulk unpublish no longer silently skips** — it reports how many posts were skipped and why (not synced / not published / no mapping), and detects posts synced to a secondary store (multi-store).
+* **Each post syncs to its own Shopify article** — translation merging (many locale posts onto one article) is off by default; it raced under bulk and could leave a "synced" status whose link 404s. Bulk "Publish to Shopify" now syncs every selected post (create or update) instead of skipping already-synced ones.
 
 = 1.27.1 =
 Fix — content images no longer stay on the WordPress source after sync (#249).

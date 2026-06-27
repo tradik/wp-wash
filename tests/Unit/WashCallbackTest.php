@@ -451,4 +451,41 @@ class WashCallbackTest extends TestCase
         // The callback still succeeds — the redirect is simply skipped this round.
         $this->assertInstanceOf(\WP_REST_Response::class, $result);
     }
+
+    /**
+     * A delete/unpublish ack must clear local sync meta and pause auto-sync,
+     * and must NOT re-store the (shared) article id — that re-store was the
+     * "unpublish, but WordPress still shows synced" desync (#255).
+     *
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testDeleteCallbackClearsMetaSetsSkipFlagAndDoesNotStoreArticleId(): void
+    {
+        $updated = [];
+        $deleted = [];
+        Functions\when('update_post_meta')->alias(function ($id, $key, $val) use (&$updated) {
+            $updated[$key] = $val;
+            return true;
+        });
+        Functions\when('delete_post_meta')->alias(function ($id, $key) use (&$deleted) {
+            $deleted[] = $key;
+            return true;
+        });
+
+        $cb = $this->loadCallback();
+        $response = $cb->handleCallback($this->makeRequest([
+            'action'           => 'delete',
+            'deleted'          => true,
+            // worker may still echo the shared article id — it must be ignored
+            'shopifyArticleId' => 'gid://shopify/Article/567434018883',
+            // truthy group skips the server-side fallback lookup (no WashHreflangs needed)
+            'translationGroup' => ['isSource' => true],
+        ]));
+
+        $this->assertTrue($response->data['success']);
+        $this->assertArrayNotHasKey('_wash_article_id', $updated, 'delete must not re-store article id');
+        $this->assertContains('_wash_article_id', $deleted, 'delete must clear article id');
+        $this->assertSame('1', $updated['_wash_skip_autosync'] ?? null, 'delete must pause auto-sync');
+    }
 }

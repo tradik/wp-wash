@@ -78,6 +78,12 @@ class WashAdmin {
         add_filter('post_row_actions', [$this, 'addShopifyRowActions'], 10, 2);
         add_filter('page_row_actions', [$this, 'addShopifyRowActions'], 10, 2);
 
+        // Protect the primary (source) post of a translation group from deletion:
+        // its Shopify article holds the locale translations, so deleting it would
+        // orphan every translation. Denying delete_post hides the Trash link and
+        // blocks single/bulk trash for that post until its translations are removed.
+        add_filter('map_meta_cap', [$this, 'protectTranslationSourceCaps'], 10, 4);
+
         // Handle manual sync action
         add_action('admin_init', [$this, 'handleManualSync']);
         // Daily cron: clear old _wash_sync_error meta on currently-published posts
@@ -1718,36 +1724,11 @@ class WashAdmin {
      * @return string|null Shopify article URL or null if not synced.
      */
     private function getShopifyArticleUrl($postId) {
-        $shopifyStore = WashContext::connection()['store'];
-        if (empty($shopifyStore)) {
-            return null;
-        }
-
-        $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
-        $shopifyBlogId = get_post_meta($postId, '_wash_blog_id', true);
-        if (empty($shopifyArticleId)) {
-            return null;
-        }
-
-        $post = get_post($postId);
-        if (!$post) {
-            return null;
-        }
-
-        // For pages: /pages/{handle}
-        if ($post->post_type === 'page') {
-            return 'https://' . $shopifyStore . '.myshopify.com/pages/' . $post->post_name;
-        }
-
-        // For posts: /blogs/{blog-handle}/{article-handle}
-        // We need to get blog handle from Shopify. For now, use a default pattern.
-        // The blog handle is stored in sync meta or we can query it.
-        $blogHandle = get_post_meta($postId, '_wash_blog_handle', true);
-        if (empty($blogHandle)) {
-            $blogHandle = 'news'; // fallback
-        }
-
-        return 'https://' . $shopifyStore . '.myshopify.com/blogs/' . $blogHandle . '/' . $post->post_name;
+        // Generate the URL from the merchant's blog-mapping rules: match the post
+        // against its rules (by language / category) and build the storefront URL
+        // with the correct market subfolder + blog/page path (#255). Computed
+        // locally from cached rules — no per-post network call, no re-sync.
+        return WashBlogRouter::storefrontUrl($postId);
     }
 
     /**
@@ -1868,6 +1849,12 @@ class WashAdmin {
             echo '<a href="' . esc_url($shopifyUrl) . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr($title) . '">';
             echo '<span class="dashicons dashicons-yes-alt" style="color: #46b450;"></span>';
             echo '</a>';
+            // The primary (source) of a translation group keeps its normal green
+            // "synced" icon, plus a small "primary" badge: its Shopify article holds
+            // every locale translation, so it is protected from deletion.
+            if (self::isProtectedTranslationSource($postId)) {
+                echo ' <span style="display:inline-block;font-size:9px;font-weight:700;line-height:1;padding:2px 5px;border-radius:3px;background:#2271b1;color:#fff;vertical-align:middle;text-transform:uppercase;letter-spacing:.3px;" title="' . esc_attr__('Primary (source) of a translation group — its Shopify article holds the locale translations and cannot be deleted while translations exist.', 'wash-blog-manager') . '">' . esc_html__('primary', 'wash-blog-manager') . '</span>';
+            }
             // Partial success: some body images couldn't be hosted on Shopify and
             // are still served from the source host (#249).
             if (!empty($imageWarnings) && is_array($imageWarnings)) {
@@ -1903,12 +1890,104 @@ class WashAdmin {
                 // translators: %s is the error message returned by the failed sync.
                 $title = sprintf(__('Sync failed: %s', 'wash-blog-manager'), $shortError);
                 echo '<span class="dashicons dashicons-warning" style="color: #d63638;" title="' . esc_attr($title) . '"></span>';
+            } elseif ($isPublished && self::postHasNoMapping($postId)) {
+                // No blog-mapping rule matches this post's language/category, so it
+                // has no Shopify destination and is NOT published (#255). Flag it
+                // clearly (colour + text, WCAG) so the merchant adds a rule.
+                $lang  = WashSync::getPostLanguage($postId);
+                $title = $lang
+                    // translators: %s is the post's language code (e.g. "pl-pl").
+                    ? sprintf(__('No blog-mapping rule for language "%s" — add a rule to publish this post to Shopify.', 'wash-blog-manager'), $lang)
+                    : __('No matching blog-mapping rule — add a rule to publish this post to Shopify.', 'wash-blog-manager');
+                echo '<span class="dashicons dashicons-warning" style="color: #b32d2e;" title="' . esc_attr($title) . '"></span> ';
+                echo '<span style="color:#b32d2e;font-size:11px;font-weight:600;" title="' . esc_attr($title) . '">' . esc_html__('No mapping', 'wash-blog-manager') . '</span>';
             } elseif ($isPublished) {
                 echo '<span class="dashicons dashicons-minus" style="color: #ddd;" title="' . esc_attr__('Not synced', 'wash-blog-manager') . '"></span>';
             } else {
                 echo '<span class="dashicons dashicons-hidden" style="color: #ccc;" title="' . esc_attr__('Draft - will sync when published', 'wash-blog-manager') . '"></span>';
             }
         }
+    }
+
+    /**
+     * Whether a post has no matching blog-mapping rule (so it cannot be published
+     * to Shopify). True if the sync gate already flagged it, or a live rule match
+     * finds nothing (#255).
+     *
+     * @param int $postId
+     * @return bool
+     */
+    private static function postHasNoMapping($postId) {
+        if (get_post_meta($postId, WashContext::metaKey('_wash_no_mapping'), true)) {
+            return true;
+        }
+        return !WashBlogRouter::hasMapping($postId);
+    }
+
+    /**
+     * Translation-group state for a post: whether it is the primary (source), and
+     * how many translations (children) hang off it. Reuses WashHreflangs's source
+     * resolution (default-language post, else lowest ID). Cached per request.
+     *
+     * @param int $postId
+     * @return array{isSource:bool, childCount:int, sourceId:int}
+     */
+    private static function translationSourceState($postId) {
+        static $cache = [];
+        $postId = (int) $postId;
+        if (isset($cache[$postId])) {
+            return $cache[$postId];
+        }
+        $state = ['isSource' => false, 'childCount' => 0, 'sourceId' => $postId];
+        // Polylang: the source is the default-language post (else the lowest ID) —
+        // the same rule WashHreflangs::getTranslationGroupSource uses, inlined here
+        // with function-exists guards only so this per-row render never depends on
+        // detectActivePlugin()/is_plugin_active() being loaded.
+        if (function_exists('pll_get_post_translations') && function_exists('pll_default_language')) {
+            $translations = pll_get_post_translations($postId);
+            if (is_array($translations) && count($translations) > 1) {
+                $defaultLang = pll_default_language('slug');
+                $sourceId    = (int) ($translations[$defaultLang] ?? min(array_values($translations)));
+                $state = [
+                    'isSource'   => $sourceId === $postId,
+                    'childCount' => count($translations) - 1,
+                    'sourceId'   => $sourceId,
+                ];
+            }
+        }
+        $cache[$postId] = $state;
+        return $state;
+    }
+
+    /**
+     * Whether a post is the protected primary (source) of a multi-post translation
+     * group — the master whose Shopify article holds the locale translations, so it
+     * must not be deleted while translations still exist.
+     *
+     * @param int $postId
+     * @return bool
+     */
+    private static function isProtectedTranslationSource($postId) {
+        $state = self::translationSourceState($postId);
+        return $state['isSource'] && $state['childCount'] > 0;
+    }
+
+    /**
+     * Deny delete_post for a protected translation source so WordPress hides its
+     * Trash link and blocks single/bulk trash. The merchant deletes the
+     * translations first; then the source becomes deletable again.
+     *
+     * @param string[] $caps   Required primitive capabilities.
+     * @param string   $cap    The meta capability being checked.
+     * @param int      $userId User ID (unused).
+     * @param array    $args   $args[0] is the post ID for delete_post.
+     * @return string[]
+     */
+    public function protectTranslationSourceCaps($caps, $cap, $userId, $args) {
+        if ($cap === 'delete_post' && !empty($args[0]) && self::isProtectedTranslationSource((int) $args[0])) {
+            $caps[] = 'do_not_allow';
+        }
+        return $caps;
     }
 
     /**
@@ -1961,6 +2040,14 @@ class WashAdmin {
         // state is a bulk operation, exposed as "Refresh all sync statuses" on
         // Settings → Wash → Sync. A per-row refresh was noise — it implied each
         // post needed individual reconciliation, which was never the intent.
+
+        // Primary (source) of a translation group: WordPress already hides the Trash
+        // link (delete_post is denied), so explain WHY in its place.
+        if (self::isProtectedTranslationSource($post->ID)) {
+            unset($actions['trash'], $actions['delete']);
+            $actions['wash_primary'] = '<span style="color:#646970;cursor:help;" title="' . esc_attr__('Primary (source) translation — its Shopify article holds the other languages. Delete the translations first; this post cannot be removed while they exist.', 'wash-blog-manager') . '">' . esc_html__('Primary — protected from deletion', 'wash-blog-manager') . '</span>';
+        }
+
         return $actions;
     }
 
@@ -2178,6 +2265,7 @@ class WashAdmin {
         $action     = $data['action'];
         $total      = count($data['postIds']);
         $skipped    = (int) ($data['skipped'] ?? 0);
+        $skipInfo   = (string) ($data['skip'] ?? '');
         $returnUrl  = $data['returnUrl'] ?? admin_url('edit.php');
         $batchSize  = (int) apply_filters('wash_bulk_batch_size', 50);
         $ajaxUrl    = admin_url('admin-ajax.php');
@@ -2193,6 +2281,7 @@ class WashAdmin {
             'wash_bulk_action'    => $action,
             'wash_bulk_processed' => '__processed__',
             'wash_bulk_skipped'   => $skipped,
+            'wash_bulk_skip'      => $skipInfo,
             'wash_bulk_errors'    => '__errors__',
         ], $returnUrl);
 
@@ -2554,11 +2643,21 @@ class WashAdmin {
         }
 
         if ($skipped > 0) {
-            $messages[] = sprintf(
-                /* translators: %d: number of posts skipped */
-                _n('%d post skipped.', '%d posts skipped.', $skipped, 'wash-blog-manager'),
-                $skipped
-            );
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- post-redirect notice on GET; value is sanitised and only displayed.
+            $skipInfo = isset($_GET['wash_bulk_skip']) ? sanitize_text_field(wp_unslash($_GET['wash_bulk_skip'])) : '';
+            $reasons  = self::decodeSkipReasons($skipInfo);
+            $messages[] = $reasons !== ''
+                ? sprintf(
+                    /* translators: 1: number of posts skipped, 2: comma-separated reason breakdown */
+                    _n('%1$d post skipped (%2$s).', '%1$d posts skipped (%2$s).', $skipped, 'wash-blog-manager'),
+                    $skipped,
+                    $reasons
+                )
+                : sprintf(
+                    /* translators: %d: number of posts skipped */
+                    _n('%d post skipped.', '%d posts skipped.', $skipped, 'wash-blog-manager'),
+                    $skipped
+                );
         }
 
         if ($errors > 0) {
@@ -2693,6 +2792,77 @@ class WashAdmin {
     }
 
     /**
+     * Is this post synced to ANY enabled connection? Multistore-aware: a post
+     * synced only to a secondary store stores its article id under a prefixed
+     * meta key, so the bulk handler must check every connection, not just the
+     * primary/unprefixed key (#255).
+     *
+     * @param int $postId
+     * @return bool
+     */
+    private function isPostSyncedAnyConnection($postId) {
+        $synced = false;
+        foreach (WashConnection::all() as $connectionId => $connection) {
+            if (empty($connection['enabled'])) {
+                continue;
+            }
+            WashContext::setActiveId($connectionId);
+            if (!empty(get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true))) {
+                $synced = true;
+                break;
+            }
+        }
+        WashContext::setActiveId(null);
+        return $synced;
+    }
+
+    /**
+     * Encode a skip-reason tally (e.g. ['unsynced'=>3,'nomapping'=>1]) into a
+     * compact query-string token "unsynced-3.nomapping-1" for the post-redirect
+     * notice. Only non-zero reasons are included.
+     *
+     * @param array<string,int> $skip
+     * @return string
+     */
+    private static function encodeSkip($skip) {
+        $parts = [];
+        foreach ($skip as $key => $count) {
+            if ((int) $count > 0) {
+                $parts[] = $key . '-' . (int) $count;
+            }
+        }
+        return implode('.', $parts);
+    }
+
+    /**
+     * Decode the skip token into a human, translated breakdown for the notice,
+     * e.g. "3 not synced to Shopify, 1 no blog-mapping rule" (#255).
+     *
+     * @param string $skipInfo
+     * @return string '' when nothing to show
+     */
+    private static function decodeSkipReasons($skipInfo) {
+        if ($skipInfo === '') {
+            return '';
+        }
+        $labels = [
+            'unsynced'      => __('not synced to Shopify', 'wash-blog-manager'),
+            'notpublished'  => __('not published in WordPress', 'wash-blog-manager'),
+            'alreadysynced' => __('already synced', 'wash-blog-manager'),
+            'nomapping'     => __('no blog-mapping rule', 'wash-blog-manager'),
+            'type'          => __('unsupported post type', 'wash-blog-manager'),
+        ];
+        $parts = [];
+        foreach (explode('.', $skipInfo) as $chunk) {
+            $kv = explode('-', $chunk);
+            if (count($kv) === 2 && isset($labels[$kv[0]]) && (int) $kv[1] > 0) {
+                $parts[] = (int) $kv[1] . ' ' . $labels[$kv[0]];
+            }
+        }
+        return implode(', ', $parts);
+    }
+
+    /**
      * Handle bulk actions for Shopify sync.
      *
      * @param string $redirectTo Redirect URL.
@@ -2714,36 +2884,44 @@ class WashAdmin {
         // Pre-validate: split into "to act on" vs "skipped". Per-post action-specific
         // skip rules: already-synced for publish, never-synced for republish/unpublish,
         // not currently published for publish/republish.
+        // Pre-validate with CATEGORISED skip reasons (no more silent skipping, #255)
+        // and MULTISTORE-aware "is synced" (a post synced only to a secondary
+        // connection must not look "never synced" to the bulk handler).
         $validIds = [];
-        $skipped = 0;
+        $skip = ['unsynced' => 0, 'notpublished' => 0, 'alreadysynced' => 0, 'nomapping' => 0, 'type' => 0];
         foreach ($postIds as $postId) {
             $post = get_post($postId);
             if (!$post || !in_array($post->post_type, $allowedTypes, true)) {
-                $skipped++;
+                $skip['type']++;
                 continue;
             }
-            $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
+            $isSynced    = $this->isPostSyncedAnyConnection($postId);
             $isPublished = $post->post_status === 'publish';
             switch ($doaction) {
                 case 'wash_publish':
-                    if (!empty($shopifyArticleId) || !$isPublished) { $skipped++; continue 2; }
-                    break;
                 case 'wash_republish':
-                    if (empty($shopifyArticleId) || !$isPublished) { $skipped++; continue 2; }
+                    // Publish = sync the selected posts (create OR update — does NOT
+                    // skip already-synced). Re-publish only touches already-synced.
+                    if (!$isPublished)                                  { $skip['notpublished']++; continue 2; }
+                    if ($doaction === 'wash_republish' && !$isSynced)   { $skip['unsynced']++;     continue 2; }
+                    if (!WashBlogRouter::hasMapping($postId))           { $skip['nomapping']++;    continue 2; }
                     break;
                 case 'wash_unpublish':
-                    if (empty($shopifyArticleId)) { $skipped++; continue 2; }
+                    if (!$isSynced) { $skip['unsynced']++; continue 2; }
                     break;
             }
             $validIds[] = (int) $postId;
         }
+        $skipped  = array_sum($skip);
+        $skipInfo = self::encodeSkip($skip);
 
-        // Nothing to do — show notice with skip count and return.
+        // Nothing to do — show notice with the skip breakdown and return.
         if (empty($validIds)) {
             return add_query_arg([
                 'wash_bulk_action' => $doaction,
                 'wash_bulk_processed' => 0,
                 'wash_bulk_skipped' => $skipped,
+                'wash_bulk_skip' => $skipInfo,
                 'wash_bulk_errors' => 0,
             ], $redirectTo);
         }
@@ -2759,6 +2937,7 @@ class WashAdmin {
                 'action'    => $doaction,
                 'postIds'   => $validIds,
                 'skipped'   => $skipped,
+                'skip'      => $skipInfo,
                 'returnUrl' => $redirectTo,
             ], HOUR_IN_SECONDS);
 
@@ -2791,6 +2970,7 @@ class WashAdmin {
             'wash_bulk_action' => $doaction,
             'wash_bulk_processed' => $processed,
             'wash_bulk_skipped' => $skipped,
+            'wash_bulk_skip' => $skipInfo,
             'wash_bulk_errors' => $errors,
         ], $redirectTo);
     }
@@ -2898,15 +3078,19 @@ class WashAdmin {
             return new WP_Error('wash_api_error', $result['error']);
         }
 
-        // Clear local sync meta
-        delete_post_meta($postId, '_wash_article_id');
-        delete_post_meta($postId, '_wash_blog_id');
-        delete_post_meta($postId, '_wash_blog_handle');
-        delete_post_meta($postId, '_wash_synced_at');
-        delete_post_meta($postId, '_wash_sync_status');
-        delete_post_meta($postId, '_wash_sync_error');
+        // Clear local sync meta — the post is no longer on Shopify.
+        foreach (['_wash_article_id', '_wash_blog_id', '_wash_blog_handle', '_wash_handle',
+                  '_wash_synced_at', '_wash_sync_status', '_wash_sync_error',
+                  '_wash_shopify_url', '_wash_storefront_subfolder'] as $key) {
+            delete_post_meta($postId, WashContext::metaKey($key));
+        }
 
-        washLog("[wash] unpublishFromShopify: success, cleared meta for postId={$postId}");
+        // Make the unpublish STICK: flag the post so auto-sync-on-save does not
+        // immediately re-push it while it stays WordPress-published. A manual
+        // "Sync to Shopify" clears this flag and re-publishes (#255).
+        update_post_meta($postId, WashContext::metaKey('_wash_skip_autosync'), '1');
+
+        washLog("[wash] unpublishFromShopify: success, cleared meta + set skip-autosync for postId={$postId}");
         return true;
     }
 }

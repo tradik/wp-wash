@@ -164,25 +164,28 @@ class WashAdminBulkProgressTest extends TestCase
         $this->assertSame(0, $stored['skipped']);
     }
 
-    public function testHandleBulkActionsSkipsAlreadySyncedPostsForPublish(): void
+    public function testHandleBulkActionsPublishesSyncedAndUnsyncedForPublish(): void
     {
+        // Publish is an upsert now (#255): it no longer SKIPS already-synced posts —
+        // both the synced (10) and the never-synced (20) post are processed.
         $this->inlineMode = '1';
         $this->mockPost(10, 'post', 'publish', 'gid://shopify/Article/X');
         $this->mockPost(20);
 
         $url = 'https://example.com/wp-admin/edit.php';
-        $result = $this->admin->handleBulkActions($url, 'wash_publish', [10, 20]);
+        $this->admin->handleBulkActions($url, 'wash_publish', [10, 20]);
 
         $stored = $this->transients['wash_bulk_TESTTOKEN1234567890Z'] ?? null;
-        $this->assertSame([20], $stored['postIds']);
-        $this->assertSame(1, $stored['skipped']);
+        $this->assertSame([10, 20], $stored['postIds']);
+        $this->assertSame(0, $stored['skipped']);
     }
 
     public function testHandleBulkActionsReturnsNoticeUrlWhenAllPostsSkipped(): void
     {
+        // Drafts can't be published to Shopify → both skipped → notice, no progress page.
         $this->inlineMode = '1';
-        $this->mockPost(10, 'post', 'publish', 'gid://shopify/Article/X');
-        $this->mockPost(20, 'post', 'publish', 'gid://shopify/Article/Y');
+        $this->mockPost(10, 'post', 'draft');
+        $this->mockPost(20, 'post', 'draft');
 
         $url = 'https://example.com/wp-admin/edit.php';
         $result = $this->admin->handleBulkActions($url, 'wash_publish', [10, 20]);

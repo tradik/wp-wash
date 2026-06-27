@@ -96,6 +96,11 @@ class WashAdminCoverageTest extends TestCase
         Functions\when('admin_url')->alias(fn($p = '') => 'https://example.com/wp-admin/' . ltrim((string) $p, '/'));
         Functions\when('get_site_url')->justReturn('https://example.com');
         Functions\when('site_url')->justReturn('https://example.com');
+        // renderShopifyColumn / addShopifyRowActions consult Polylang for the
+        // translation-source ("primary") badge. Provide no-op stubs so these tests
+        // don't trip Brain Monkey when an earlier test left pll_* globally registered.
+        Functions\when('pll_get_post_translations')->justReturn([]);
+        Functions\when('pll_default_language')->justReturn('en');
         Functions\when('add_query_arg')->alias(function (...$a) {
             if (count($a) === 3 && is_string($a[0])) {
                 [$key, $value, $url] = $a;

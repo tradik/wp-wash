@@ -17,6 +17,10 @@ if (!defined('ABSPATH')) {
 // Loaded AFTER ABSPATH because both files guard on `defined('ABSPATH')`.
 require_once dirname(__DIR__) . '/includes/class-wash-connection.php';
 require_once dirname(__DIR__) . '/includes/class-wash-context.php';
+// WashBlogRouter (#255) is called by WashAdmin/WashHreflangs to build storefront
+// URLs and gate publishing; load it process-wide like the other shared classes so
+// any test exercising those paths can resolve it.
+require_once dirname(__DIR__) . '/includes/class-wash-blog-router.php';
 if (!defined('WASH_VERSION')) {
     define('WASH_VERSION', '1.20.8');
 }

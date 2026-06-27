@@ -631,34 +631,10 @@ class WashHreflangs {
      * @return string|null Shopify URL or null
      */
     private function getShopifyUrlForPost($postId) {
-        $shopifyStore = WashContext::connection()['store'];
-        if (empty($shopifyStore)) {
-            return null;
-        }
-
-        $shopifyArticleId = get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true);
-        if (empty($shopifyArticleId)) {
-            return null;
-        }
-
-        $post = get_post($postId);
-        if (!$post) {
-            return null;
-        }
-
-        // Build Shopify URL
-        $baseUrl = 'https://' . $shopifyStore . '.myshopify.com';
-
-        if ($post->post_type === 'page') {
-            return $baseUrl . '/pages/' . $post->post_name;
-        }
-
-        $blogHandle = get_post_meta($postId, WashContext::metaKey('_wash_blog_handle'), true);
-        if (empty($blogHandle)) {
-            $blogHandle = 'news';
-        }
-
-        return $baseUrl . '/blogs/' . $blogHandle . '/' . $post->post_name;
+        // hreflang alternates point at the localized storefront URL the blog-mapping
+        // rules route this post to (market subfolder + blog/page path), generated
+        // locally from the cached rules (#255).
+        return WashBlogRouter::storefrontUrl($postId);
     }
 
     /**

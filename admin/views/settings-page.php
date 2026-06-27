@@ -2573,6 +2573,17 @@ ob_start();
         var handle = getBlogHandle(m.shopifyBlogId) || m.shopifyBlogHandle || 'news';
         var market = getMarketById(m.shopifyMarketId);
 
+        // Warn when a language-oriented rule has NO Shopify market assigned: the
+        // storefront subfolder (/de-ch/, /en-ca/ …) lives in Shopify Markets, so
+        // without a market this rule's content has no localized URL and "View on
+        // Shopify" 404s. ruleValue is only a matching key, not a subfolder (#255).
+        var localeOriented = !!m.shopifyLocale || m.ruleType === 'language' || m.ruleType === 'language_category';
+        var noMarketWarn = (localeOriented && !market)
+            ? ' <span style="display:inline-block;color:#b32d2e;font-weight:600;font-size:11px;" title="'
+                + 'This rule targets a language but has no Shopify market assigned. The storefront subfolder comes from Shopify Markets, so without a market this content has no localized URL and “View on Shopify” will 404. Assign a market to this rule.">'
+                + '⚠ ' + <?php echo wp_json_encode(__('no market — no localized URL', 'wash-blog-manager')); ?> + '</span>'
+            : '';
+
         // WP source URL
         if (isPage) {
             // Pages use flat URL: /page-slug/
@@ -2626,7 +2637,7 @@ ob_start();
 
         return '<code style="color:#8b5a00;font-size:11px;">' + (wpUrl || wpPermalink) + '</code>' +
             ' <span style="color:#2271b1;">→</span> ' +
-            '<code style="color:#155724;font-size:11px;">' + shopifyUrl + '</code>';
+            '<code style="color:#155724;font-size:11px;">' + shopifyUrl + '</code>' + noMarketWarn;
     }
 
     /**

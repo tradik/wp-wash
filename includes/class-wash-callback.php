@@ -548,6 +548,7 @@ class WashCallback {
         $success = $body['success'] ?? false;
         $jobId = $body['jobId'] ?? null;
         $error = $body['error'] ?? null;
+        $action = $body['action'] ?? null;
 
         // Shopify result data
         $shopifyArticleId = $body['shopifyArticleId'] ?? null;
@@ -599,6 +600,25 @@ class WashCallback {
         }
 
         washLog("[wash] Callback received for post {$wpPostId}, jobId: {$jobId}, success: " . ($success ? 'true' : 'false'));
+
+        if ($success && ($action === 'delete' || !empty($body['deleted']))) {
+            // Delete/unpublish ack — the post (or its locale variant) is no longer
+            // on Shopify. Clear local sync meta so the "synced" icon goes away, and
+            // set skip-autosync so a still-WordPress-published post is not instantly
+            // re-pushed on the next save. Must NOT store any article id (#255).
+            foreach (['_wash_article_id', '_wash_blog_id', '_wash_blog_handle', '_wash_handle',
+                      '_wash_synced_at', '_wash_sync_status', '_wash_sync_error', '_wash_sync_error_at',
+                      '_wash_job_id', '_wash_queued_at', '_wash_shopify_url', '_wash_storefront_subfolder'] as $key) {
+                delete_post_meta($wpPostId, WashContext::metaKey($key));
+            }
+            update_post_meta($wpPostId, WashContext::metaKey('_wash_skip_autosync'), '1');
+            washLog("[wash] Callback: delete ack for post {$wpPostId} — cleared sync meta, set skip-autosync");
+            do_action('wash_callback_success', $wpPostId, $body);
+            if (is_multisite() && $wpSiteId > 1) {
+                restore_current_blog();
+            }
+            return new WP_REST_Response(['success' => true], 200);
+        }
 
         if ($success) {
             $shopifyId = $shopifyArticleId ?: $shopifyPageId;
