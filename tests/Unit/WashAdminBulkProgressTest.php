@@ -14,6 +14,28 @@ use Brain\Monkey\Functions;
 
 require_once dirname(__DIR__, 2) . '/includes/class-wash-api-client.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wash-admin.php';
+// processBulkPost() constructs a WashSync for publish/republish; load it so the
+// happy-path batch test can exercise the real (network-free) syncManually guard.
+require_once dirname(__DIR__, 2) . '/includes/class-wash-sync.php';
+
+/**
+ * Test double that replaces the per-post sync/unpublish work with a scripted
+ * outcome, so the ajaxBulkSyncBatch() loop (counting, time budget, error
+ * isolation) can be unit-tested without the full Shopify sync stack (#253).
+ */
+class WashAdminBulkBatchStub extends \WashAdmin
+{
+    /** @var callable fn(string $action, int $postId, object $post): true|string|throws */
+    public $behavior;
+    /** @var array<int, array{0:string,1:int}> */
+    public array $calls = [];
+
+    protected function processBulkPost($action, $postId, $post)
+    {
+        $this->calls[] = [$action, $postId];
+        return ($this->behavior)($action, $postId, $post);
+    }
+}
 
 class WashAdminBulkProgressTest extends TestCase
 {
@@ -289,6 +311,8 @@ class WashAdminBulkProgressTest extends TestCase
         $this->assertSame('TOKEN123', $cfg['token']);
         $this->assertSame('NONCEVAL', $cfg['nonce']);
         $this->assertSame(3, $cfg['total']);
+        // Per-request batch cap is handed to the JS so a failed batch can skip ahead (#253).
+        $this->assertSame(10, $cfg['batchSize']);
         $this->assertArrayHasKey('i18n', $cfg);
 
         // The rendered page must not contain a literal inline script element
@@ -334,6 +358,152 @@ class WashAdminBulkProgressTest extends TestCase
             $this->assertSame('Bulk session expired', $this->jsonResponses[0]['data']);
             throw $e;
         }
+    }
+
+    // ---------------- ajaxBulkSyncBatch processing loop (#253) ----------------
+
+    /**
+     * Drive ajaxBulkSyncBatch() to its wp_send_json_success() exit and return the
+     * success payload. The json mocks throw to unwind the handler (mirroring how
+     * WordPress wp_send_json_* exit), so callers don't need their own try/catch.
+     *
+     * @return array<string,mixed>
+     */
+    private function runBatch(\WashAdmin $admin, string $token, array $payload, int $offset): array
+    {
+        $this->transients['wash_bulk_' . $token] = $payload;
+        $_POST['token'] = $token;
+        $_POST['offset'] = (string) $offset;
+        try {
+            $admin->ajaxBulkSyncBatch();
+        } catch (\RuntimeException $e) {
+            // expected: json mock unwinds the handler
+        }
+        unset($_POST['token'], $_POST['offset']);
+        $last = end($this->jsonResponses);
+        $this->assertSame('success', $last['type']);
+        return $last['data'];
+    }
+
+    public function testAjaxBulkSyncBatchReportsDoneWhenOffsetBeyondTotal(): void
+    {
+        $data = $this->runBatch($this->admin, 'TOKA', ['action' => 'wash_publish', 'postIds' => [1, 2]], 5);
+
+        $this->assertTrue($data['done']);
+        $this->assertSame(0, $data['processed']);
+        // Completed run clears its one-shot transient.
+        $this->assertArrayNotHasKey('wash_bulk_TOKA', $this->transients);
+    }
+
+    public function testAjaxBulkSyncBatchCountsMissingPostAsError(): void
+    {
+        // Unpublish path: $sync stays null and a missing post never reaches the
+        // network — it is recorded as a per-post error without aborting the batch.
+        $data = $this->runBatch($this->admin, 'TOKB', ['action' => 'wash_unpublish', 'postIds' => [999]], 0);
+
+        $this->assertSame(0, $data['processed']);
+        $this->assertSame(1, $data['errors']);
+        $this->assertSame(1, $data['nextOffset']);
+        $this->assertTrue($data['done']);
+        $this->assertStringContainsString('not found', $data['errorMessages'][0]);
+        $this->assertArrayNotHasKey('wash_bulk_TOKB', $this->transients);
+    }
+
+    public function testAjaxBulkSyncBatchSyncsPublishablePostAndCounts(): void
+    {
+        // A draft short-circuits WashSync::syncManually() on its non-publish guard
+        // (no network), so this exercises the real processBulkPost() glue + the
+        // processed++ branch end-to-end.
+        $this->mockPost(30, 'post', 'draft');
+        $data = $this->runBatch($this->admin, 'TOKC', ['action' => 'wash_publish', 'postIds' => [30]], 0);
+
+        $this->assertSame(1, $data['processed']);
+        $this->assertSame(0, $data['errors']);
+        $this->assertTrue($data['done']);
+    }
+
+    public function testAjaxBulkSyncBatchIsolatesAThrowingPost(): void
+    {
+        // A thrown error for one post must be caught and recorded against that post,
+        // leaving the rest of the batch (and the overall request) intact (#253).
+        $admin = new WashAdminBulkBatchStub();
+        $admin->behavior = function () { throw new \RuntimeException('boom'); };
+        $this->mockPost(41);
+
+        $data = $this->runBatch($admin, 'TOKD', ['action' => 'wash_publish', 'postIds' => [41]], 0);
+
+        $this->assertSame(0, $data['processed']);
+        $this->assertSame(1, $data['errors']);
+        $this->assertStringContainsString('#41', $data['errorMessages'][0]);
+        $this->assertStringContainsString('boom', $data['errorMessages'][0]);
+    }
+
+    public function testAjaxBulkSyncBatchRecordsHandledFailureReason(): void
+    {
+        // processBulkPost() returns a reason string (not true) for a handled failure
+        // (e.g. an unpublish API error) — counted as an error, with the reason shown.
+        $admin = new WashAdminBulkBatchStub();
+        $admin->behavior = function () { return 'API rejected'; };
+        $this->mockPost(51, 'post', 'publish', 'gid://shopify/Article/1');
+
+        $data = $this->runBatch($admin, 'TOKE', ['action' => 'wash_unpublish', 'postIds' => [51]], 0);
+
+        $this->assertSame(0, $data['processed']);
+        $this->assertSame(1, $data['errors']);
+        $this->assertStringContainsString('API rejected', $data['errorMessages'][0]);
+    }
+
+    public function testAjaxBulkSyncBatchStopsAtTimeBudget(): void
+    {
+        // A zero-second budget must end the request after the FIRST post even though
+        // two more remain — this is what keeps a 200-post run off the gateway timeout.
+        Functions\when('apply_filters')->alias(
+            fn($hook, $value) => $hook === 'wash_bulk_time_budget' ? 0.0 : $value
+        );
+
+        $data = $this->runBatch($this->admin, 'TOKF', ['action' => 'wash_unpublish', 'postIds' => [901, 902, 903]], 0);
+
+        $this->assertSame(1, $data['nextOffset']);
+        $this->assertFalse($data['done']);
+        // Not done → transient is kept so the next AJAX batch can resume.
+        $this->assertArrayHasKey('wash_bulk_TOKF', $this->transients);
+    }
+
+    public function testAjaxBulkSyncBatchHonoursBatchSizeCap(): void
+    {
+        // A batch-size cap of 1 stops the loop after one post regardless of the time
+        // budget, so the JS drives the remainder in further requests.
+        Functions\when('apply_filters')->alias(
+            fn($hook, $value) => $hook === 'wash_bulk_batch_size' ? 1 : $value
+        );
+
+        $data = $this->runBatch($this->admin, 'TOKG', ['action' => 'wash_unpublish', 'postIds' => [801, 802]], 0);
+
+        $this->assertSame(1, $data['nextOffset']);
+        $this->assertFalse($data['done']);
+    }
+
+    public function testProcessBulkPostUnpublishReturnsErrorReason(): void
+    {
+        // The unpublish branch delegates to unpublishFromShopify(); when the API
+        // call fails it must surface a human reason (not a bare false), which the
+        // batch loop records against the post.
+        require_once dirname(__DIR__, 2) . '/includes/class-wash-hreflangs.php';
+        Functions\when('get_current_blog_id')->justReturn(1);
+        Functions\when('is_wp_error')->alias(fn($v) => $v instanceof \WP_Error);
+        Functions\when('wp_remote_post')->justReturn(new \WP_Error('http_request_failed', 'connection refused'));
+        if (class_exists('WashHreflangs')) {
+            $p = new \ReflectionProperty('WashHreflangs', 'activePlugin');
+            $p->setAccessible(true);
+            $p->setValue(null, null);
+        }
+        $this->mockPost(60, 'post', 'publish', 'gid://shopify/Article/9');
+
+        $ref = new \ReflectionMethod(\WashAdmin::class, 'processBulkPost');
+        $ref->setAccessible(true);
+        $result = $ref->invoke($this->admin, 'wash_unpublish', 60, $this->posts[60]);
+
+        $this->assertSame('connection refused', $result);
     }
 
     // ---------------- clearStaleErrors ----------------

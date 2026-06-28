@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.27.2
+Stable tag: 1.27.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -85,6 +85,12 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.27.3 =
+Fix — bulk re-publish no longer shows a 504 timeout on large batches (#253).
+
+* **No more 504 on big migrations** — bulk Publish / Re-publish / Unpublish processes posts in short, time-bounded AJAX batches (default up to 10 posts or ~20s per request, whichever comes first), so a 100–200 post run never holds a single request open long enough for the reverse proxy (Cloudflare) to return a 504. The live progress bar and the final "synced / skipped / errors" summary are unchanged.
+* **A timed-out batch no longer abandons the rest** — if one batch request still fails, the progress page retries it and then skips ahead instead of stopping the whole run (the server keeps processing in the background), so the migration finishes on the first pass.
 
 = 1.27.2 =
 Fix — "View on Shopify" links lost the market subfolder, and unpublish didn't stick (#255).

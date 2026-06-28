@@ -2267,7 +2267,7 @@ class WashAdmin {
         $skipped    = (int) ($data['skipped'] ?? 0);
         $skipInfo   = (string) ($data['skip'] ?? '');
         $returnUrl  = $data['returnUrl'] ?? admin_url('edit.php');
-        $batchSize  = (int) apply_filters('wash_bulk_batch_size', 50);
+        $batchSize  = max(1, (int) apply_filters('wash_bulk_batch_size', 10));
         $ajaxUrl    = admin_url('admin-ajax.php');
         $nonce      = wp_create_nonce('wash_bulk_progress');
 
@@ -2300,6 +2300,7 @@ class WashAdmin {
             'token'         => $token,
             'nonce'         => $nonce,
             'total'         => $total,
+            'batchSize'     => $batchSize,
             'finalRedirect' => $finalRedirect,
             'ajaxUrl'       => $ajaxUrl,
             'i18n'          => [
@@ -2314,8 +2315,8 @@ class WashAdmin {
             <p class="description">
                 <?php
                 echo esc_html(sprintf(
-                    /* translators: %1$d total posts, %2$d batch size */
-                    __('Processing %1$d posts in batches of %2$d. Do not close this tab until the bar reaches 100%%.', 'wash-blog-manager'),
+                    /* translators: %1$d total posts, %2$d max posts per batch */
+                    __('Processing %1$d posts in batches of up to %2$d. Do not close this tab until the bar reaches 100%%.', 'wash-blog-manager'),
                     $total,
                     $batchSize
                 ));
@@ -2355,12 +2356,22 @@ class WashAdmin {
             wp_send_json_error(__('Bulk session expired', 'wash-blog-manager'));
         }
 
-        $offset    = isset($_POST['offset']) ? absint($_POST['offset']) : 0;
-        $batchSize = (int) apply_filters('wash_bulk_batch_size', 50);
-        $batch     = array_slice($data['postIds'], $offset, $batchSize);
-        $action    = $data['action'];
+        $offset     = isset($_POST['offset']) ? absint($_POST['offset']) : 0;
+        $action     = $data['action'];
+        $total      = count($data['postIds']);
 
-        if (empty($batch)) {
+        // Each post sync is a blocking HTTP round-trip to the worker (up to 30s),
+        // so a fixed post-count alone could still let one AJAX request run past the
+        // ~100s reverse-proxy (Cloudflare / cloudflared) gateway window and surface a
+        // 504 mid-migration even though the work keeps going server-side (#253). Bound
+        // every request by BOTH a hard post cap AND a wall-clock budget — whichever is
+        // hit first ends the batch — so each request stays short no matter how slow the
+        // posts are. The JS loop then drives the next batch from the returned nextOffset.
+        $batchSize  = max(1, (int) apply_filters('wash_bulk_batch_size', 10));
+        $timeBudget = (float) apply_filters('wash_bulk_time_budget', 20.0);
+        $startedAt  = microtime(true);
+
+        if ($offset >= $total) {
             delete_transient('wash_bulk_' . $token);
             wp_send_json_success(['processed' => 0, 'errors' => 0, 'nextOffset' => $offset, 'done' => true, 'errorMessages' => []]);
         }
@@ -2372,32 +2383,40 @@ class WashAdmin {
         $processed = 0;
         $errors    = 0;
         $errorMsgs = [];
-        $sync      = ($action !== 'wash_unpublish') ? new WashSync() : null;
+        $count     = 0;
 
-        foreach ($batch as $postId) {
-            $post = get_post((int) $postId);
-            if (!$post) { $errors++; $errorMsgs[] = "Post #{$postId}: not found"; continue; }
-            try {
-                if ($action === 'wash_unpublish') {
-                    $result = $this->unpublishFromShopify((int) $postId, $post);
-                    if (is_wp_error($result)) {
-                        $errors++;
-                        $errorMsgs[] = "Post #{$postId}: " . $result->get_error_message();
-                    } else {
-                        $processed++;
-                    }
-                } else {
-                    $sync->syncManually((int) $postId, $post);
-                    $processed++;
-                }
-            } catch (Throwable $e) {
+        for ($i = $offset; $i < $total && $count < $batchSize; $i++) {
+            $postId = (int) $data['postIds'][$i];
+            $count++;
+            $post = get_post($postId);
+            if (!$post) {
                 $errors++;
-                $errorMsgs[] = "Post #{$postId}: " . $e->getMessage();
+                $errorMsgs[] = "Post #{$postId}: not found";
+            } else {
+                try {
+                    $result = $this->processBulkPost($action, $postId, $post);
+                    if ($result === true) {
+                        $processed++;
+                    } else {
+                        $errors++;
+                        $errorMsgs[] = "Post #{$postId}: " . $result;
+                    }
+                } catch (Throwable $e) {
+                    $errors++;
+                    $errorMsgs[] = "Post #{$postId}: " . $e->getMessage();
+                }
+            }
+
+            // Always process at least one post (the count<batchSize guard already
+            // let us in), then stop as soon as the per-request time budget is spent
+            // so a single slow post can never wedge the run past the gateway window.
+            if ((microtime(true) - $startedAt) >= $timeBudget) {
+                break;
             }
         }
 
-        $nextOffset = $offset + count($batch);
-        $done       = $nextOffset >= count($data['postIds']);
+        $nextOffset = $offset + $count;
+        $done       = $nextOffset >= $total;
         if ($done) {
             delete_transient('wash_bulk_' . $token);
         }
@@ -2409,6 +2428,28 @@ class WashAdmin {
             'nextOffset'    => $nextOffset,
             'done'          => $done,
         ]);
+    }
+
+    /**
+     * Sync or unpublish ONE post for a bulk batch. Extracted from
+     * ajaxBulkSyncBatch() so the batch loop is independently unit-testable and so
+     * each post's outcome is isolated — a thrown error is caught by the caller and
+     * recorded against that post without aborting the rest of the batch (#253).
+     *
+     * @param string   $action 'wash_publish' | 'wash_republish' | 'wash_unpublish'.
+     * @param int      $postId Post ID.
+     * @param \WP_Post $post   Post object.
+     * @return true|string True on success, or a human-readable reason on a handled failure.
+     */
+    protected function processBulkPost($action, $postId, $post) {
+        if ($action === 'wash_unpublish') {
+            $result = $this->unpublishFromShopify($postId, $post);
+            return is_wp_error($result) ? $result->get_error_message() : true;
+        }
+
+        $sync = new WashSync();
+        $sync->syncManually($postId, $post);
+        return true;
     }
 
     /**

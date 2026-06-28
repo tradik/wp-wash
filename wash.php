@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Wash: Blog Manager
  * Description:       Synchronize WordPress content, images, and metafields to Shopify blogs.
- * Version:           1.27.2
+ * Version:           1.27.3
  * Requires at least: 6.3
  * Requires PHP:      8.0
  * Author:            Tradik
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WASH_VERSION', '1.27.2');
+define('WASH_VERSION', '1.27.3');
 define('WASH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WASH_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
