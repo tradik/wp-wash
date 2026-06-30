@@ -22,6 +22,9 @@ class WashAdminSecurityTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        // Reset per-connection static state so a memoized WashContext client/id
+        // can't leak between tests (PHPUnit runs in execution-order, not file order).
+        \WashContext::setActiveId(null);
 
         Functions\when('wp_unslash')->returnArg(1);
         Functions\when('sanitize_text_field')->returnArg(1);
@@ -603,6 +606,39 @@ class WashAdminSecurityTest extends TestCase
         $this->assertSame('my-store', $updated['wash_shopify_store'] ?? null);
 
         unset($_GET['page'], $_GET['wash_callback'], $_GET['wash_state'], $_GET['api_key'], $_GET['store']);
+    }
+
+    public function testHandleCallbackIgnoresAddStoreFlow(): void
+    {
+        // A second-store OAuth return (wash_add=1) lands on ?page=wash too, but is
+        // owned by WashConnectionsAdmin. The primary handler must bail so it never
+        // overwrites the primary store's credentials with the new store's (#252).
+        $_GET['page'] = 'wash';
+        $_GET['wash_callback'] = '1';
+        $_GET['wash_add'] = '1';
+        $_GET['wash_state'] = 'valid';
+        $_GET['api_key'] = 'second-store-key';
+        $_GET['store'] = 'second-store';
+
+        Functions\when('current_user_can')->justReturn(true);
+        Functions\when('wp_verify_nonce')->justReturn(1);
+
+        $updated = [];
+        Functions\when('update_option')->alias(function ($k, $v) use (&$updated) {
+            $updated[$k] = $v;
+            return true;
+        });
+        Functions\when('wp_safe_redirect')->alias(function () {
+            throw new \RuntimeException('redirect');
+        });
+
+        // Returns early — no redirect, no write.
+        $this->admin->handleCallback();
+
+        $this->assertArrayNotHasKey('wash_api_key', $updated, 'add-store flow must not touch primary api key');
+        $this->assertArrayNotHasKey('wash_shopify_store', $updated, 'add-store flow must not touch primary store');
+
+        unset($_GET['page'], $_GET['wash_callback'], $_GET['wash_add'], $_GET['wash_state'], $_GET['api_key'], $_GET['store']);
     }
 
     // ---------------------------------------------------------------

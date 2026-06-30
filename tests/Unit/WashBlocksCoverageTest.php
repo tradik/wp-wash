@@ -29,6 +29,9 @@ class WashBlocksCoverageTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        // Reset per-connection static state so a memoized WashContext client/id
+        // can't leak between tests (PHPUnit runs in execution-order, not file order).
+        \WashContext::setActiveId(null);
 
         // Common WordPress function stubs required by WashApiClient / WashBlocks constructors.
         Functions\when('get_option')->alias(function ($key, $default = '') {

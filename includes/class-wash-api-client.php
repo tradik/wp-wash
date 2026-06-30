@@ -799,9 +799,17 @@ class WashApiClient {
 
         // The push is HMAC-authenticated, but never trust the payload blindly:
         // sanitize every value before it lands in an option (MED-13, defence in depth).
+        // Per-store (#252): write through WashContext so a restore lands on the
+        // connection it is for — except wash_block_robots, which stays a single
+        // site-wide option (#216), so it is written raw.
         foreach ($optionMap as $key => $option) {
             if (isset($settings[$key])) {
-                update_option($option, $this->sanitizeSettingValue($settings[$key]));
+                $clean = $this->sanitizeSettingValue($settings[$key]);
+                if ($option === 'wash_block_robots') {
+                    update_option($option, $clean);
+                } else {
+                    WashContext::updateOption($option, $clean);
+                }
             }
         }
 
@@ -811,7 +819,7 @@ class WashApiClient {
             if (is_array($value)) {
                 $value = wp_json_encode($value);
             }
-            update_option('wash_meta_field_config', $value);
+            WashContext::updateOption('wash_meta_field_config', $value);
             WashMetafields::$fieldConfigCache = null;
         }
 

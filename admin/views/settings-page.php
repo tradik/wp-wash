@@ -3,9 +3,15 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$wash_isConnected = !empty(get_option('wash_api_key'));
-$wash_shopifyStore = get_option('wash_shopify_store', '');
-$wash_shopifyAppSlug = (new WashApiClient())->getShopifyAppSlug();
+// Multi-store (#252): everything on this page is scoped to the ACTIVE connection
+// (WashContext resolves it from the wash-conn-<id> page slug; primary on `wash`).
+// Credentials live in the connection registry for additional stores, so read them
+// from the connection — not from raw options.
+$wash_connection = WashContext::connection();
+$wash_isPrimary = WashContext::activeId() === WashConnection::PRIMARY;
+$wash_isConnected = !empty($wash_connection['apiKey']);
+$wash_shopifyStore = $wash_connection['store'];
+$wash_shopifyAppSlug = WashContext::apiClient()->getShopifyAppSlug();
 
 // Get WordPress permalink structure for URL examples
 $wash_permalinkStructure = get_option('permalink_structure', '/%postname%/');
@@ -37,7 +43,7 @@ $wash_forceRefreshPlan = isset($_GET['refresh_plan']) && $_GET['refresh_plan'] =
 $wash_connectionError = '';
 
 if ($wash_isConnected) {
-    $wash_apiClient = new WashApiClient();
+    $wash_apiClient = WashContext::apiClient();
 
     // Force refresh plan info and permissions if requested via query parameter
     if ($wash_forceRefreshPlan) {
@@ -96,7 +102,7 @@ $wash_forceRefreshSettings = isset($_GET['refresh_settings']) && $_GET['refresh_
 
 // Sync settings from Shopify if requested
 if ($wash_forceRefreshSettings && $wash_isConnected) {
-    $wash_apiClient = $wash_apiClient ?? new WashApiClient();
+    $wash_apiClient = $wash_apiClient ?? WashContext::apiClient();
     $wash_settingsResponse = $wash_apiClient->getBackedUpSettings();
     if (!is_wp_error($wash_settingsResponse) && !empty($wash_settingsResponse['settings'])) {
         $wash_apiClient->restoreSettings($wash_settingsResponse['settings']);
@@ -310,6 +316,15 @@ function wash_render_permission_locked_banner() {
     <h1>
         <img src="<?php echo esc_url(washPluginUrl() . 'admin/assets/logo.png'); ?>" alt="Wash" style="height: 28px; width: auto; margin-right: 8px; vertical-align: middle;" />
         <?php esc_html_e('Wash Settings', 'wash-blog-manager'); ?>
+        <?php if ($wash_shopifyStore !== '') :
+            // Which store am I configuring? Show it in the heading (#252) — essential
+            // once there is more than one connection.
+            $wash_h1Host = (strpos($wash_shopifyStore, '.') !== false) ? $wash_shopifyStore : $wash_shopifyStore . '.myshopify.com';
+            ?>
+            <span style="font-size: 15px; font-weight: 600; color: #1d2327; margin-left: 8px; vertical-align: middle;">
+                · <?php echo esc_html($wash_h1Host); ?>
+            </span>
+        <?php endif; ?>
         <span style="font-size: 12px; font-weight: normal; color: #646970; margin-left: 8px; vertical-align: middle;">
             v<?php echo esc_html(WASH_VERSION); ?>
         </span>
@@ -389,12 +404,41 @@ function wash_render_permission_locked_banner() {
         <?php settings_fields('wash_settings'); ?>
         <input type="hidden" name="_wp_http_referer_tab" id="wash-current-tab" value="connection" />
         <input type="hidden" id="wash-user-can-modify" value="<?php echo $wash_userCanModifySettings ? '1' : '0'; ?>" />
+        <?php // Multi-store (#252): tells the Settings API save which store these values belong to. ?>
+        <input type="hidden" name="washConnectionId" value="<?php echo esc_attr(WashContext::activeId()); ?>" />
 
         <!-- Connection Tab -->
         <div class="wash-tab-content" id="tab-connection">
             <h2 class="title"><?php esc_html_e('Shopify Store Connection', 'wash-blog-manager'); ?></h2>
 
-            <?php if ($wash_isConnected) : ?>
+            <?php if (!$wash_isPrimary) :
+                // Additional store: show its identity here; pausing/removing it lives
+                // in the Store Connections hub (those are separate admin-post forms
+                // that must not nest inside this settings form).
+                $wash_storeHost = (strpos($wash_shopifyStore, '.') !== false) ? $wash_shopifyStore : $wash_shopifyStore . '.myshopify.com';
+                ?>
+                <div class="wash-connected-box" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 20px; margin: 15px 0;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="width: 12px; height: 12px; background: #28a745; border-radius: 50%; display: inline-block;"></span>
+                        <strong style="color: #155724;"><?php esc_html_e('Connected', 'wash-blog-manager'); ?></strong>
+                        <span style="color: #155724;">
+                            <?php esc_html_e('to', 'wash-blog-manager'); ?>
+                            <a href="https://<?php echo esc_attr($wash_storeHost); ?>/admin" target="_blank" rel="noopener noreferrer" style="color: #155724; font-weight: 600;">
+                                <?php echo esc_html($wash_storeHost); ?>
+                            </a>
+                        </span>
+                    </div>
+                </div>
+                <p class="description" style="margin-top: 12px;">
+                    <?php
+                    printf(
+                        /* translators: %s: link to the Store Connections hub */
+                        esc_html__('These settings apply only to this store. To pause or remove it, go to %s.', 'wash-blog-manager'),
+                        '<a href="' . esc_url(admin_url('options-general.php?page=wash&tab=connection')) . '">' . esc_html__('Store Connections', 'wash-blog-manager') . '</a>'
+                    );
+                    ?>
+                </p>
+            <?php elseif ($wash_isConnected) : ?>
                 <!-- Connected state - simple view -->
                 <div class="wash-connected-box" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 20px; margin: 15px 0;">
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
@@ -418,7 +462,7 @@ function wash_render_permission_locked_banner() {
                 </div>
                 <!-- Hidden fields for connected state -->
                 <input type="hidden" name="wash_shopify_store" value="<?php echo esc_attr($wash_shopifyStore); ?>" />
-                <input type="hidden" name="wash_api_key" value="<?php echo esc_attr(get_option('wash_api_key')); ?>" />
+                <input type="hidden" name="wash_api_key" value="<?php echo esc_attr(WashContext::option('wash_api_key')); ?>" />
             <?php else : ?>
                 <!-- Not connected - show connection form -->
                 <table class="form-table" role="presentation">
@@ -437,36 +481,10 @@ function wash_render_permission_locked_banner() {
                             <p class="description"><?php esc_html_e('Your Shopify store handle (e.g., "my-store" from my-store.myshopify.com)', 'wash-blog-manager'); ?></p>
                         </td>
                     </tr>
-                    <?php $wash_consentAccepted = get_option('wash_consent_accepted', '0') === '1'; ?>
                     <tr>
-                        <th scope="row"><?php esc_html_e('Data processing consent', 'wash-blog-manager'); ?></th>
-                        <td>
-                            <label for="wash-consent-checkbox" style="display: flex; gap: 8px; align-items: flex-start; max-width: 720px;">
-                                <input type="checkbox" id="wash-consent-checkbox" <?php checked($wash_consentAccepted); ?> <?php disabled($wash_consentAccepted); ?> />
-                                <span>
-                                    <?php
-                                    printf(
-                                        /* translators: 1: opening anchor tag to the Privacy Policy, 2: closing anchor tag, 3: opening anchor to the External services section of readme.txt rendered on wordpress.org, 4: closing anchor tag */
-                                        esc_html__('I understand that connecting this plugin will send my WordPress post content, images, custom fields, and site URL to the Tradik Wash service at app-wash.tradik.com (the broker that talks to Shopify). I have read the %1$sPrivacy Policy%2$s and the %3$sfull list of external services%4$s.', 'wash-blog-manager'),
-                                        '<a href="https://wash.tradik.com/privacy-policy/" target="_blank" rel="noopener noreferrer">',
-                                        '</a>',
-                                        '<a href="https://wordpress.org/plugins/wash-blog-manager/#description" target="_blank" rel="noopener noreferrer">',
-                                        '</a>'
-                                    );
-                                    ?>
-                                </span>
-                            </label>
-                            <?php if ($wash_consentAccepted) : ?>
-                                <p class="description" style="margin-top: 6px;">
-                                    <?php
-                                    printf(
-                                        /* translators: %s: human-readable date when consent was recorded */
-                                        esc_html__('Consent recorded on %s.', 'wash-blog-manager'),
-                                        esc_html(wp_date(get_option('date_format', 'Y-m-d') . ' ' . get_option('time_format', 'H:i'), (int) get_option('wash_consent_accepted_at', 0)))
-                                    );
-                                    ?>
-                                </p>
-                            <?php endif; ?>
+                        <td colspan="2" style="padding: 15px 10px;">
+                            <strong style="display:block; margin-bottom:8px;"><?php esc_html_e('Data processing consent', 'wash-blog-manager'); ?></strong>
+                            <?php include_once WASH_PLUGIN_DIR . 'admin/views/partials/consent-row.php'; ?>
                         </td>
                     </tr>
                     <tr>
@@ -836,7 +854,7 @@ function wash_render_permission_locked_banner() {
                         <td>
                             <label>
                                 <input type="hidden" name="wash_redirections_enabled" value="0" />
-                                <input type="checkbox" name="wash_redirections_enabled" id="wash_redirections_enabled" value="1" <?php checked(get_option('wash_redirections_enabled', '0'), '1'); ?>>
+                                <input type="checkbox" name="wash_redirections_enabled" id="wash_redirections_enabled" value="1" <?php checked(WashContext::option('wash_redirections_enabled', '0'), '1'); ?>>
                                 <?php esc_html_e('Automatically create redirects when posts are synced to Shopify', 'wash-blog-manager'); ?>
                             </label>
                             <p class="description">
@@ -999,7 +1017,7 @@ function wash_render_permission_locked_banner() {
                         <label>
                             <input type="hidden" name="wash_hreflangs_enabled" value="0" />
                             <input type="checkbox" name="wash_hreflangs_enabled" value="1"
-                                <?php checked(get_option('wash_hreflangs_enabled'), '1'); ?>
+                                <?php checked(WashContext::option('wash_hreflangs_enabled'), '1'); ?>
                                 <?php disabled(!$wash_hasPlugin); ?> />
                             <?php esc_html_e('Sync hreflang data to Shopify metafields', 'wash-blog-manager'); ?>
                         </label>
@@ -1156,13 +1174,13 @@ function wash_render_permission_locked_banner() {
             <h2 class="title"><?php esc_html_e('Meta Fields Configuration', 'wash-blog-manager'); ?></h2>
             <p class="description"><?php esc_html_e('WordPress detects available meta fields from your posts. Toggle sync per field.', 'wash-blog-manager'); ?></p>
 
-            <?php if (get_option('wash_sync_metafields', '1') !== '1') : ?>
+            <?php if (WashContext::option('wash_sync_metafields', '1') !== '1') : ?>
                 <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; color: #856404;">
                     <?php esc_html_e('Metafield sync is disabled. Enable "Sync Metafields" in the Sync tab to use this configuration.', 'wash-blog-manager'); ?>
                 </div>
             <?php endif; ?>
 
-            <div id="wash-metafields-content" style="<?php echo get_option('wash_sync_metafields', '1') !== '1' ? 'opacity: 0.5; pointer-events: none;' : ''; ?>">
+            <div id="wash-metafields-content" style="<?php echo WashContext::option('wash_sync_metafields', '1') !== '1' ? 'opacity: 0.5; pointer-events: none;' : ''; ?>">
             <?php
             $wash_metafieldsHandler = new WashMetafields();
             $wash_fieldConfig = $wash_metafieldsHandler->getFieldConfig();
@@ -1316,8 +1334,8 @@ function wash_render_permission_locked_banner() {
             <p class="description"><?php esc_html_e('Map WordPress users to custom author names displayed on Shopify articles.', 'wash-blog-manager'); ?></p>
 
             <?php
-            $wash_authorsEnabled = get_option('wash_authors_enabled', '0') === '1';
-            $wash_authorMappings = get_option('wash_author_mappings', []);
+            $wash_authorsEnabled = WashContext::option('wash_authors_enabled', '0') === '1';
+            $wash_authorMappings = WashContext::option('wash_author_mappings', []);
             if (!is_array($wash_authorMappings)) {
                 $wash_authorMappings = [];
             }
@@ -1420,9 +1438,9 @@ function wash_render_permission_locked_banner() {
             <p class="description"><?php esc_html_e('Configure how images and media files are handled when syncing to Shopify.', 'wash-blog-manager'); ?></p>
 
             <?php
-            $wash_filesEnabled = get_option('wash_files_enabled', '1') === '1';
-            $wash_webpConvert = get_option('wash_webp_convert', '0') === '1';
-            $wash_allowedFileTypes = get_option('wash_allowed_file_types', ['images']);
+            $wash_filesEnabled = WashContext::option('wash_files_enabled', '1') === '1';
+            $wash_webpConvert = WashContext::option('wash_webp_convert', '0') === '1';
+            $wash_allowedFileTypes = WashContext::option('wash_allowed_file_types', ['images']);
             if (!is_array($wash_allowedFileTypes)) {
                 $wash_allowedFileTypes = ['images'];
             }
@@ -1660,7 +1678,7 @@ function wash_render_permission_locked_banner() {
                         <label>
                             <input type="hidden" name="wash_sync_on_publish" value="0" />
                             <input type="checkbox" name="wash_sync_on_publish" value="1"
-                                <?php checked(get_option('wash_sync_on_publish'), '1'); ?> />
+                                <?php checked(WashContext::option('wash_sync_on_publish'), '1'); ?> />
                             <?php esc_html_e('Automatically sync posts when published or updated', 'wash-blog-manager'); ?>
                         </label>
                     </td>
@@ -1671,7 +1689,7 @@ function wash_render_permission_locked_banner() {
                         <label>
                             <input type="hidden" name="wash_sync_metafields" value="0" />
                             <input type="checkbox" name="wash_sync_metafields" value="1"
-                                <?php checked(get_option('wash_sync_metafields'), '1'); ?> />
+                                <?php checked(WashContext::option('wash_sync_metafields'), '1'); ?> />
                             <?php esc_html_e('Sync core and plugin meta fields to Shopify metafields', 'wash-blog-manager'); ?>
                         </label>
                     </td>
@@ -1682,7 +1700,7 @@ function wash_render_permission_locked_banner() {
                         <label>
                             <input type="hidden" name="wash_rewrite_internal_urls" value="0" />
                             <input type="checkbox" name="wash_rewrite_internal_urls" value="1"
-                                <?php checked(get_option('wash_rewrite_internal_urls', '1'), '1'); ?> />
+                                <?php checked(WashContext::option('wash_rewrite_internal_urls', '1'), '1'); ?> />
                             <?php esc_html_e('Convert internal WordPress links to Shopify URL format', 'wash-blog-manager'); ?>
                         </label>
                         <p class="description"><?php esc_html_e('Rewrites links like /blog/post-slug to /blogs/{blog-handle}/post-slug and /page-slug to /pages/page-slug during sync.', 'wash-blog-manager'); ?></p>
@@ -1694,7 +1712,7 @@ function wash_render_permission_locked_banner() {
                         <label>
                             <input type="hidden" name="wash_sync_inline" value="0" />
                             <input type="checkbox" name="wash_sync_inline" value="1"
-                                <?php checked(get_option('wash_sync_inline', '1'), '1'); ?> />
+                                <?php checked(WashContext::option('wash_sync_inline', '1'), '1'); ?> />
                             <?php esc_html_e('Run bulk publish through the JS progress page (recommended)', 'wash-blog-manager'); ?>
                         </label>
                         <p class="description"><?php esc_html_e('ON (default): bulk action redirects to a live progress bar; the browser drives N batches via AJAX, immune to PHP / proxy timeouts and works on private / password-protected sites where WP-Cron does not fire. OFF: legacy WP-Cron mode — each sync is queued as a single cron event. Requires WP-Cron to actually run; broken on idle sites.', 'wash-blog-manager'); ?></p>
@@ -1706,7 +1724,7 @@ function wash_render_permission_locked_banner() {
                         <label>
                             <input type="hidden" name="wash_auto_clear_errors" value="0" />
                             <input type="checkbox" name="wash_auto_clear_errors" value="1"
-                                <?php checked(get_option('wash_auto_clear_errors', '1'), '1'); ?> />
+                                <?php checked(WashContext::option('wash_auto_clear_errors', '1'), '1'); ?> />
                             <?php esc_html_e('Daily WP-Cron job clears sync errors older than 30 days on published posts', 'wash-blog-manager'); ?>
                         </label>
                         <p class="description"><?php esc_html_e('Stops the red "sync failed" icon from accumulating indefinitely. Adjustable via the wash_sync_error_retention_days filter.', 'wash-blog-manager'); ?></p>
@@ -1716,7 +1734,7 @@ function wash_render_permission_locked_banner() {
                     <th scope="row"><?php esc_html_e('Post Types', 'wash-blog-manager'); ?></th>
                     <td>
                         <?php
-                        $wash_syncPostTypes = array_map('trim', explode(',', get_option('wash_post_types', 'post,page')));
+                        $wash_syncPostTypes = array_map('trim', explode(',', WashContext::option('wash_post_types', 'post,page')));
                         $wash_publicPostTypes = get_post_types(['public' => true], 'objects');
                         ?>
                         <fieldset>
@@ -1732,7 +1750,7 @@ function wash_render_permission_locked_banner() {
                             <?php endforeach; ?>
                         </fieldset>
                         <input type="hidden" id="wash_post_types" name="wash_post_types"
-                               value="<?php echo esc_attr(get_option('wash_post_types', 'post,page')); ?>" />
+                               value="<?php echo esc_attr(WashContext::option('wash_post_types', 'post,page')); ?>" />
                         <p class="description"><?php esc_html_e('Select which post types to synchronize to Shopify.', 'wash-blog-manager'); ?></p>
                     </td>
                 </tr>
@@ -1755,7 +1773,7 @@ function wash_render_permission_locked_banner() {
             <h2 class="title"><?php esc_html_e('Content Processing', 'wash-blog-manager'); ?></h2>
             <p class="description"><?php esc_html_e('Configure how content is processed during sync to Shopify.', 'wash-blog-manager'); ?></p>
 
-            <?php $wash_allowedHtmlTags = get_option('wash_allowed_html_tags', ''); ?>
+            <?php $wash_allowedHtmlTags = WashContext::option('wash_allowed_html_tags', ''); ?>
 
             <h3 style="margin-bottom: 15px;">
                 <span class="dashicons dashicons-editor-code" style="color: #2271b1;"></span>
@@ -1928,7 +1946,7 @@ function wash_render_permission_locked_banner() {
                         <label>
                             <input type="hidden" name="wash_block_robots" value="0" />
                             <input type="checkbox" name="wash_block_robots" value="1"
-                                <?php checked(get_option('wash_block_robots', '1'), '1'); ?> />
+                                <?php checked(WashContext::option('wash_block_robots', '1'), '1'); ?> />
                             <?php esc_html_e('Discourage search engines from indexing this site (robots.txt)', 'wash-blog-manager'); ?>
                         </label>
                         <p class="description"><?php esc_html_e('Recommended for demo/staging sites. Outputs "Disallow: /" in robots.txt.', 'wash-blog-manager'); ?></p>
@@ -1943,7 +1961,7 @@ function wash_render_permission_locked_banner() {
             </table>
 
             <?php
-            $wash_removeData = get_option('wash_uninstall_remove_data', '0');
+            $wash_removeData = WashContext::option('wash_uninstall_remove_data', '0');
             // Options come from data so the markup is written once (no repeated
             // <option> lines for Sonar to flag as duplicated).
             $wash_uninstallChoices = [
@@ -1976,7 +1994,7 @@ function wash_render_permission_locked_banner() {
                         <label>
                             <input type="hidden" name="wash_blocks_enabled" value="0" />
                             <input type="checkbox" name="wash_blocks_enabled" value="1"
-                                <?php checked(get_option('wash_blocks_enabled', '1'), '1'); ?> />
+                                <?php checked(WashContext::option('wash_blocks_enabled', '1'), '1'); ?> />
                             <?php esc_html_e('Enable Wash custom blocks in Gutenberg editor', 'wash-blog-manager'); ?>
                         </label>
                         <p class="description"><?php esc_html_e('Adds custom Wash blocks (Shopify Product, Shopify Collection, Sync Status) to the Gutenberg editor.', 'wash-blog-manager'); ?></p>
@@ -1988,7 +2006,7 @@ function wash_render_permission_locked_banner() {
                         <label>
                             <input type="hidden" name="wash_sync_blocks_css" value="0" />
                             <input type="checkbox" name="wash_sync_blocks_css" value="1"
-                                <?php checked(get_option('wash_sync_blocks_css', '0'), '1'); ?> />
+                                <?php checked(WashContext::option('wash_sync_blocks_css', '0'), '1'); ?> />
                             <?php esc_html_e('Include WordPress block styles in synced content', 'wash-blog-manager'); ?>
                         </label>
                         <p class="description">
@@ -2003,7 +2021,7 @@ function wash_render_permission_locked_banner() {
                         <label>
                             <input type="hidden" name="wash_sync_blocks_meta" value="0" />
                             <input type="checkbox" name="wash_sync_blocks_meta" value="1"
-                                <?php checked(get_option('wash_sync_blocks_meta', '1'), '1'); ?> />
+                                <?php checked(WashContext::option('wash_sync_blocks_meta', '1'), '1'); ?> />
                             <?php esc_html_e('Save block structure as Shopify metafields', 'wash-blog-manager'); ?>
                         </label>
                         <p class="description"><?php esc_html_e('Saves Gutenberg block structure as JSON metafield, allowing Shopify themes to render blocks dynamically.', 'wash-blog-manager'); ?></p>
@@ -2015,7 +2033,7 @@ function wash_render_permission_locked_banner() {
                         <label>
                             <input type="hidden" name="wash_transform_rankmath_faq" value="0" />
                             <input type="checkbox" name="wash_transform_rankmath_faq" value="1"
-                                <?php checked(get_option('wash_transform_rankmath_faq', '1'), '1'); ?> />
+                                <?php checked(WashContext::option('wash_transform_rankmath_faq', '1'), '1'); ?> />
                             <?php esc_html_e('Convert RankMath FAQ blocks to a Shopify-safe accordion', 'wash-blog-manager'); ?>
                         </label>
                         <p class="description"><?php esc_html_e('Rebuilds RankMath FAQ blocks as styled <details> accordions and adds FAQPage schema, so they survive Shopify\'s HTML sanitizer instead of becoming unstyled headings.', 'wash-blog-manager'); ?></p>
@@ -2081,6 +2099,22 @@ function wash_render_permission_locked_banner() {
             <?php submit_button(); ?>
         </div>
     </form>
+
+    <?php
+    // Multi-store hub (#216, #252): the single place to add/manage extra Shopify
+    // stores, folded into the Connection tab. Rendered OUTSIDE the settings <form>
+    // because each row's actions are their own admin-post forms (no nested forms).
+    // Shown with a qualifying plan, or when extra stores already exist (so a
+    // downgraded merchant can still reach/disable them); a free single-store
+    // install sees nothing new. JS ties its visibility to the Connection tab.
+    if (WashConnectionsAdmin::planAllowsMultiStore() || WashConnection::count() > 1) :
+        WashConnectionsAdmin::enforcePlanDowngrade(); // reflect a lapsed plan on open
+        ?>
+        <div id="wash-connection-extra" style="display:none;">
+            <hr style="border:none;border-top:1px solid #ccd0d4;margin:24px 0;max-width:900px;" />
+            <?php include_once WASH_PLUGIN_DIR . 'admin/views/connections-page.php'; ?>
+        </div>
+    <?php endif; ?>
 </div>
 
 <?php
@@ -2090,6 +2124,20 @@ function wash_render_permission_locked_banner() {
 ob_start();
 ?>
 (function() {
+    // Multi-store (#252): tag each admin-ajax POST body with the active connection id
+    // so blog mappings / meta saves target the store whose page this is. The GET tab
+    // calls already carry the id baked into their URLs. The id is rendered SERVER-SIDE
+    // from the active WashContext (this page is pinned to its connection), so it never
+    // depends on a JS localize that could resolve to primary. A plain helper is used
+    // at each POST site rather than overriding the built-in window.fetch.
+    var washConnId = '<?php echo esc_js(WashContext::activeId()); ?>';
+    function washWithConn(fd) {
+        if (fd instanceof FormData && !fd.has('washConnectionId')) {
+            fd.append('washConnectionId', washConnId);
+        }
+        return fd;
+    }
+
     // Sync Post Types checkboxes → hidden input
     var syncPtCheckboxes = document.querySelectorAll('.wash-sync-pt-checkbox');
     var syncPtHidden = document.getElementById('wash_post_types');
@@ -2148,6 +2196,16 @@ ob_start();
         }
     }
 
+    // The multi-store panel sits outside the settings <form> (its admin-post forms
+    // must not nest), so the tab loop above can't toggle it. Show it only while the
+    // Connection tab is active.
+    var connectionExtra = document.getElementById('wash-connection-extra');
+    function syncConnectionExtra(tabId) {
+        if (connectionExtra) {
+            connectionExtra.style.display = (tabId === 'connection') ? 'block' : 'none';
+        }
+    }
+
     // Tab switching
     document.querySelectorAll('.wash-tabs .nav-tab').forEach(function(tab) {
         tab.addEventListener('click', function(e) {
@@ -2170,6 +2228,7 @@ ob_start();
 
             // Update submit button visibility
             updateSubmitVisibility(tabId);
+            syncConnectionExtra(tabId);
         });
     });
 
@@ -2204,6 +2263,7 @@ ob_start();
 
     // Initial submit visibility based on active tab
     updateSubmitVisibility(activeTab);
+    syncConnectionExtra(activeTab);
 
     // Show/hide manual config
     // Connect button visibility
@@ -2242,7 +2302,7 @@ ob_start();
             fd.append('action', 'wash_save_consent');
             fd.append('nonce', '<?php echo esc_js(wp_create_nonce('wash_consent')); ?>');
             consentCheckbox.disabled = true;
-            fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body: fd })
+            fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body: washWithConn(fd) })
                 .then(function(r) { return r.json(); })
                 .then(function(json) {
                     if (json && json.success) {
@@ -2384,7 +2444,7 @@ ob_start();
     }
 
     function loadMappings() {
-        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_mappings&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>')
+        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_mappings&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>&washConnectionId=<?php echo esc_attr(WashContext::activeId()); ?>')
             .then(function(r) { return r.json(); })
             .then(function(response) {
                 if (response.success) {
@@ -2400,7 +2460,7 @@ ob_start();
     }
 
     function loadShopifyBlogs() {
-        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shopify_blogs&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>')
+        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shopify_blogs&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>&washConnectionId=<?php echo esc_attr(WashContext::activeId()); ?>')
             .then(function(r) { return r.json(); })
             .then(function(response) {
                 if (response.success) {
@@ -2429,7 +2489,7 @@ ob_start();
     }
 
     function loadShopifyMarkets() {
-        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shopify_markets&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>')
+        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shopify_markets&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>&washConnectionId=<?php echo esc_attr(WashContext::activeId()); ?>')
             .then(function(r) { return r.json(); })
             .then(function(response) {
                 if (response.success) {
@@ -2441,7 +2501,7 @@ ob_start();
     }
 
     function loadShopLocales() {
-        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shop_locales&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>')
+        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shop_locales&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>&washConnectionId=<?php echo esc_attr(WashContext::activeId()); ?>')
             .then(function(r) { return r.json(); })
             .then(function(response) {
                 if (response.success) {
@@ -2455,7 +2515,7 @@ ob_start();
     var domainSelect = document.getElementById('wash-destination-domain');
 
     function loadShopDomains() {
-        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shop_domains&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>')
+        fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=wash_get_shop_domains&nonce=<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>&washConnectionId=<?php echo esc_attr(WashContext::activeId()); ?>')
             .then(function(r) { return r.json(); })
             .then(function(response) {
                 if (response.success) {
@@ -3333,7 +3393,7 @@ ob_start();
                     fd.append('action', 'wash_delete_mapping');
                     fd.append('nonce', '<?php echo esc_attr(wp_create_nonce('wash_mappings')); ?>');
                     fd.append('mappingId', m.id);
-                    return fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', { method: 'POST', body: fd }).then(function(r) { return r.json(); });
+                    return fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', { method: 'POST', body: washWithConn(fd) }).then(function(r) { return r.json(); });
                 });
 
                 Promise.all(deletePromises).then(function() {
@@ -3356,7 +3416,7 @@ ob_start();
                             fd.append('priority', rule.priority !== undefined ? rule.priority : (imported.length - idx) * 10);
                             fd.append('marketId', rule.shopifyMarketId || '');
                             fd.append('shopifyLocale', rule.shopifyLocale || '');
-                            return fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', { method: 'POST', body: fd })
+                            return fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', { method: 'POST', body: washWithConn(fd) })
                                 .then(function(r) { return r.json(); })
                                 .then(function(resp) {
                                     if (resp.success) {
@@ -3450,7 +3510,7 @@ ob_start();
 
             fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', {
                 method: 'POST',
-                body: formData
+                body: washWithConn(formData)
             })
             .then(function(r) { return r.json(); })
             .then(function(response) {
@@ -3627,7 +3687,7 @@ ob_start();
 
         fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', {
             method: 'POST',
-            body: formData
+            body: washWithConn(formData)
         })
         .then(function(r) { return r.json(); })
         .then(function(response) {

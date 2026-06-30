@@ -34,6 +34,7 @@ class WashRefreshStatusesTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        \WashContext::setActiveId(null);
 
         if (!defined('HOUR_IN_SECONDS')) { define('HOUR_IN_SECONDS', 3600); }
         if (!defined('WASH_VERSION')) { define('WASH_VERSION', '1.26.7'); }
@@ -110,6 +111,7 @@ class WashRefreshStatusesTest extends TestCase
     protected function tearDown(): void
     {
         unset($_POST['token'], $_POST['offset']);
+        \WashContext::setActiveId(null);
         Monkey\tearDown();
         parent::tearDown();
     }

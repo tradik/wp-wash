@@ -23,6 +23,9 @@ class WashSanitizationTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        // Reset per-connection static state so a memoized WashContext client/id
+        // can't leak between tests (PHPUnit runs in execution-order, not file order).
+        \WashContext::setActiveId(null);
 
         Functions\when('wp_unslash')->returnArg(1);
         Functions\when('sanitize_text_field')->returnArg(1);

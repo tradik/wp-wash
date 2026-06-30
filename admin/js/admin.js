@@ -6,6 +6,24 @@
 (function ($) {
     "use strict";
 
+    // Multi-store (#252): scope every Wash admin AJAX call to the active connection
+    // by appending washConnectionId, so server handlers (blog mappings, redirections,
+    // markets, meta…) resolve the right store. On the primary page this is "primary"
+    // (a no-op server-side), so single-store behaviour is unchanged.
+    $.ajaxPrefilter(function (options) {
+        if (!washAdmin.connectionId || !options.url || options.url.indexOf(washAdmin.ajaxUrl) !== 0) {
+            return;
+        }
+        if (options.data == null) {
+            options.data = {};
+        }
+        if (typeof options.data === "object" && !("washConnectionId" in options.data)) {
+            options.data.washConnectionId = washAdmin.connectionId;
+        } else if (typeof options.data === "string" && options.data.indexOf("washConnectionId=") === -1) {
+            options.data += "&washConnectionId=" + encodeURIComponent(washAdmin.connectionId);
+        }
+    });
+
     // Helper to get i18n string with fallback
     const i18n = (key, fallback) => (washAdmin.i18n && washAdmin.i18n[key]) || fallback;
 

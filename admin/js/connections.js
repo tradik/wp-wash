@@ -1,14 +1,51 @@
 /**
- * Connections manager: OAuth "Connect with Shopify" redirect (#216).
+ * Connections manager (#216, #252).
  * Dynamic values are injected via wp_localize_script as window.washConnData.
+ *
+ * Two behaviours:
+ *  1. "New connection" button reveals the (hidden-by-default) connect panel — the
+ *     same panel the primary store uses above.
+ *  2. "Connect to Shopify" redirects into the Shopify-hosted OAuth add flow.
  */
 (function () {
     'use strict';
 
     var data = window.washConnData || {};
+
+    // 1. Toggle the hidden "new connection" panel.
+    var newBtn = document.getElementById('wash-new-connection-btn');
+    var newPanel = document.getElementById('wash-new-connection');
+    if (newBtn && newPanel) {
+        newBtn.addEventListener('click', function () {
+            var hidden = newPanel.style.display === 'none' || newPanel.style.display === '';
+            newPanel.style.display = hidden ? 'block' : 'none';
+            newBtn.setAttribute('aria-expanded', hidden ? 'true' : 'false');
+            if (hidden) {
+                var storeInput = document.getElementById('wash-oauth-store');
+                if (storeInput) {
+                    storeInput.focus();
+                }
+            }
+        });
+    }
+
+    // 2. OAuth "Connect to Shopify" for the new store.
     var btn = document.getElementById('wash-oauth-connect');
     if (!btn) {
         return;
+    }
+
+    // Gate the connect button on the data-processing consent tick, mirroring the
+    // primary panel. When consent was already recorded the box is checked+disabled,
+    // so the button is enabled from the start; the AJAX save itself is handled by
+    // the shared consent handler in settings-page.php.
+    var consent = document.getElementById('wash-consent-checkbox');
+    function gateConnect() {
+        btn.disabled = !!consent && !consent.checked;
+    }
+    if (consent) {
+        gateConnect();
+        consent.addEventListener('change', gateConnect);
     }
 
     btn.addEventListener('click', function () {
@@ -16,7 +53,8 @@
         var store = ((input && input.value) || '')
             .trim()
             .replace(/^https?:\/\//, '')
-            .replace(/\/.*$/, '');
+            .replace(/\/.*$/, '')
+            .replace(/\.myshopify\.com$/i, '');
 
         if (!store) {
             window.alert(data.enterStoreMsg || 'Enter the store domain first.');

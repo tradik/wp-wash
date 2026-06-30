@@ -102,15 +102,6 @@ class WashConnectionsAdminTest extends TestCase
         $this->fail('Expected a redirect but none happened');
     }
 
-    public function testSettingsSchemaHasSyncKeysAndNoCredentials(): void
-    {
-        $schema = \WashConnectionsAdmin::settingsSchema();
-        $this->assertArrayHasKey('wash_post_types', $schema);
-        $this->assertSame('checkbox', $schema['wash_sync_on_publish']);
-        $this->assertArrayNotHasKey('wash_api_key', $schema);
-        $this->assertArrayNotHasKey('wash_block_robots', $schema);
-    }
-
     public function testInitRegistersHooks(): void
     {
         $actions = [];
@@ -120,10 +111,10 @@ class WashConnectionsAdminTest extends TestCase
         $this->admin->init();
         $this->assertContains('admin_menu', $actions);
         $this->assertContains('admin_post_wash_add_connection', $actions);
-        $this->assertContains('admin_post_wash_save_connection_settings', $actions);
+        $this->assertContains('admin_post_wash_toggle_connection', $actions);
     }
 
-    public function testRegisterPagesAddsManagerAndPerConnectionPages(): void
+    public function testRegisterPagesAddsRoutableSubmenuPerAdditionalStore(): void
     {
         $options = [];
         $subs    = [];
@@ -131,19 +122,39 @@ class WashConnectionsAdminTest extends TestCase
             $options[] = $slug;
         });
         Functions\when('add_submenu_page')->alias(function ($parent, $t, $m, $c, $slug) use (&$subs) {
-            $subs[] = $slug;
+            $subs[] = ['parent' => $parent, 'slug' => $slug];
         });
 
-        $this->admin->registerPages(); // only primary
-        $this->assertSame(['wash-connections'], $options);
+        $this->admin->registerPages(); // only primary → single-store install unchanged
+        $this->assertSame([], $options, 'no standalone connections page anymore');
         $this->assertSame([], $subs);
 
         $this->seedConnection('x1');
-        $options = [];
-        $subs    = [];
+        $subs = [];
         $this->admin->registerPages(); // primary + x1
-        $this->assertSame(['wash-connections'], $options);
-        $this->assertSame(['wash-conn-x1'], $subs);
+        $this->assertSame([], $options);
+        $this->assertCount(1, $subs);
+        // Routable under the real Settings parent (not the old hidden '' parent) —
+        // this is what makes ?page=wash-conn-x1 actually resolve (#252).
+        $this->assertSame('options-general.php', $subs[0]['parent']);
+        $this->assertSame('wash-conn-x1', $subs[0]['slug']);
+    }
+
+    public function testRegisterPagesTruncatesLongStoreLabel(): void
+    {
+        $labels = [];
+        Functions\when('add_options_page')->justReturn(null);
+        Functions\when('add_submenu_page')->alias(function ($parent, $t, $menuLabel) use (&$labels) {
+            $labels[] = $menuLabel;
+        });
+
+        $this->seedConnection('x1', 'super-long-store-name.myshopify.com');
+        $this->admin->registerPages();
+
+        $this->assertCount(1, $labels);
+        $this->assertStringStartsWith('Wash: ', $labels[0]);
+        $this->assertStringContainsString('super-long-store-na', $labels[0]); // first 19 chars
+        $this->assertStringContainsString('…', $labels[0]);                    // truncation marker
     }
 
     public function testManualAddCreatesConnectionAndRedirects(): void
@@ -185,34 +196,10 @@ class WashConnectionsAdminTest extends TestCase
         $this->assertFalse($this->options['wash_connections']['x1']['enabled']);
     }
 
-    public function testSaveConnectionSettingsWritesNamespacedOptions(): void
-    {
-        $this->seedConnection('x1');
-        $_POST = [
-            'washConnectionId'     => 'x1',
-            'wash_post_types'      => 'post,page,product',
-            'wash_sync_on_publish' => '1',
-            // wash_sync_metafields omitted → should be saved as '0'
-        ];
-        $url = $this->expectRedirect(fn() => $this->admin->handleSaveConnectionSettings());
-        $this->assertStringContainsString('page=wash-conn-x1', $url);
-        $this->assertStringContainsString('saved=1', $url);
-        $this->assertSame('post,page,product', $this->options['wash_c_x1_wash_post_types']);
-        $this->assertSame('1', $this->options['wash_c_x1_wash_sync_on_publish']);
-        $this->assertSame('0', $this->options['wash_c_x1_wash_sync_metafields']);
-    }
-
-    public function testSaveConnectionSettingsRejectsPrimary(): void
-    {
-        $_POST = ['washConnectionId' => 'primary'];
-        $url = $this->expectRedirect(fn() => $this->admin->handleSaveConnectionSettings());
-        $this->assertStringContainsString('error=badconn', $url);
-    }
-
     public function testOAuthAddCallbackAddsConnection(): void
     {
         $_GET = [
-            'page' => 'wash-connections', 'wash_callback' => '1', 'wash_add' => '1',
+            'page' => 'wash', 'wash_callback' => '1', 'wash_add' => '1',
             'wash_state' => 'nonce', 'api_key' => 'wp4s_oauth', 'store' => 'shop3',
         ];
         $url = $this->expectRedirect(fn() => $this->admin->handleOAuthAddCallback());
@@ -236,7 +223,7 @@ class WashConnectionsAdminTest extends TestCase
     {
         Functions\when('wp_verify_nonce')->justReturn(false);
         $_GET = [
-            'page' => 'wash-connections', 'wash_callback' => '1', 'wash_add' => '1',
+            'page' => 'wash', 'wash_callback' => '1', 'wash_add' => '1',
             'wash_state' => 'bad', 'api_key' => 'k', 'store' => 's',
         ];
         $url = $this->expectRedirect(fn() => $this->admin->handleOAuthAddCallback());
@@ -248,7 +235,8 @@ class WashConnectionsAdminTest extends TestCase
     {
         \WashContext::setActiveId('primary');
         $url = $this->expectRedirect(fn() => $this->admin->renderConnectionSettings());
-        $this->assertStringContainsString('page=wash-connections', $url);
+        $this->assertStringContainsString('page=wash', $url);
+        $this->assertStringContainsString('tab=connection', $url);
     }
 
     public function testEnqueueAssetsLoadsScriptAndDataOnManagerPage(): void
@@ -266,12 +254,12 @@ class WashConnectionsAdminTest extends TestCase
         Functions\when('get_bloginfo')->justReturn('My Site');
         Functions\when('get_site_url')->justReturn('https://example.com'); // WashApiClient::getShopifyAppSlug
 
-        $this->admin->enqueueAssets('settings_page_wash-connections');
+        $this->admin->enqueueAssets('settings_page_wash');
 
         $this->assertContains('wash-connections', $enqueued);
         $this->assertArrayHasKey('washConnData', $localized);
         $this->assertSame('nonce123', $localized['washConnData']['nonce']);
-        $this->assertSame('wash-connections', $localized['washConnData']['page']);
+        $this->assertSame('wash', $localized['washConnData']['page']);
     }
 
     public function testEnqueueAssetsSkipsUnrelatedPages(): void
@@ -343,7 +331,7 @@ class WashConnectionsAdminTest extends TestCase
     {
         Functions\when('get_transient')->justReturn(['plan' => 'FREE']);
         $_GET = [
-            'page' => 'wash-connections', 'wash_callback' => '1', 'wash_add' => '1',
+            'page' => 'wash', 'wash_callback' => '1', 'wash_add' => '1',
             'wash_state' => 'nonce', 'api_key' => 'wp4s_oauth', 'store' => 'shop3',
         ];
         $url = $this->expectRedirect(fn() => $this->admin->handleOAuthAddCallback());

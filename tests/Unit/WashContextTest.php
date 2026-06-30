@@ -92,6 +92,16 @@ class WashContextTest extends TestCase
         $this->assertSame('x1', \WashContext::activeId());
     }
 
+    public function testActiveIdResolvesFromGetRouting(): void
+    {
+        // fetch()-based tab AJAX (blog mappings, markets…) hits admin-ajax.php with
+        // washConnectionId in the QUERY string and no `page` slug; it must still
+        // resolve to that store, not primary (#252 regression).
+        $this->registerConnection('x1');
+        $_GET['washConnectionId'] = 'x1';
+        $this->assertSame('x1', \WashContext::activeId());
+    }
+
     public function testPostRoutingWinsOverPageSlug(): void
     {
         $this->options['wash_connections'] = [

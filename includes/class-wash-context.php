@@ -44,10 +44,14 @@ class WashContext {
         }
 
         $id = WashConnection::PRIMARY;
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- non-authoritative routing hint only; it selects which connection's settings are displayed/targeted, and the state-changing action (save/add/remove) is separately nonce- and capability-gated.
-        if (isset($_POST['washConnectionId'])) {
-            // phpcs:ignore WordPress.Security.NonceVerification.Missing
-            $id = sanitize_key(wp_unslash($_POST['washConnectionId']));
+        // washConnectionId may arrive via POST (settings save, jQuery AJAX) OR via
+        // GET (the fetch()-based tab calls — blog mappings, markets, locales — hit
+        // admin-ajax.php with a query string and no `page` slug). Check both so AJAX
+        // on an additional store resolves to that store, not primary.
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- non-authoritative routing hint only; it selects which connection's data is displayed/targeted, and every state-changing action is separately nonce- and capability-gated.
+        $washConnIdParam = $_POST['washConnectionId'] ?? ($_GET['washConnectionId'] ?? null); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- see note above.
+        if ($washConnIdParam !== null) {
+            $id = sanitize_key(wp_unslash($washConnIdParam));
             // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- admin page-slug routing only (which connection's screen to render); sanitized, no state change.
         } elseif (isset($_GET['page'])) {
             // phpcs:ignore WordPress.Security.NonceVerification.Recommended

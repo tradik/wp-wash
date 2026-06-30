@@ -20,6 +20,9 @@ class WashHreflangsTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        // Reset per-connection static state so a memoized WashContext client/id
+        // can't leak between tests (PHPUnit runs in execution-order, not file order).
+        \WashContext::setActiveId(null);
 
         // Reset static cached plugin detection between tests
         $ref = new \ReflectionProperty(\WashHreflangs::class, 'activePlugin');

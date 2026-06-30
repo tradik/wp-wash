@@ -11,9 +11,6 @@ if (!defined('ABSPATH')) {
 
 class WashMetafields {
 
-    /** @var WashApiClient */
-    private $apiClient;
-
     /** @var array|null Cached field config for current request */
     public static $fieldConfigCache = null;
 
@@ -64,10 +61,6 @@ class WashMetafields {
         'custom'     => 'wash_custom',
         'hreflang'   => 'wash_hreflang',
     ];
-
-    public function __construct() {
-        $this->apiClient = new WashApiClient();
-    }
 
     /**
      * Read ACF field values from raw post_meta when ACF plugin is deactivated.
@@ -141,7 +134,9 @@ class WashMetafields {
      */
     public function saveFieldConfig(array $config) {
         self::$fieldConfigCache = $config;
-        update_option('wash_meta_field_config', wp_json_encode($config));
+        // Per-store (#252): mirror the WashContext read in getFieldConfig(), so each
+        // connection keeps its own meta-field config instead of sharing primary's.
+        WashContext::updateOption('wash_meta_field_config', wp_json_encode($config));
     }
 
     /**
@@ -399,7 +394,7 @@ class WashMetafields {
             return;
         }
 
-        $this->apiClient->post('/api/metafields', [
+        WashContext::apiClient()->post('/api/metafields', [
             'action'           => 'delete',
             'shopifyArticleId' => $shopifyId,
             'wpSiteId'         => is_multisite() ? get_current_blog_id() : 1,
@@ -447,7 +442,7 @@ class WashMetafields {
 
         $type = $this->inferType($metaValue);
 
-        $this->apiClient->post('/api/metafields', [
+        WashContext::apiClient()->post('/api/metafields', [
             'action'           => 'upsert',
             'shopifyArticleId' => $shopifyId,
             'wpSiteId'         => is_multisite() ? get_current_blog_id() : 1,
@@ -501,7 +496,7 @@ class WashMetafields {
         washLog("[wash] Metafield definitions result: " . wp_json_encode($definitionsResult));
 
         // Then sync metafields
-        $result = $this->apiClient->post('/api/metafields', [
+        $result = WashContext::apiClient()->post('/api/metafields', [
             'action'           => 'upsert',
             'shopifyArticleId' => $shopifyId,
             'wpSiteId'         => is_multisite() ? get_current_blog_id() : 1,
@@ -900,7 +895,7 @@ class WashMetafields {
         // Ensure definitions exist
         $this->ensureMetafieldDefinitions($metafields);
 
-        $this->apiClient->post('/api/metafields', [
+        WashContext::apiClient()->post('/api/metafields', [
             'action'           => 'upsert',
             'shopifyArticleId' => $shopifyId,
             'wpSiteId'         => is_multisite() ? get_current_blog_id() : 1,
@@ -932,7 +927,7 @@ class WashMetafields {
             return ['success' => true, 'count' => 0];
         }
 
-        return $this->apiClient->post('/api/metafield-definitions', [
+        return WashContext::apiClient()->post('/api/metafield-definitions', [
             'action'      => 'ensure',
             'definitions' => array_values($definitions),
         ]);

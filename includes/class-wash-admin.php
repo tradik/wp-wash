@@ -9,13 +9,6 @@ if (!defined('ABSPATH')) {
 
 class WashAdmin {
 
-    /** @var WashApiClient */
-    private $apiClient;
-
-    public function __construct() {
-        $this->apiClient = new WashApiClient();
-    }
-
     /**
      * Initialize admin hooks.
      */
@@ -154,13 +147,13 @@ class WashAdmin {
         }
 
         // Check if plugin is configured
-        if (!$this->apiClient->isConfigured()) {
+        if (!WashContext::apiClient()->isConfigured()) {
             delete_transient('wash_settings_backup_pending');
             return;
         }
 
         // Backup settings to Shopify App
-        $result = $this->apiClient->backupSettings();
+        $result = WashContext::apiClient()->backupSettings();
 
         if (is_wp_error($result)) {
             washLog('[wash] Settings backup failed: ' . $result->get_error_message());
@@ -232,25 +225,42 @@ class WashAdmin {
         ];
 
         foreach ($textSettings as $setting) {
-            register_setting('wash_settings', $setting, [
-                'sanitize_callback' => 'sanitize_text_field',
-            ]);
+            $this->registerConnectionAwareSetting($setting, 'sanitize_text_field');
         }
 
         foreach ($checkboxSettings as $setting) {
-            register_setting('wash_settings', $setting, [
-                'sanitize_callback' => [$this, 'sanitizeCheckbox'],
-            ]);
+            $this->registerConnectionAwareSetting($setting, [$this, 'sanitizeCheckbox']);
         }
 
         // Author mappings array (user_id => author_name)
-        register_setting('wash_settings', 'wash_author_mappings', [
-            'sanitize_callback' => [$this, 'sanitizeAuthorMappings'],
-        ]);
+        $this->registerConnectionAwareSetting('wash_author_mappings', [$this, 'sanitizeAuthorMappings']);
 
         // Allowed file types array
-        register_setting('wash_settings', 'wash_allowed_file_types', [
-            'sanitize_callback' => [$this, 'sanitizeAllowedFileTypes'],
+        $this->registerConnectionAwareSetting('wash_allowed_file_types', [$this, 'sanitizeAllowedFileTypes']);
+    }
+
+    /**
+     * Register a `wash_settings` option whose save is routed to the ACTIVE
+     * connection (#252 multi-store). The settings form posts `washConnectionId`;
+     * on save, a NON-primary connection writes the sanitized value to its
+     * namespaced option (via WashContext) and returns the primary option's current
+     * value so the WordPress Settings API leaves primary untouched. Editing one
+     * store therefore never bleeds into another, and the primary connection saves
+     * exactly as before (single-store behaviour unchanged).
+     *
+     * @param string          $key  Option name (e.g. wash_block_robots).
+     * @param callable|string $base Base sanitize callback for the raw value.
+     */
+    private function registerConnectionAwareSetting($key, $base) {
+        register_setting('wash_settings', $key, [
+            'sanitize_callback' => function ($value) use ($key, $base) {
+                $clean = call_user_func($base, $value);
+                if (WashContext::activeId() === WashConnection::PRIMARY) {
+                    return $clean;
+                }
+                WashContext::updateOption($key, $clean);
+                return get_option($key); // keep the primary (registered) option as-is
+            },
         ]);
     }
 
@@ -332,6 +342,14 @@ class WashAdmin {
         if (!isset($_GET['page']) || $_GET['page'] !== 'wash' || !isset($_GET['wash_callback'])) {
             return;
         }
+        // A second-store OAuth return carries wash_add=1 and is owned by
+        // WashConnectionsAdmin::handleOAuthAddCallback() (it ADDS a connection).
+        // Both handlers fire on ?page=wash, so bail here or we'd overwrite the
+        // primary store's credentials with the newly-connected store's (#252).
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- routing guard only; no state is written in this branch.
+        if (isset($_GET['wash_add'])) {
+            return;
+        }
         if (!current_user_can('manage_options')) {
             return;
         }
@@ -379,7 +397,7 @@ class WashAdmin {
      * Called during reauth when backup is available.
      */
     private function restoreSettingsFromBackup() {
-        $response = $this->apiClient->getBackedUpSettings();
+        $response = WashContext::apiClient()->getBackedUpSettings();
 
         if (is_wp_error($response)) {
             washLog('[wash] Failed to restore settings: ' . $response->get_error_message());
@@ -387,7 +405,7 @@ class WashAdmin {
         }
 
         if (!empty($response['success']) && !empty($response['settings'])) {
-            $this->apiClient->restoreSettings($response['settings']);
+            WashContext::apiClient()->restoreSettings($response['settings']);
             washLog('[wash] Settings restored from backup');
         }
     }
@@ -400,8 +418,13 @@ class WashAdmin {
     public function enqueueAssets($hook) {
         $pluginUrl = washPluginUrl();
 
+        // Wash settings screen: the primary "wash" page OR any per-connection
+        // "wash-conn-<id>" page (#252) — both render the same tabbed settings UI,
+        // so both need the admin CSS/JS.
+        $isWashSettings = ($hook === 'settings_page_wash') || (strpos($hook, 'settings_page_wash-conn-') === 0);
+
         // Load CSS on posts list and settings page
-        if (in_array($hook, ['edit.php', 'settings_page_wash'], true)) {
+        if ($hook === 'edit.php' || $isWashSettings) {
             wp_enqueue_style(
                 'wash-admin',
                 $pluginUrl . 'admin/css/admin.css',
@@ -432,8 +455,8 @@ class WashAdmin {
             return;
         }
 
-        // Load JS only on settings page
-        if ($hook !== 'settings_page_wash') {
+        // Load JS only on the settings screens (primary or per-connection)
+        if (!$isWashSettings) {
             return;
         }
 
@@ -447,6 +470,7 @@ class WashAdmin {
 
         wp_localize_script('wash-admin', 'washAdmin', [
             'ajaxUrl'           => admin_url('admin-ajax.php'),
+            'connectionId'      => WashContext::activeId(),
             'nonce'             => wp_create_nonce('wash_nonce'),
             'disconnectNonce'   => wp_create_nonce('wash_disconnect'),
             'redirectionsNonce' => wp_create_nonce('wash_redirections'),
@@ -582,7 +606,7 @@ class WashAdmin {
         if (!current_user_can('manage_options')) {
             return;
         }
-        include WASH_PLUGIN_DIR . 'admin/views/settings-page.php';
+        include_once WASH_PLUGIN_DIR . 'admin/views/settings-page.php';
     }
 
     /**
@@ -595,7 +619,7 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->testConnection();
+        $result = WashContext::apiClient()->testConnection();
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -652,7 +676,7 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->debugSession();
+        $result = WashContext::apiClient()->debugSession();
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -671,7 +695,7 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->resetSession();
+        $result = WashContext::apiClient()->resetSession();
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -691,7 +715,7 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->fixSession();
+        $result = WashContext::apiClient()->fixSession();
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -731,7 +755,7 @@ class WashAdmin {
         $metafields->saveFieldConfig($detected);
 
         // Backup to Shopify immediately
-        $this->apiClient->backupSettings();
+        WashContext::apiClient()->backupSettings();
 
         wp_send_json_success(['fields' => $detected]);
     }
@@ -761,7 +785,7 @@ class WashAdmin {
         $metafields->saveFieldConfig($config);
 
         // Backup to Shopify immediately (don't rely on shutdown hook in AJAX)
-        $backupResult = $this->apiClient->backupSettings();
+        $backupResult = WashContext::apiClient()->backupSettings();
         $backed = !is_wp_error($backupResult);
 
         wp_send_json_success(['saved' => count($config), 'synced' => $backed]);
@@ -810,9 +834,11 @@ class WashAdmin {
             'wash_author_mappings'   => [],
         ];
 
-        // Update each option to its default value
+        // Update each option to its default value, scoped to the active connection
+        // (#252) so "Reset to defaults" on an additional store resets that store, not
+        // primary. For primary, WashContext::updateOption === update_option.
         foreach ($defaults as $option => $value) {
-            update_option($option, $value);
+            WashContext::updateOption($option, $value);
         }
 
         // Backup the reset settings to Shopify App
@@ -835,7 +861,7 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $response = $this->apiClient->getBackedUpSettings();
+        $response = WashContext::apiClient()->getBackedUpSettings();
 
         if (is_wp_error($response)) {
             wp_send_json_error($response->get_error_message());
@@ -845,7 +871,7 @@ class WashAdmin {
             wp_send_json_error(__('No settings found in Shopify App. Save settings in Shopify first.', 'wash-blog-manager'));
         }
 
-        $this->apiClient->restoreSettings($response['settings']);
+        WashContext::apiClient()->restoreSettings($response['settings']);
 
         wp_send_json_success([
             'message' => __('Settings synced from Shopify App successfully.', 'wash-blog-manager'),
@@ -862,7 +888,7 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->get('/api/blog-mappings');
+        $result = WashContext::apiClient()->get('/api/blog-mappings');
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -881,7 +907,7 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->get('/api/shopify-blogs');
+        $result = WashContext::apiClient()->get('/api/shopify-blogs');
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -900,7 +926,7 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->get('/api/shopify-markets');
+        $result = WashContext::apiClient()->get('/api/shopify-markets');
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -920,7 +946,7 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->get('/api/shop-locales');
+        $result = WashContext::apiClient()->get('/api/shop-locales');
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -939,7 +965,7 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->get('/api/shop-domains');
+        $result = WashContext::apiClient()->get('/api/shop-domains');
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -970,7 +996,7 @@ class WashAdmin {
             'shopifyLocale'  => sanitize_text_field(wp_unslash($_POST['shopifyLocale'] ?? '')),
         ];
 
-        $result = $this->apiClient->post('/api/blog-mappings', $data);
+        $result = WashContext::apiClient()->post('/api/blog-mappings', $data);
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -1008,7 +1034,7 @@ class WashAdmin {
             'shopifyLocale'  => sanitize_text_field(wp_unslash($_POST['shopifyLocale'] ?? '')),
         ];
 
-        $result = $this->apiClient->post('/api/blog-mappings/' . $mappingId, $data);
+        $result = WashContext::apiClient()->post('/api/blog-mappings/' . $mappingId, $data);
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -1032,7 +1058,7 @@ class WashAdmin {
             wp_send_json_error(__('Mapping ID is required', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->delete('/api/blog-mappings/' . $mappingId);
+        $result = WashContext::apiClient()->delete('/api/blog-mappings/' . $mappingId);
 
         if (is_wp_error($result)) {
             wp_send_json_error($result->get_error_message());
@@ -1065,7 +1091,7 @@ class WashAdmin {
                 continue;
             }
 
-            $result = $this->apiClient->post('/api/blog-mappings/' . $id, [
+            $result = WashContext::apiClient()->post('/api/blog-mappings/' . $id, [
                 'priority' => $priority,
             ]);
 
@@ -1091,11 +1117,11 @@ class WashAdmin {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->get('/api/redirections');
+        $result = WashContext::apiClient()->get('/api/redirections');
 
         if (is_wp_error($result)) {
             // Try to get diagnosis for better error message
-            $diagnosis = $this->apiClient->diagnose();
+            $diagnosis = WashContext::apiClient()->diagnose();
             $errorMsg = $result->get_error_message();
 
             if (!is_wp_error($diagnosis) && isset($diagnosis['fix'])) {
@@ -1132,7 +1158,7 @@ class WashAdmin {
             // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- required to enumerate already-synced posts (those carrying _wash_article_id meta) for a reconciliation pass; alternative would be denormalising into a custom table just for this admin-only batch operation.
             'meta_query'     => [
                 [
-                    'key'     => '_wash_article_id',
+                    'key'     => WashContext::metaKey('_wash_article_id'),
                     'compare' => 'EXISTS',
                 ],
             ],
@@ -1145,7 +1171,7 @@ class WashAdmin {
             if ($post->post_type === 'page') {
                 $shopifyPath = '/pages/' . $post->post_name;
             } else {
-                $blogHandle = get_post_meta($post->ID, '_wash_blog_handle', true);
+                $blogHandle = get_post_meta($post->ID, WashContext::metaKey('_wash_blog_handle'), true);
                 if (empty($blogHandle)) {
                     $blogHandle = 'news';
                 }
@@ -1189,13 +1215,13 @@ class WashAdmin {
             wp_send_json_error(__('No valid redirections found. Format: /old-path -> /new-path', 'wash-blog-manager'));
         }
 
-        $result = $this->apiClient->post('/api/redirections', [
+        $result = WashContext::apiClient()->post('/api/redirections', [
             'redirects' => $redirections,
         ]);
 
         if (is_wp_error($result)) {
             // Try to get diagnosis for better error message
-            $diagnosis = $this->apiClient->diagnose();
+            $diagnosis = WashContext::apiClient()->diagnose();
             $errorMsg = $result->get_error_message();
 
             if (!is_wp_error($diagnosis) && isset($diagnosis['fix'])) {
@@ -1291,7 +1317,7 @@ class WashAdmin {
         }
 
         $enabled = isset($_POST['enabled']) && $_POST['enabled'] === '1' ? '1' : '0';
-        update_option('wash_redirections_enabled', $enabled);
+        WashContext::updateOption('wash_redirections_enabled', $enabled);
 
         wp_send_json_success([
             'message' => __('Settings saved', 'wash-blog-manager'),
@@ -1351,7 +1377,7 @@ class WashAdmin {
             ];
         }
 
-        update_option('wash_search_replace_rules', $sanitized);
+        WashContext::updateOption('wash_search_replace_rules', $sanitized);
 
         wp_send_json_success([
             'message' => __('Rules saved', 'wash-blog-manager'),
@@ -1532,7 +1558,7 @@ class WashAdmin {
         $links = [];
 
         // Products
-        $products = $this->apiClient->get('/api/shopify-products');
+        $products = WashContext::apiClient()->get('/api/shopify-products');
         if (!is_wp_error($products) && !empty($products['products'])) {
             foreach ($products['products'] as $p) {
                 $handle = $p['handle'] ?? '';
@@ -1547,7 +1573,7 @@ class WashAdmin {
         }
 
         // Collections
-        $collections = $this->apiClient->get('/api/shopify-collections');
+        $collections = WashContext::apiClient()->get('/api/shopify-collections');
         if (!is_wp_error($collections) && !empty($collections['collections'])) {
             foreach ($collections['collections'] as $c) {
                 $handle = $c['handle'] ?? '';
@@ -1562,7 +1588,7 @@ class WashAdmin {
         }
 
         // Blogs + synced articles
-        $blogs = $this->apiClient->get('/api/shopify-blogs');
+        $blogs = WashContext::apiClient()->get('/api/shopify-blogs');
         if (!is_wp_error($blogs) && !empty($blogs['blogs'])) {
             foreach ($blogs['blogs'] as $b) {
                 $handle = $b['handle'] ?? '';
@@ -1582,11 +1608,11 @@ class WashAdmin {
             'post_status'    => 'publish',
             'posts_per_page' => -1,
             // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- admin-only enumeration of synced posts (carrying _wash_article_id) to build a redirect map; meta_query is the right primitive here.
-            'meta_query'     => [['key' => '_wash_article_id', 'compare' => 'EXISTS']],
+            'meta_query'     => [['key' => WashContext::metaKey('_wash_article_id'), 'compare' => 'EXISTS']],
             'fields'         => 'ids',
         ]);
         foreach ($syncedPosts as $postId) {
-            $blogHandle = get_post_meta($postId, '_wash_blog_handle', true) ?: 'news';
+            $blogHandle = get_post_meta($postId, WashContext::metaKey('_wash_blog_handle'), true) ?: 'news';
             $slug = get_post_field('post_name', $postId);
             $title = get_the_title($postId);
             if ($slug) {
@@ -1604,7 +1630,7 @@ class WashAdmin {
             'post_status'    => 'publish',
             'posts_per_page' => -1,
             // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- see above; same pattern for synced pages.
-            'meta_query'     => [['key' => '_wash_article_id', 'compare' => 'EXISTS']],
+            'meta_query'     => [['key' => WashContext::metaKey('_wash_article_id'), 'compare' => 'EXISTS']],
             'fields'         => 'ids',
         ]);
         foreach ($syncedPages as $pageId) {
@@ -1832,6 +1858,24 @@ class WashAdmin {
             return;
         }
 
+        // Multi-store (#252): with more than one enabled connection, show one icon
+        // per enabled store, each read from that store's own per-connection sync
+        // meta — so the merchant sees the post's status across every site, not just
+        // primary. A single-store install keeps the original rich single icon below.
+        $washEnabledConns = array_filter(WashConnection::all(), static function ($c) {
+            return !empty($c['enabled']);
+        });
+        if (count($washEnabledConns) > 1) {
+            echo '<span style="display:inline-flex; gap:6px; align-items:center; flex-wrap:wrap;">';
+            foreach ($washEnabledConns as $washConnId => $washConn) {
+                WashContext::setActiveId($washConnId);
+                $this->renderConnectionSyncIcon($postId, $washConn);
+            }
+            WashContext::setActiveId(null);
+            echo '</span>';
+            return;
+        }
+
         $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
         $syncedAt = get_post_meta($postId, '_wash_synced_at', true);
         $syncStatus = get_post_meta($postId, '_wash_sync_status', true);
@@ -1907,6 +1951,46 @@ class WashAdmin {
                 echo '<span class="dashicons dashicons-hidden" style="color: #ccc;" title="' . esc_attr__('Draft - will sync when published', 'wash-blog-manager') . '"></span>';
             }
         }
+    }
+
+    /**
+     * Render one enabled connection's sync icon for the posts-list column (#252).
+     * Reads the post's per-connection sync meta under the ALREADY-active WashContext
+     * and echoes a compact dashicon labelled with the store, linking to the store's
+     * article when synced.
+     *
+     * @param int                 $postId
+     * @param array<string,mixed> $conn   Connection (id, store, …) currently active.
+     */
+    private function renderConnectionSyncIcon($postId, $conn) {
+        $store     = $conn['store'] !== '' ? $conn['store'] : (string) $conn['id'];
+        $articleId = get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true);
+        $status    = get_post_meta($postId, WashContext::metaKey('_wash_sync_status'), true);
+        $error     = get_post_meta($postId, WashContext::metaKey('_wash_sync_error'), true);
+
+        if (!empty($articleId)) {
+            /* translators: %s is the Shopify store domain. */
+            $title = sprintf(__('Synced to %s', 'wash-blog-manager'), $store);
+            echo '<a href="' . esc_url($this->getShopifyArticleUrl($postId)) . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr($title) . '">';
+            echo '<span class="dashicons dashicons-yes-alt" style="color: #46b450;"></span>';
+            echo '</a>';
+            return;
+        }
+        if ($status === 'queued') {
+            /* translators: %s is the Shopify store domain. */
+            $title = sprintf(__('Sync queued for %s', 'wash-blog-manager'), $store);
+            echo '<span class="dashicons dashicons-update wash-syncing" style="color: #f0b849;" title="' . esc_attr($title) . '" data-post-id="' . esc_attr($postId) . '"></span>';
+            return;
+        }
+        if (!empty($error)) {
+            /* translators: %s is the Shopify store domain. */
+            $title = sprintf(__('Sync to %s failed', 'wash-blog-manager'), $store);
+            echo '<span class="dashicons dashicons-warning" style="color: #d63638;" title="' . esc_attr($title) . '"></span>';
+            return;
+        }
+        /* translators: %s is the Shopify store domain. */
+        $title = sprintf(__('Not synced to %s', 'wash-blog-manager'), $store);
+        echo '<span class="dashicons dashicons-minus" style="color: #ddd;" title="' . esc_attr($title) . '"></span>';
     }
 
     /**
@@ -1998,7 +2082,7 @@ class WashAdmin {
      * @return array Modified row actions.
      */
     public function addShopifyRowActions($actions, $post) {
-        if (!$this->apiClient->isConfigured()) {
+        if (!WashContext::apiClient()->isConfigured()) {
             return $actions;
         }
 
@@ -2106,7 +2190,7 @@ class WashAdmin {
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Unauthorized', 'wash-blog-manager'));
         }
-        if (!$this->apiClient->isConfigured()) {
+        if (!WashContext::apiClient()->isConfigured()) {
             wp_send_json_error(__('Not connected to Shopify.', 'wash-blog-manager'));
         }
 
@@ -2144,7 +2228,7 @@ class WashAdmin {
             wp_send_json_success(['restored' => 0, 'notSynced' => 0, 'errors' => 0, 'nextOffset' => $offset, 'done' => true]);
         }
 
-        $response = $this->apiClient->post('/api/check-status', [
+        $response = WashContext::apiClient()->post('/api/check-status', [
             'wpPostIds' => array_values($batch),
             'wpSiteId'  => get_current_blog_id(),
         ]);
@@ -2552,7 +2636,7 @@ class WashAdmin {
         // Setup notice when the plugin isn't connected. Scoped to the content
         // screens where it is actionable (post list + editor) and dismissible —
         // never shown dashboard-wide, so it doesn't hijack the admin (Guideline 11).
-        if (!$this->apiClient->isConfigured()
+        if (!WashContext::apiClient()->isConfigured()
             && $screen && in_array($screen->base, ['edit', 'post'], true)
         ) {
             $settingsUrl = admin_url('options-general.php?page=wash');
@@ -2821,7 +2905,7 @@ class WashAdmin {
      * @return array Modified bulk actions.
      */
     public function addBulkActions($bulkActions) {
-        if (!$this->apiClient->isConfigured()) {
+        if (!WashContext::apiClient()->isConfigured()) {
             return $bulkActions;
         }
 
@@ -2916,7 +3000,7 @@ class WashAdmin {
             return $redirectTo;
         }
 
-        if (!$this->apiClient->isConfigured()) {
+        if (!WashContext::apiClient()->isConfigured()) {
             return add_query_arg('wash_bulk_error', 'not_configured', $redirectTo);
         }
 
@@ -3103,7 +3187,7 @@ class WashAdmin {
             $payload['translationGroup'] = $group;
         }
 
-        $result = $this->apiClient->post($endpoint, $payload);
+        $result = WashContext::apiClient()->post($endpoint, $payload);
 
         // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r -- routed through washLog() which is gated by the WASH_DEBUG constant (off in production); the result array is helpful in debug output.
         washLog("[wash] unpublishFromShopify result: " . print_r($result, true));

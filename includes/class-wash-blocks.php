@@ -10,18 +10,11 @@ if (!defined('ABSPATH')) {
 
 class WashBlocks {
 
-    /** @var WashApiClient */
-    private $apiClient;
-
     /** @var array Extracted block metadata */
     private $extractedMeta = [];
 
     /** @var array Block CSS collected during parsing */
     private $collectedCss = [];
-
-    public function __construct() {
-        $this->apiClient = new WashApiClient();
-    }
 
     /**
      * Register WordPress hooks for block processing.

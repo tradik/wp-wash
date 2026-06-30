@@ -13,8 +13,20 @@ if (!defined('ABSPATH')) {
 
 class WashConnectionsAdmin {
 
-    /** Manager page slug. */
-    const PAGE = 'wash-connections';
+    /**
+     * The single multi-store hub: the Connection tab of the primary Manager page
+     * (WashAdmin's `wash` page). There is no separate "Connections" page anymore —
+     * the list + add-store flow live here, and per-store settings hang off it as
+     * routable Settings submenu items (#252).
+     *
+     * @param string $key   Optional status flag name (added/removed/error/…).
+     * @param string $value Optional status flag value.
+     * @return string Admin URL of the hub, with the flag appended when given.
+     */
+    private static function hubUrl($key = '', $value = '') {
+        $url = admin_url('options-general.php?page=wash&tab=connection');
+        return $key === '' ? $url : add_query_arg($key, $value, $url);
+    }
 
     /**
      * Register the admin hooks. The primary settings page (WashAdmin) is untouched,
@@ -27,7 +39,6 @@ class WashConnectionsAdmin {
         add_action('admin_post_wash_add_connection', [$this, 'handleManualAdd']);
         add_action('admin_post_wash_remove_connection', [$this, 'handleRemove']);
         add_action('admin_post_wash_toggle_connection', [$this, 'handleToggle']);
-        add_action('admin_post_wash_save_connection_settings', [$this, 'handleSaveConnectionSettings']);
 
         // Background plan-downgrade enforcement for merchants who never open the page.
         add_action('wash_enforce_plan', [$this, 'enforcePlanDowngrade']);
@@ -43,7 +54,9 @@ class WashConnectionsAdmin {
      * @param string $hook Current admin page hook suffix.
      */
     public function enqueueAssets($hook) {
-        if ($hook !== 'settings_page_' . self::PAGE) {
+        // The add-store UI now lives on the primary Manager page (Connection tab),
+        // so the OAuth-connect script loads there — not on a separate page.
+        if ($hook !== 'settings_page_wash') {
             return;
         }
         wp_enqueue_script(
@@ -55,7 +68,7 @@ class WashConnectionsAdmin {
         );
         wp_localize_script('wash-connections', 'washConnData', array(
             'managerBase'   => admin_url('options-general.php'),
-            'page'          => self::PAGE,
+            'page'          => 'wash',
             'nonce'         => wp_create_nonce('wash_connect_add'),
             'appSlug'       => (new WashApiClient())->getShopifyAppSlug(),
             'siteName'      => get_bloginfo('name'),
@@ -69,46 +82,19 @@ class WashConnectionsAdmin {
     }
 
     /**
-     * Per-connection sync settings — the single source of truth shared by the
-     * settings view and the save handler (DRY). Credentials (store/api_key/http)
-     * are part of the connection identity and are not edited here; site-wide
-     * options (block_robots, uninstall_remove_data, consent) stay global.
+     * Register one routable Settings submenu item per ADDITIONAL connection (#252).
      *
-     * @return array<string,string> option key => type ('text'|'checkbox'|'csv')
-     */
-    public static function settingsSchema() {
-        return array(
-            'wash_post_types'             => 'csv',
-            'wash_sync_on_publish'        => 'checkbox',
-            'wash_sync_metafields'        => 'checkbox',
-            'wash_hreflangs_enabled'      => 'checkbox',
-            'wash_authors_enabled'        => 'checkbox',
-            'wash_files_enabled'          => 'checkbox',
-            'wash_rewrite_internal_urls'  => 'checkbox',
-            'wash_blocks_enabled'         => 'checkbox',
-            'wash_sync_blocks_meta'       => 'checkbox',
-            'wash_sync_blocks_css'        => 'checkbox',
-            'wash_transform_rankmath_faq' => 'checkbox',
-            'wash_redirections_enabled'   => 'checkbox',
-            'wash_sync_inline'            => 'checkbox',
-        );
-    }
-
-    /**
-     * Register the manager page plus a hidden settings page per additional
-     * connection. The hidden page uses the `wash-conn-<id>` slug that
-     * WashContext::activeId() routes on, so its form reads/writes that
-     * connection's namespaced options.
+     * The agreed #216 nav model: a single store changes nothing (only WashAdmin's
+     * "Wash: Manager" shows); once a second store exists, each extra store appears
+     * under Settings as its own "Wash: <domain>" item linking straight to that
+     * store's sync settings. The slug is `wash-conn-<id>`, which WashContext::activeId()
+     * routes on, so the form reads/writes that connection's namespaced options.
+     *
+     * Registering under the real `options-general.php` parent (not the old hidden
+     * `''` parent) is what makes `?page=wash-conn-<id>` actually route — the bug
+     * behind the dead "Settings" links.
      */
     public function registerPages() {
-        add_options_page(
-            __('Wash Connections', 'wash-blog-manager'),
-            __('Wash: Connections', 'wash-blog-manager'),
-            'manage_options',
-            self::PAGE,
-            [$this, 'renderManager']
-        );
-
         foreach (WashConnection::all() as $id => $conn) {
             if (!empty($conn['isPrimary'])) {
                 continue;
@@ -116,14 +102,33 @@ class WashConnectionsAdmin {
             /* translators: %s: Shopify store domain */
             $pageTitle = sprintf(__('Wash: %s', 'wash-blog-manager'), $conn['store']);
             add_submenu_page(
-                '', // hidden: registered for URL routing only, not shown in any menu
+                'options-general.php',
                 $pageTitle,
-                '',
+                self::menuLabel($conn['store']),
                 'manage_options',
                 'wash-conn-' . $id,
                 [$this, 'renderConnectionSettings']
             );
         }
+    }
+
+    /**
+     * Settings-submenu label for an additional connection: "Wash: <domain>", with
+     * the domain truncated to ~20 chars (#216) so a long myshopify host can't blow
+     * out the menu width.
+     *
+     * @param string $store Shopify store domain.
+     * @return string
+     */
+    private static function menuLabel($store) {
+        $store = (string) $store;
+        if ($store === '') {
+            $store = __('(no domain)', 'wash-blog-manager');
+        } elseif (mb_strlen($store) > 20) {
+            $store = mb_substr($store, 0, 19) . '…';
+        }
+        /* translators: %s: Shopify store domain (truncated to fit the menu) */
+        return sprintf(__('Wash: %s', 'wash-blog-manager'), $store);
     }
 
     /**
@@ -151,7 +156,7 @@ class WashConnectionsAdmin {
      * multi-store (downgrade). The sync fan-out skips disabled connections, so this
      * stops content reaching the extra stores. Re-upgrading re-enables them by hand.
      */
-    public function enforcePlanDowngrade() {
+    public static function enforcePlanDowngrade() {
         if (self::planAllowsMultiStore()) {
             return;
         }
@@ -162,15 +167,6 @@ class WashConnectionsAdmin {
         }
     }
 
-    /** Render the connections manager (list + add forms). */
-    public function renderManager() {
-        if (!current_user_can('manage_options')) {
-            return;
-        }
-        $this->enforcePlanDowngrade(); // reflect a lapsed plan the moment the page opens
-        include_once WASH_PLUGIN_DIR . 'admin/views/connections-page.php';
-    }
-
     /** Render a single additional connection's sync settings. */
     public function renderConnectionSettings() {
         if (!current_user_can('manage_options')) {
@@ -178,12 +174,15 @@ class WashConnectionsAdmin {
         }
         $washConnectionId = WashContext::activeId();
         if (WashConnection::isPrimary($washConnectionId) || !WashConnection::exists($washConnectionId)) {
-            wp_safe_redirect(admin_url('options-general.php?page=' . self::PAGE));
+            wp_safe_redirect(self::hubUrl());
             exit;
         }
-        // The view recomputes the id + connection from WashContext (kept off this
-        // scope to avoid an "unused local" smell — include() shares scope anyway).
-        include_once WASH_PLUGIN_DIR . 'admin/views/connection-settings-page.php';
+        // Render the SAME full tabbed plugin UI as the primary, scoped to this
+        // store (#252): WashContext is already pinned to this connection, so every
+        // wash_* read/write and API call inside the view targets it. One plugin,
+        // independent settings per store.
+        WashContext::setActiveId($washConnectionId);
+        include_once WASH_PLUGIN_DIR . 'admin/views/settings-page.php';
     }
 
     /** Manual "paste credentials" add. */
@@ -225,28 +224,6 @@ class WashConnectionsAdmin {
         $this->redirectManager('toggled', $enabled ? '1' : '0');
     }
 
-    /** Save an additional connection's sync settings through WashContext. */
-    public function handleSaveConnectionSettings() {
-        $this->guard('wash_save_connection_settings');
-        $id = isset($_POST['washConnectionId']) ? sanitize_key(wp_unslash($_POST['washConnectionId'])) : '';
-        if (!WashConnection::exists($id) || WashConnection::isPrimary($id)) {
-            $this->redirectManager('error', 'badconn');
-        }
-        WashContext::setActiveId($id);
-
-        foreach (self::settingsSchema() as $key => $type) {
-            if ($type === 'checkbox') {
-                WashContext::updateOption($key, (isset($_POST[$key]) && $_POST[$key] === '1') ? '1' : '0');
-                continue;
-            }
-            $raw = isset($_POST[$key]) ? sanitize_text_field(wp_unslash($_POST[$key])) : '';
-            WashContext::updateOption($key, $raw);
-        }
-
-        wp_safe_redirect($this->connectionUrl($id, 'saved'));
-        exit;
-    }
-
     /**
      * Complete an OAuth add: the Shopify app redirects back to the manager page
      * with the new store's api_key + store, carrying our wash_add marker and the
@@ -255,7 +232,7 @@ class WashConnectionsAdmin {
      */
     public function handleOAuthAddCallback() {
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- routing guard only; the wash_connect_add nonce is verified below before any write.
-        if (!isset($_GET['page'], $_GET['wash_callback'], $_GET['wash_add']) || $_GET['page'] !== self::PAGE) {
+        if (!isset($_GET['page'], $_GET['wash_callback'], $_GET['wash_add']) || $_GET['page'] !== 'wash') {
             return;
         }
         if (!current_user_can('manage_options')) {
@@ -287,9 +264,9 @@ class WashConnectionsAdmin {
         check_admin_referer($action);
     }
 
-    /** Redirect back to the manager with a status flag. */
+    /** Redirect back to the multi-store hub (Manager → Connection tab) with a status flag. */
     private function redirectManager($key, $value) {
-        wp_safe_redirect(add_query_arg($key, $value, admin_url('options-general.php?page=' . self::PAGE)));
+        wp_safe_redirect(self::hubUrl($key, $value));
         exit;
     }
 }

@@ -23,6 +23,9 @@ class WashBlocksPassthroughTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        // Reset per-connection static state so a memoized WashContext client/id
+        // can't leak between tests (PHPUnit runs in execution-order, not file order).
+        \WashContext::setActiveId(null);
 
         Functions\when('get_option')->alias(function ($key, $default = '') {
             return match ($key) {

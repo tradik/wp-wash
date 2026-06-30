@@ -9,13 +9,6 @@ if (!defined('ABSPATH')) {
 
 class WashImages {
 
-    /** @var WashApiClient */
-    private $apiClient;
-
-    public function __construct() {
-        $this->apiClient = new WashApiClient();
-    }
-
     /**
      * Register WordPress hooks for file sync.
      */
@@ -127,7 +120,7 @@ class WashImages {
             'alt'            => $altText ?: basename($filePath),
         ];
 
-        $result = $this->apiClient->post('/api/image-sync', $payload);
+        $result = WashContext::apiClient()->post('/api/image-sync', $payload);
 
         if (is_wp_error($result)) {
             washLog("[wash] uploadToShopify() - API error: " . $result->get_error_message());
@@ -163,7 +156,7 @@ class WashImages {
      * Delete an image from Shopify via the Shopify App API.
      */
     private function deleteFromShopify($attachmentId) {
-        $result = $this->apiClient->post('/api/image-sync', [
+        $result = WashContext::apiClient()->post('/api/image-sync', [
             'action'         => 'delete',
             'wpAttachmentId' => $attachmentId,
             'wpSiteId'       => is_multisite() ? get_current_blog_id() : 1,

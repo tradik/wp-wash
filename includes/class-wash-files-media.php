@@ -9,13 +9,6 @@ if (!defined('ABSPATH')) {
 
 class WashFilesMedia {
 
-    /** @var WashApiClient */
-    private $apiClient;
-
-    public function __construct() {
-        $this->apiClient = new WashApiClient();
-    }
-
     /**
      * Initialize hooks if Files & Media feature is enabled.
      */
@@ -102,7 +95,7 @@ class WashFilesMedia {
      * @return array Modified row actions.
      */
     public function addSyncRowAction($actions, $post) {
-        if (!$this->apiClient->isConfigured()) {
+        if (!WashContext::apiClient()->isConfigured()) {
             return $actions;
         }
 
@@ -219,7 +212,7 @@ class WashFilesMedia {
      * @return array Modified bulk actions.
      */
     public function addBulkSyncAction($actions) {
-        if ($this->apiClient->isConfigured()) {
+        if (WashContext::apiClient()->isConfigured()) {
             $actions['wash_bulk_sync'] = __('Sync to Shopify', 'wash-blog-manager');
         }
         return $actions;
@@ -306,7 +299,7 @@ class WashFilesMedia {
      * @return array Modified form fields.
      */
     public function addAttachmentSyncField($formFields, $post) {
-        if (!$this->apiClient->isConfigured()) {
+        if (!WashContext::apiClient()->isConfigured()) {
             return $formFields;
         }
 
@@ -364,7 +357,7 @@ class WashFilesMedia {
      * @param WP_Post $post Attachment post object.
      */
     public function renderAttachmentSyncButton($post) {
-        if (!$this->apiClient->isConfigured()) {
+        if (!WashContext::apiClient()->isConfigured()) {
             return;
         }
 
@@ -416,7 +409,7 @@ class WashFilesMedia {
             return;
         }
 
-        if (!$this->apiClient->isConfigured()) {
+        if (!WashContext::apiClient()->isConfigured()) {
             return;
         }
 

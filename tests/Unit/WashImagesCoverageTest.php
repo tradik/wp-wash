@@ -24,6 +24,9 @@ class WashImagesCoverageTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        // Reset per-connection static state so a memoized WashContext client/id
+        // can't leak between tests (PHPUnit runs in execution-order, not file order).
+        \WashContext::setActiveId(null);
 
         $this->optionMap = [
             'wash_api_key'             => 'test-key',

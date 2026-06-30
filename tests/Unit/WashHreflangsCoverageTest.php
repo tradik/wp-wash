@@ -41,6 +41,12 @@ class StubApiClient extends \WashApiClient
 
 /**
  * WashHreflangs sub-class that exposes a replaceable apiClient for testing.
+ *
+ * WashHreflangs no longer holds its own client (#252): it resolves the API
+ * client per call via WashContext::apiClient(). We therefore seed the stub into
+ * WashContext's memoized client map for the primary connection, so every
+ * WashContext::apiClient() call inside the class returns our recording stub.
+ * $this->stub stays as a handle the tests read ($h->stub->calls / ->nextResult).
  */
 class TestableWashHreflangs extends \WashHreflangs
 {
@@ -48,12 +54,13 @@ class TestableWashHreflangs extends \WashHreflangs
 
     public function __construct()
     {
-        // Skip parent constructor – we set up apiClient manually.
         $this->stub = new StubApiClient();
-        // Inject via reflection.
-        $ref = new \ReflectionProperty(\WashHreflangs::class, 'apiClient');
+        // Force the active connection to primary and inject the stub as its
+        // memoized client, so WashContext::apiClient() hands it back.
+        \WashContext::setActiveId(\WashConnection::PRIMARY);
+        $ref = new \ReflectionProperty(\WashContext::class, 'clients');
         $ref->setAccessible(true);
-        $ref->setValue($this, $this->stub);
+        $ref->setValue(null, [\WashConnection::PRIMARY => $this->stub]);
     }
 }
 
@@ -130,12 +137,14 @@ class WashHreflangsCoverageTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        \WashContext::setActiveId(null);
         $this->resetCache();
         $this->stubBasicOptions();
     }
 
     protected function tearDown(): void
     {
+        \WashContext::setActiveId(null);
         Monkey\tearDown();
         parent::tearDown();
     }
@@ -2222,10 +2231,11 @@ class WashHreflangsCoverageTest extends TestCase
         $this->assertSame([], $result);
     }
 
-    /** Verify the constructor using WashApiClient directly (line 31) */
+    /** WashHreflangs resolves its client per call via WashContext::apiClient() (#252) */
     public function testConstructorCreatesApiClient(): void
     {
-        // Use the real WashHreflangs constructor — needs WashApiClient construction stubs
+        // The class no longer holds its own client; it asks WashContext for the
+        // active connection's client. Needs WashApiClient construction stubs.
         Functions\when('get_option')->alias(function ($key, $default = '') {
             return match ($key) {
                 'wash_api_key'   => 'test-key',
@@ -2237,10 +2247,13 @@ class WashHreflangsCoverageTest extends TestCase
         });
         Functions\when('get_site_url')->justReturn('https://example.com');
 
-        $h = new \WashHreflangs();
-        $ref = new \ReflectionProperty(\WashHreflangs::class, 'apiClient');
+        // Reset the memoized client map so this test builds a real WashApiClient.
+        $ref = new \ReflectionProperty(\WashContext::class, 'clients');
         $ref->setAccessible(true);
-        $this->assertInstanceOf(\WashApiClient::class, $ref->getValue($h));
+        $ref->setValue(null, []);
+        \WashContext::setActiveId(\WashConnection::PRIMARY);
+
+        $this->assertInstanceOf(\WashApiClient::class, \WashContext::apiClient());
     }
 
     /** Cover wpml_language_details array path in getWpmlDefaultLocale */

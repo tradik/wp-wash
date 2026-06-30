@@ -18,18 +18,11 @@ if (!defined('ABSPATH')) {
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- This class is a WPML / Polylang integration; all `wpml_*` filters/actions used below are WPML plugin hooks (defined by sitepress-multilingual-cms), not hooks owned by Wash. Renaming them would break the integration.
 class WashHreflangs {
 
-    /** @var WashApiClient */
-    private $apiClient;
-
     /** @var string Metafield namespace for hreflangs */
     private const NAMESPACE = 'wash_hreflang';
 
     /** @var array Cached active plugin detection */
     private static $activePlugin = null;
-
-    public function __construct() {
-        $this->apiClient = new WashApiClient();
-    }
 
     /**
      * Initialize hreflang hooks.
@@ -81,7 +74,7 @@ class WashHreflangs {
         $this->ensureHreflangDefinitions($hreflangs);
 
         // Sync hreflang metafields
-        $result = $this->apiClient->post('/api/metafields', [
+        $result = WashContext::apiClient()->post('/api/metafields', [
             'action'           => 'upsert',
             'shopifyArticleId' => $shopifyId,
             'wpSiteId'         => is_multisite() ? get_current_blog_id() : 1,
@@ -747,7 +740,7 @@ class WashHreflangs {
      * @return array Result
      */
     private function clearHreflangMetafields($shopifyId) {
-        $result = $this->apiClient->post('/api/metafields', [
+        $result = WashContext::apiClient()->post('/api/metafields', [
             'action'           => 'delete_namespace',
             'shopifyArticleId' => $shopifyId,
             'wpSiteId'         => is_multisite() ? get_current_blog_id() : 1,
@@ -789,7 +782,7 @@ class WashHreflangs {
             return;
         }
 
-        $this->apiClient->post('/api/metafield-definitions', [
+        WashContext::apiClient()->post('/api/metafield-definitions', [
             'action'      => 'ensure',
             'definitions' => array_values($definitions),
         ]);

@@ -61,6 +61,7 @@ class WashAdminCoverageTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        \WashContext::setActiveId(null);
 
         if (!defined('HOUR_IN_SECONDS')) {
             define('HOUR_IN_SECONDS', 3600);
@@ -196,6 +197,7 @@ class WashAdminCoverageTest extends TestCase
             $ref->setAccessible(true);
             $ref->setValue(null, null);
         }
+        \WashContext::setActiveId(null);
         Monkey\tearDown();
         parent::tearDown();
     }
@@ -568,6 +570,50 @@ class WashAdminCoverageTest extends TestCase
         $this->admin->renderShopifyColumn('wash_sync', 45);
         $html = ob_get_clean();
         $this->assertStringContainsString('dashicons-hidden', $html);
+    }
+
+    public function testRenderShopifyColumnShowsPerStoreIconsWhenMultiStore(): void
+    {
+        // With more than one enabled store the column renders one icon per store,
+        // each from that store's own per-connection meta (#252).
+        $this->options['wash_connections'] = [
+            'x1' => ['id' => 'x1', 'store' => 'shop2.myshopify.com', 'apiKey' => 'k2', 'enabled' => true, 'isPrimary' => false],
+        ];
+        $this->mockPost(70, 'post', 'publish', 'multi');
+        // primary: not synced (base meta empty); store x1: queued (per-connection key).
+        $this->postMetaStore[70]['_wash_sync_status_x1'] = 'queued';
+
+        ob_start();
+        $this->admin->renderShopifyColumn('wash_sync', 70);
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('dashicons-minus', $html);     // primary not synced
+        $this->assertStringContainsString('wash-syncing', $html);        // shop2 queued
+        $this->assertStringContainsString('shop2.myshopify.com', $html); // each store labelled
+    }
+
+    public function testConnectionAwareSettingRoutesNonPrimarySaveToNamespaced(): void
+    {
+        // The Settings-API save is wrapped so a non-primary connection writes to its
+        // namespaced option and leaves primary untouched (#252).
+        $callbacks = [];
+        Functions\when('register_setting')->alias(function ($group, $key, $args) use (&$callbacks) {
+            $callbacks[$key] = $args['sanitize_callback'];
+        });
+        $this->admin->registerSettings();
+        $cb = $callbacks['wash_block_robots'];
+        $this->options['wash_block_robots'] = '1';
+
+        // Primary: returns the sanitized value as-is, writes nothing namespaced.
+        \WashContext::setActiveId('primary');
+        $this->assertSame('1', $cb('1'));
+        $this->assertArrayNotHasKey('wash_c_primary_wash_block_robots', $this->options);
+
+        // Additional store: writes the namespaced option, returns primary's value unchanged.
+        \WashContext::setActiveId('x1');
+        $this->assertSame('1', $cb('0'));                                      // primary value returned
+        $this->assertSame('0', $this->options['wash_c_x1_wash_block_robots']); // namespaced write
+        $this->assertSame('1', $this->options['wash_block_robots']);           // primary untouched
     }
 
     // ---------------------------------------------------------------

@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.27.3
+Stable tag: 1.28.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -85,6 +85,15 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.28.0 =
+Multi-store — each connected Shopify store now has its own full settings, independent of every other store (#252).
+
+* **Every additional store opens the full plugin, not a stripped-down form.** Opening a store under Settings → Wash now shows the complete tabbed UI (Connection, Blogs, Redirections, Hreflangs, Meta Fields, Authors, Files, Content, Search & Replace, Sync, Advanced) scoped to that store, with its name in the heading so you always know which store you are configuring.
+* **Independent settings per store.** Blog mappings, redirections, markets, locales, meta-field config, search-and-replace rules, sync preferences — and every other option — are stored and read per connection, so changing one store never bleeds into another. The primary (first) store is unchanged.
+* **Single navigation, single add-store flow.** One top-level "Wash" entry; additional stores appear as their own Settings submenu items. The duplicate "Connections" page is gone — connect or remove stores from one place (a "New connection" button reveals the same connect panel the primary store uses, consent row included). Adding stores still requires a Business/Enterprise plan on the primary connection.
+* **Per-store status on the Posts list.** With more than one store enabled, the Shopify column shows one icon per store (synced / queued / failed / not-synced), each linking to that store's article, so you can see a post's status across every site at a glance.
+* **Disabled stores read as paused (grey), live stores green** — at a glance in the connections list.
 
 = 1.27.3 =
 Fix — bulk re-publish no longer shows a 504 timeout on large batches (#253).

@@ -27,6 +27,7 @@ class WashFilesMediaCoverageTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        \WashContext::setActiveId(null);
 
         $this->optionMap = [
             'wash_api_key'            => 'test-key',
@@ -73,6 +74,7 @@ class WashFilesMediaCoverageTest extends TestCase
     protected function tearDown(): void
     {
         unset($_GET, $_POST);
+        \WashContext::setActiveId(null);
         Monkey\tearDown();
         parent::tearDown();
     }
