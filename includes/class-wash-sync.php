@@ -139,13 +139,14 @@ class WashSync {
             return;
         }
 
-        // No-mapping gate (#255): a post whose language/category matches no active
-        // blog-mapping rule has no defined Shopify destination — do NOT guess a
-        // blog. Flag it "No mapping" (shown in the posts list) and skip. Fails open
-        // when no rules are cached (API issue), so a transient error never blocks.
-        if (!WashBlogRouter::hasMapping($postId)) {
+        // Routing gate (#255 + multi-store): a post publishes to this store ONLY when
+        // it matches one of the store's rules. Default (first-blog) publishing is
+        // allowed ONLY for a single connected store with zero rules (legacy) — never
+        // with 2+ stores connected, and never once rules are defined. This stops a
+        // US-mapped post from landing on the UK store. Flag "No mapping" and skip.
+        if (WashBlogRouter::shouldSkipPublish($postId)) {
             update_post_meta($postId, WashContext::metaKey('_wash_no_mapping'), '1');
-            washLog("[wash] doSync: no blog-mapping rule for post {$postId} (lang=" . (self::getPostLanguage($postId) ?: 'none') . ") — skipping publish");
+            washLog("[wash] doSync: post {$postId} has no matching blog-mapping rule for this store (lang=" . (self::getPostLanguage($postId) ?: 'none') . ") — skipping publish");
             return;
         }
         delete_post_meta($postId, WashContext::metaKey('_wash_no_mapping'));

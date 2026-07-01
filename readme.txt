@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.28.1
+Stable tag: 1.28.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -85,6 +85,12 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.28.2 =
+Fixed multi-store publishing so a post only reaches stores it is mapped to.
+
+* **A post no longer publishes to a store it isn't mapped to.** With more than one Shopify store connected, a post was fanned out to every store and — where no blog-mapping rule matched — published to that store's first blog anyway. A US-mapped post could therefore appear on the UK store. Now, with 2+ stores connected (or once a store defines mapping rules), a post publishes ONLY to stores whose rules it matches. Default (first-blog) publishing remains only for a single store with no rules (legacy).
+* **Transient errors no longer misroute.** If a store's rules can't be read momentarily, publishing to it is skipped rather than guessed, so a hiccup never lands content on the wrong store.
 
 = 1.28.1 =
 Fixed market translation sync and multi-store status/links on the Posts list.

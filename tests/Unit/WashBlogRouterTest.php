@@ -157,6 +157,65 @@ class WashBlogRouterTest extends TestCase
         $this->assertTrue(\WashBlogRouter::hasMapping(14));
     }
 
+    // -- shouldSkipPublish (multi-store routing gate) -----------------------
+
+    /** Register one enabled secondary store so enabledCount() reports 2+. */
+    private function addSecondStore(): void
+    {
+        $this->options['wash_connections'] = [
+            'x1' => ['id' => 'x1', 'store' => 'shop2', 'apiKey' => 'k2', 'enabled' => true, 'isPrimary' => false],
+        ];
+    }
+
+    public function testShouldSkipPublishFalseForSingleStoreWithNoRules(): void
+    {
+        // Legacy: one store, zero rules → default (first-blog) publish is allowed.
+        $this->setRules([]);
+        $this->makePost(20, 'pl-pl');
+        $this->assertFalse(\WashBlogRouter::shouldSkipPublish(20));
+    }
+
+    public function testShouldSkipPublishFalseWhenRuleMatches(): void
+    {
+        $this->setRules([$this->langRule('de-ch', self::SW_MARKET)]);
+        $this->makePost(21, 'de-ch');
+        $this->assertFalse(\WashBlogRouter::shouldSkipPublish(21));
+    }
+
+    public function testShouldSkipPublishTrueWhenRulesExistButNoneMatch(): void
+    {
+        // Single store WITH rules; post matches none → skip (no default publish).
+        $this->setRules([$this->langRule('de-ch', self::SW_MARKET)]);
+        $this->makePost(22, 'pl-pl');
+        $this->assertTrue(\WashBlogRouter::shouldSkipPublish(22));
+    }
+
+    public function testShouldSkipPublishTrueForMultiStoreEvenWithoutRules(): void
+    {
+        // 2+ stores connected → never default publish, even for a store with no rules
+        // (e.g. an empty secondary). This is the US-post-must-not-land-on-UK guard.
+        $this->addSecondStore();
+        $this->setRules([]);
+        $this->makePost(23, 'pl-pl');
+        $this->assertTrue(\WashBlogRouter::shouldSkipPublish(23));
+    }
+
+    public function testShouldSkipPublishFalseForMultiStoreWhenRuleMatches(): void
+    {
+        $this->addSecondStore();
+        $this->setRules([$this->langRule('de-ch', self::SW_MARKET)]);
+        $this->makePost(24, 'de-ch');
+        $this->assertFalse(\WashBlogRouter::shouldSkipPublish(24));
+    }
+
+    public function testShouldSkipPublishTrueForMultiStoreWhenRulesExistButNoneMatch(): void
+    {
+        $this->addSecondStore();
+        $this->setRules([$this->langRule('de-ch', self::SW_MARKET)]);
+        $this->makePost(25, 'en-us');
+        $this->assertTrue(\WashBlogRouter::shouldSkipPublish(25));
+    }
+
     // -- matchRule priority -------------------------------------------------
 
     public function testMatchRulePicksHighestPriority(): void

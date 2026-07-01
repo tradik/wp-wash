@@ -123,6 +123,26 @@ class WashBlogRouter {
     }
 
     /**
+     * Should publishing this post to the ACTIVE connection be skipped? Enforces the
+     * multi-store routing rule: default (first-blog) publishing is allowed ONLY for a
+     * single connected store with ZERO rules (legacy). With 2+ stores connected, OR
+     * once a store defines rules, a post publishes ONLY where it matches a rule — so a
+     * US-mapped post never lands on the UK store, and a transient empty-rules read in a
+     * multi-store setup fails closed (skip) rather than guessing a destination.
+     *
+     * @param int $postId
+     * @return bool true → skip publishing to this store
+     */
+    public static function shouldSkipPublish($postId) {
+        $hasRules   = !empty(self::rules());
+        $multiStore = WashConnection::enabledCount() > 1;
+        // hasMapping only does real matching when rules exist; guard with $hasRules so
+        // its fail-open (empty rules → true) can never leak a post onto a store.
+        $matches    = $hasRules && self::hasMapping($postId);
+        return !$matches && ($hasRules || $multiStore);
+    }
+
+    /**
      * Find the blog-mapping rule that applies to this post (priority-first,
      * then rule-type specificity, then oldest), scoped to a destination.
      *
