@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.28.0
+Stable tag: 1.28.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -85,6 +85,14 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.28.1 =
+Fixed market translation sync and multi-store status/links on the Posts list.
+
+* **Blog-mapping "Market & Locale" no longer offers an invalid locale for markets without a storefront.** A market without a web presence derived its locale from the country code; for markets like the US ("us") or UK ("gb") that is not a valid Shopify locale, so Shopify rejected it ("Locale is invalid") and translations silently failed to register. These markets now fall back to the shop's primary locale. Markets whose country code is already a valid shop locale (e.g. "fr", "de") are left exactly as before, so existing working setups are untouched.
+* **"View on Shopify" and "Re-sync" now match the green sync icon on the Posts list.** For a post synced only to an additional (non-primary) store, the row actions wrongly showed "Sync to Shopify" (as if never synced) and hid the "View on Shopify" link, even though the green icon reported it synced. Row actions now read the same per-store sync state as the icon, so a synced post always shows "Re-sync to Shopify" plus a "View on …" link per store.
+* **The green sync icon is never a dead link.** When a public storefront URL can't be built (e.g. a market with no web presence), the icon and the "View on Shopify" link now fall back to the Shopify admin editor instead of an empty link.
+* **Manual sync no longer misreports success as "queued"/failed.** Syncing a post that targets a secondary store now reports the real outcome across every store, instead of reading only the primary store's metadata.
 
 = 1.28.0 =
 Multi-store — each connected Shopify store now has its own full settings, independent of every other store (#252).

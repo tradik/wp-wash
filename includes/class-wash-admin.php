@@ -1710,20 +1710,120 @@ class WashAdmin {
      * @param WP_Post $post Current post object.
      */
     public function renderShopifyPreviewLink($post) {
-        $shopifyUrl = $this->getShopifyArticleUrl($post->ID);
-        if (!$shopifyUrl) {
+        $links = $this->getShopifyArticleLinks($post->ID);
+        if (empty($links)) {
             return;
         }
-
+        $multi = count($links) > 1;
         ?>
         <div class="misc-pub-section wash-shopify-link">
-            <span class="dashicons dashicons-store" style="color: #96bf48;"></span>
-            <a href="<?php echo esc_url($shopifyUrl); ?>" target="_blank" rel="noopener noreferrer" style="color: #5c6ac4; text-decoration: none;">
-                <?php esc_html_e('View on Shopify', 'wash-blog-manager'); ?>
-                <span class="dashicons dashicons-external" style="font-size: 14px; vertical-align: text-bottom;"></span>
-            </a>
+            <?php foreach ($links as $wash_link) : ?>
+                <div style="margin: 4px 0;">
+                    <span class="dashicons dashicons-store" style="color: #96bf48;"></span>
+                    <a href="<?php echo esc_url($wash_link['url']); ?>" target="_blank" rel="noopener noreferrer" style="color: #5c6ac4; text-decoration: none;">
+                        <?php
+                        echo esc_html__('View on Shopify', 'wash-blog-manager');
+                        echo $multi ? ' — ' . esc_html($wash_link['store']) : '';
+                        ?>
+                        <span class="dashicons dashicons-external" style="font-size: 14px; vertical-align: text-bottom;"></span>
+                    </a>
+                </div>
+            <?php endforeach; ?>
         </div>
         <?php
+    }
+
+    /**
+     * Resolve the "View on Shopify" links for a post across EVERY enabled store
+     * (#264 multi-store). Each enabled connection is made active in turn so
+     * getShopifyArticleUrl() (→ storefrontUrl) keys off that store's own meta +
+     * mapping rules; a store the post isn't synced to yields null and is skipped.
+     *
+     * @param int $postId
+     * @return array<int, array{store: string, url: string}>
+     */
+    private function getShopifyArticleLinks($postId) {
+        return $this->collectShopifyLinks($postId)['links'];
+    }
+
+    /**
+     * Single pass over every enabled store: which ones the post is actually synced
+     * to, and the best link for each. Synced state is the per-connection article/
+     * page id — the SAME signal the sync-status icon reads — so link presence and
+     * the "Re-sync" label can never disagree with the green icon (#264). The link
+     * prefers the public storefront URL and falls back to the Shopify admin editor,
+     * so a synced store never loses its link when the storefront URL can't be built.
+     *
+     * @param int $postId
+     * @return array{links: array<int, array{store: string, url: string}>, synced: bool}
+     */
+    private function collectShopifyLinks($postId) {
+        $links = [];
+        $synced = false;
+        $prevActive = WashContext::activeId();
+        foreach (WashConnection::all() as $washId => $washConn) {
+            if (empty($washConn['enabled'])) {
+                continue;
+            }
+            WashContext::setActiveId($washId);
+            $articleId = get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true);
+            $pageId    = get_post_meta($postId, WashContext::metaKey('_wash_page_id'), true);
+            if (empty($articleId) && empty($pageId)) {
+                continue; // post never reached this store
+            }
+            $synced = true;
+            $url = $this->getShopifyViewUrl($postId, $washConn, $articleId, $pageId);
+            if (!empty($url)) {
+                $links[] = [
+                    'store' => $washConn['store'] !== '' ? $washConn['store'] : (string) $washId,
+                    'url'   => $url,
+                ];
+            }
+        }
+        WashContext::setActiveId($prevActive);
+        return ['links' => $links, 'synced' => $synced];
+    }
+
+    /**
+     * Best "view on Shopify" URL for a synced post under the active connection:
+     * the public storefront URL when it can be built, otherwise the Shopify admin
+     * editor — so the link is present for every synced store.
+     *
+     * @param int                 $postId
+     * @param array<string,mixed> $conn      Active connection.
+     * @param string              $articleId Per-connection _wash_article_id meta.
+     * @param string              $pageId    Per-connection _wash_page_id meta.
+     * @return string|null
+     */
+    private function getShopifyViewUrl($postId, $conn, $articleId, $pageId) {
+        return $this->getShopifyArticleUrl($postId)
+            ?: $this->getShopifyAdminUrl($conn, $articleId, $pageId);
+    }
+
+    /**
+     * Shopify admin editor URL for a synced article/page — the fallback used when
+     * the public storefront URL can't be resolved (e.g. no market web presence).
+     * Returns null when the store handle or the numeric id is unavailable.
+     *
+     * @param array<string,mixed> $conn
+     * @param string              $articleId gid://shopify/Article/<n>
+     * @param string              $pageId    gid://shopify/Page/<n>
+     * @return string|null
+     */
+    private function getShopifyAdminUrl($conn, $articleId, $pageId) {
+        $store = isset($conn['store']) ? (string) $conn['store'] : '';
+        // admin.shopify.com keys off the store handle, so strip a full-domain suffix.
+        $store = preg_replace('/\.myshopify\.com$/i', '', $store);
+        if ($store === '') {
+            return null;
+        }
+        if (!empty($articleId) && preg_match('#/Article/(\d+)#', (string) $articleId, $m)) {
+            return 'https://admin.shopify.com/store/' . rawurlencode($store) . '/articles/' . $m[1];
+        }
+        if (!empty($pageId) && preg_match('#/Page/(\d+)#', (string) $pageId, $m)) {
+            return 'https://admin.shopify.com/store/' . rawurlencode($store) . '/pages/' . $m[1];
+        }
+        return null;
     }
 
     /**
@@ -1735,12 +1835,12 @@ class WashAdmin {
             return;
         }
 
-        $shopifyUrl = $this->getShopifyArticleUrl($post->ID);
-        if (!$shopifyUrl) {
+        $links = $this->getShopifyArticleLinks($post->ID);
+        if (empty($links)) {
             return;
         }
 
-        wp_add_inline_script('wp-edit-post', $this->getBlockEditorShopifyLinkScript($shopifyUrl), 'after');
+        wp_add_inline_script('wp-edit-post', $this->getBlockEditorShopifyLinkScript($links), 'after');
     }
 
     /**
@@ -1758,61 +1858,60 @@ class WashAdmin {
     }
 
     /**
-     * Generate inline JS for adding Shopify link to Gutenberg editor.
+     * Generate inline JS for adding the "View on Shopify" link(s) to the Gutenberg
+     * editor — one per store the post is synced to (#264 multi-store).
      *
-     * @param string $shopifyUrl The Shopify article URL.
+     * @param array<int, array{store: string, url: string}> $links Per-store links.
      * @return string JavaScript code.
      */
-    private function getBlockEditorShopifyLinkScript($shopifyUrl) {
+    private function getBlockEditorShopifyLinkScript($links) {
         $label = esc_js(__('View on Shopify', 'wash-blog-manager'));
-        $escapedUrl = esc_js($shopifyUrl);
+        // Hex-escape <, >, &, quotes so the JSON is safe inside an inline <script>.
+        $data  = wp_json_encode(
+            array_map(static function ($washLink) {
+                return ['url' => $washLink['url'], 'store' => $washLink['store']];
+            }, array_values($links)),
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+        $multi = count($links) > 1 ? 'true' : 'false';
 
         $template = "(function() {\n"
             . "    if (typeof wp === 'undefined' || !wp.plugins || !wp.editPost || !wp.element) {\n"
             . "        return;\n"
             . "    }\n"
-            . "\n"
+            . "    var links = %1\$s;\n"
+            . "    var label = '%2\$s';\n"
+            . "    var multi = %3\$s;\n"
             . "    var registerPlugin = wp.plugins.registerPlugin;\n"
             . "    var PluginPostStatusInfo = wp.editPost.PluginPostStatusInfo;\n"
             . "    var createElement = wp.element.createElement;\n"
-            . "    var Fragment = wp.element.Fragment;\n"
             . "\n"
             . "    registerPlugin('wash-shopify-link', {\n"
             . "        render: function() {\n"
             . "            return createElement(\n"
             . "                PluginPostStatusInfo,\n"
             . "                { className: 'wash-shopify-link-panel' },\n"
-            . "                createElement(\n"
-            . "                    'a',\n"
-            . "                    {\n"
-            . "                        href: '%1\$s',\n"
-            . "                        target: '_blank',\n"
-            . "                        rel: 'noopener noreferrer',\n"
-            . "                        style: {\n"
-            . "                            display: 'flex',\n"
-            . "                            alignItems: 'center',\n"
-            . "                            gap: '6px',\n"
-            . "                            color: '#5c6ac4',\n"
-            . "                            textDecoration: 'none',\n"
-            . "                            padding: '8px 0'\n"
-            . "                        }\n"
-            . "                    },\n"
-            . "                    createElement('span', {\n"
-            . "                        className: 'dashicons dashicons-store',\n"
-            . "                        style: { color: '#96bf48' }\n"
-            . "                    }),\n"
-            . "                    '%2\$s',\n"
-            . "                    createElement('span', {\n"
-            . "                        className: 'dashicons dashicons-external',\n"
-            . "                        style: { fontSize: '14px' }\n"
-            . "                    })\n"
-            . "                )\n"
+            . "                links.map(function(link, i) {\n"
+            . "                    return createElement(\n"
+            . "                        'a',\n"
+            . "                        {\n"
+            . "                            key: i,\n"
+            . "                            href: link.url,\n"
+            . "                            target: '_blank',\n"
+            . "                            rel: 'noopener noreferrer',\n"
+            . "                            style: { display: 'flex', alignItems: 'center', gap: '6px', color: '#5c6ac4', textDecoration: 'none', padding: '8px 0' }\n"
+            . "                        },\n"
+            . "                        createElement('span', { className: 'dashicons dashicons-store', style: { color: '#96bf48' } }),\n"
+            . "                        multi ? (label + ' \\u2014 ' + link.store) : label,\n"
+            . "                        createElement('span', { className: 'dashicons dashicons-external', style: { fontSize: '14px' } })\n"
+            . "                    );\n"
+            . "                })\n"
             . "            );\n"
             . "        }\n"
             . "    });\n"
             . "})();\n";
 
-        return sprintf($template, $escapedUrl, $label);
+        return sprintf($template, $data, $label, $multi);
     }
 
     /**
@@ -1884,7 +1983,9 @@ class WashAdmin {
         $imageWarnings = get_post_meta($postId, '_wash_image_warnings', true);
 
         if (!empty($shopifyArticleId)) {
-            $shopifyUrl = $this->getShopifyArticleUrl($postId);
+            // Fall back to the Shopify admin URL when the storefront URL can't be built,
+            // so the synced icon is never an empty link (#264).
+            $shopifyUrl = $this->getShopifyViewUrl($postId, WashContext::connection(), $shopifyArticleId, get_post_meta($postId, '_wash_page_id', true));
             $title = sprintf(
                 // translators: %s is the formatted date/time the post was synced to Shopify.
                 __('Synced to Shopify on %s', 'wash-blog-manager'),
@@ -1965,13 +2066,15 @@ class WashAdmin {
     private function renderConnectionSyncIcon($postId, $conn) {
         $store     = $conn['store'] !== '' ? $conn['store'] : (string) $conn['id'];
         $articleId = get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true);
+        $pageId    = get_post_meta($postId, WashContext::metaKey('_wash_page_id'), true);
         $status    = get_post_meta($postId, WashContext::metaKey('_wash_sync_status'), true);
         $error     = get_post_meta($postId, WashContext::metaKey('_wash_sync_error'), true);
 
-        if (!empty($articleId)) {
+        if (!empty($articleId) || !empty($pageId)) {
             /* translators: %s is the Shopify store domain. */
             $title = sprintf(__('Synced to %s', 'wash-blog-manager'), $store);
-            echo '<a href="' . esc_url($this->getShopifyArticleUrl($postId)) . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr($title) . '">';
+            // Storefront URL with Shopify-admin fallback, so the icon is never a dead link (#264).
+            echo '<a href="' . esc_url($this->getShopifyViewUrl($postId, $conn, $articleId, $pageId)) . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr($title) . '">';
             echo '<span class="dashicons dashicons-yes-alt" style="color: #46b450;"></span>';
             echo '</a>';
             return;
@@ -2091,15 +2194,23 @@ class WashAdmin {
             return $actions;
         }
 
-        $shopifyArticleId = get_post_meta($post->ID, '_wash_article_id', true);
-
-        if (!empty($shopifyArticleId)) {
-            // Already synced - show "View on Shopify" link
-            $shopifyUrl = $this->getShopifyArticleUrl($post->ID);
-            $actions['wash_view'] = sprintf(
+        // Already synced — one "View on Shopify" link per store the post reached, plus
+        // whether it is synced ANYWHERE. Both come from the per-connection sync meta in
+        // a single pass, so the link and the "Re-sync" label always agree with the green
+        // sync icon (#264). The historical single-store `wash_view` key is preserved.
+        $washData  = $this->collectShopifyLinks($post->ID);
+        $washLinks = $washData['links'];
+        $washMulti = count($washLinks) > 1;
+        foreach ($washLinks as $washI => $washLink) {
+            $washLabel = $washMulti
+                /* translators: %s is the Shopify store domain. */
+                ? sprintf(__('View on %s', 'wash-blog-manager'), $washLink['store'])
+                : __('View on Shopify', 'wash-blog-manager');
+            $washKey = $washMulti ? 'wash_view_' . $washI : 'wash_view';
+            $actions[$washKey] = sprintf(
                 '<a href="%s" target="_blank" rel="noopener noreferrer" style="color: #5c6ac4;">%s</a>',
-                esc_url($shopifyUrl),
-                __('View on Shopify', 'wash-blog-manager')
+                esc_url($washLink['url']),
+                esc_html($washLabel)
             );
         }
 
@@ -2112,7 +2223,7 @@ class WashAdmin {
                 ], admin_url('edit.php')),
                 'wash_sync_' . $post->ID
             );
-            $actionLabel = !empty($shopifyArticleId) ? __('Re-sync to Shopify', 'wash-blog-manager') : __('Sync to Shopify', 'wash-blog-manager');
+            $actionLabel = $washData['synced'] ? __('Re-sync to Shopify', 'wash-blog-manager') : __('Sync to Shopify', 'wash-blog-manager');
             $actions['wash_sync'] = sprintf(
                 '<a href="%s" style="color: #96bf48;">%s</a>',
                 esc_url($syncUrl),
@@ -2569,22 +2680,15 @@ class WashAdmin {
         $sync = new WashSync();
         $sync->syncManually($postId, $post);
 
-        // Check if sync was successful or queued
-        $shopifyArticleId = get_post_meta($postId, '_wash_article_id', true);
-        $syncStatus = get_post_meta($postId, '_wash_sync_status', true);
-        $syncError = get_post_meta($postId, '_wash_sync_error', true);
-
-        if (!empty($shopifyArticleId)) {
-            $result = 'synced';
-        } elseif ($syncStatus === 'queued') {
-            $result = 'queued';
-        } else {
-            $result = 'error';
-        }
+        // Aggregate the outcome across EVERY enabled store — a post synced only to a
+        // secondary connection lives under a prefixed meta key, so reading the
+        // unprefixed _wash_article_id would wrongly report "queued"/"error" (#264).
+        $agg = $this->aggregateManualSyncResult($postId);
+        $result = $agg['result'];
 
         $redirectArgs = ['wash_result' => $result];
-        if ($result === 'error' && !empty($syncError)) {
-            $redirectArgs['wash_error_msg'] = urlencode($syncError);
+        if ($result === 'error' && $agg['error'] !== '') {
+            $redirectArgs['wash_error_msg'] = urlencode($agg['error']);
         }
 
         // Determine redirect URL - prefer referer if it's an admin URL, otherwise use edit.php
@@ -2932,13 +3036,55 @@ class WashAdmin {
                 continue;
             }
             WashContext::setActiveId($connectionId);
-            if (!empty(get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true))) {
+            if (!empty(get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true))
+                || !empty(get_post_meta($postId, WashContext::metaKey('_wash_page_id'), true))) {
                 $synced = true;
                 break;
             }
         }
         WashContext::setActiveId(null);
         return $synced;
+    }
+
+    /**
+     * Aggregate a manual sync's outcome across every enabled store (#264): "synced"
+     * if the post reached ANY store, else "queued" if any store is still processing,
+     * else "error" (carrying the first store's error message). Reads per-connection
+     * meta so a sync to a secondary store is never misreported as failed.
+     *
+     * @param int $postId
+     * @return array{result: string, error: string}
+     */
+    private function aggregateManualSyncResult($postId) {
+        $synced = false;
+        $queued = false;
+        $error  = '';
+        $prevActive = WashContext::activeId();
+        foreach (WashConnection::all() as $connectionId => $connection) {
+            if (empty($connection['enabled'])) {
+                continue;
+            }
+            WashContext::setActiveId($connectionId);
+            if (!empty(get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true))
+                || !empty(get_post_meta($postId, WashContext::metaKey('_wash_page_id'), true))) {
+                $synced = true;
+            } elseif (get_post_meta($postId, WashContext::metaKey('_wash_sync_status'), true) === 'queued') {
+                $queued = true;
+            } elseif ($error === '') {
+                $err = get_post_meta($postId, WashContext::metaKey('_wash_sync_error'), true);
+                if (!empty($err)) {
+                    $error = (string) $err;
+                }
+            }
+        }
+        WashContext::setActiveId($prevActive);
+        if ($synced) {
+            return ['result' => 'synced', 'error' => ''];
+        }
+        if ($queued) {
+            return ['result' => 'queued', 'error' => ''];
+        }
+        return ['result' => 'error', 'error' => $error];
     }
 
     /**

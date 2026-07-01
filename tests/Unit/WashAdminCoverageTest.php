@@ -367,7 +367,10 @@ class WashAdminCoverageTest extends TestCase
     {
         $ref = new \ReflectionMethod(\WashAdmin::class, 'getBlockEditorShopifyLinkScript');
         $ref->setAccessible(true);
-        $script = $ref->invoke($this->admin, 'https://test-store.myshopify.com/blogs/news/my-article');
+        // #264: the method takes per-store link records, not a single URL string.
+        $script = $ref->invoke($this->admin, [
+            ['store' => 'test-store', 'url' => 'https://test-store.myshopify.com/blogs/news/my-article'],
+        ]);
         $this->assertStringContainsString('registerPlugin', $script);
         $this->assertStringContainsString('test-store.myshopify.com', $script);
     }
@@ -664,6 +667,70 @@ class WashAdminCoverageTest extends TestCase
         $post = $this->postStore[54];
         $result = $this->admin->addShopifyRowActions([], $post);
         $this->assertArrayHasKey('wash_view', $result);
+    }
+
+    public function testAddShopifyRowActionsShowsResyncForSyncedPost(): void
+    {
+        // A synced post's sync action reads "Re-sync", not "Sync to Shopify" (#264).
+        $this->mockPost(56, 'post', 'publish', 'resync-p');
+        $this->postMetaStore[56]['_wash_article_id'] = 'gid://shopify/Article/9';
+        $result = $this->admin->addShopifyRowActions([], $this->postStore[56]);
+        $this->assertStringContainsString('Re-sync to Shopify', $result['wash_sync']);
+    }
+
+    public function testAddShopifyRowActionsShowsSyncAndNoViewForUnsyncedPost(): void
+    {
+        // A published-but-never-synced post: "Sync to Shopify", no View link.
+        $this->mockPost(57, 'post', 'publish', 'fresh-p');
+        $result = $this->admin->addShopifyRowActions([], $this->postStore[57]);
+        $this->assertArrayNotHasKey('wash_view', $result);
+        $this->assertStringContainsString('Sync to Shopify', $result['wash_sync']);
+        $this->assertStringNotContainsString('Re-sync', $result['wash_sync']);
+    }
+
+    public function testAddShopifyRowActionsIsMultistoreAwareForSecondaryStore(): void
+    {
+        // Post synced ONLY to a secondary store (prefixed meta): the row action must
+        // still show View + "Re-sync", not treat it as never synced (#264 core bug).
+        $this->options['wash_connections'] = [
+            'x1' => ['id' => 'x1', 'store' => 'shop2', 'apiKey' => 'k2', 'enabled' => true, 'isPrimary' => false],
+        ];
+        $this->mockPost(58, 'post', 'publish', 'secondary-p');
+        $this->postMetaStore[58]['_wash_article_id_x1'] = 'gid://shopify/Article/77';
+        $result = $this->admin->addShopifyRowActions([], $this->postStore[58]);
+        $this->assertArrayHasKey('wash_view', $result);
+        $this->assertStringContainsString('Re-sync to Shopify', $result['wash_sync']);
+    }
+
+    public function testGetShopifyAdminUrlBuildsArticleAndPageUrls(): void
+    {
+        $ref = new \ReflectionMethod(\WashAdmin::class, 'getShopifyAdminUrl');
+        $ref->setAccessible(true);
+        $article = $ref->invoke($this->admin, ['store' => 'hilo-core.myshopify.com'], 'gid://shopify/Article/642248343751', '');
+        $this->assertSame('https://admin.shopify.com/store/hilo-core/articles/642248343751', $article);
+        $page = $ref->invoke($this->admin, ['store' => 'hilo-core'], '', 'gid://shopify/Page/12');
+        $this->assertSame('https://admin.shopify.com/store/hilo-core/pages/12', $page);
+        $this->assertNull($ref->invoke($this->admin, ['store' => ''], 'gid://shopify/Article/1', ''));
+    }
+
+    public function testAggregateManualSyncResultReflectsWinningState(): void
+    {
+        $ref = new \ReflectionMethod(\WashAdmin::class, 'aggregateManualSyncResult');
+        $ref->setAccessible(true);
+
+        // Synced wins over everything.
+        $this->postMetaStore[60]['_wash_article_id'] = 'gid://shopify/Article/1';
+        $this->assertSame('synced', $ref->invoke($this->admin, 60)['result']);
+
+        // Queued when not synced anywhere.
+        $this->postMetaStore[61]['_wash_sync_status'] = 'queued';
+        $this->assertSame('queued', $ref->invoke($this->admin, 61)['result']);
+
+        // Error (with message) when neither synced nor queued.
+        $this->postMetaStore[62]['_wash_sync_error'] = 'boom';
+        $agg = $ref->invoke($this->admin, 62);
+        $this->assertSame('error', $agg['result']);
+        $this->assertSame('boom', $agg['error']);
     }
 
     // ---------------------------------------------------------------

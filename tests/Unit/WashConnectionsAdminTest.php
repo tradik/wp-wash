@@ -272,6 +272,26 @@ class WashConnectionsAdminTest extends TestCase
         $this->assertSame([], $enqueued);
     }
 
+    public function testEnqueueAssetsLoadsOnAdditionalStorePage(): void
+    {
+        // #264: the "New connection" button also renders on each additional store's
+        // settings page (hook settings_page_wash-conn-<id>); without the script the
+        // button is dead there, so it must enqueue on that hook too.
+        $enqueued = [];
+        Functions\when('wp_enqueue_script')->alias(function ($handle) use (&$enqueued) {
+            $enqueued[] = $handle;
+        });
+        Functions\when('wp_localize_script')->justReturn(true);
+        Functions\when('washPluginUrl')->justReturn('https://wp/wp-content/plugins/wash/');
+        Functions\when('wp_create_nonce')->justReturn('nonce123');
+        Functions\when('get_bloginfo')->justReturn('My Site');
+        Functions\when('get_site_url')->justReturn('https://example.com');
+
+        $this->admin->enqueueAssets('settings_page_wash-conn-pm1jxv');
+
+        $this->assertContains('wash-connections', $enqueued);
+    }
+
     public function testHandlerBlocksUnauthorizedUser(): void
     {
         Functions\when('current_user_can')->justReturn(false);

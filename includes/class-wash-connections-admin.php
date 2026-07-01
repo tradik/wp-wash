@@ -54,9 +54,13 @@ class WashConnectionsAdmin {
      * @param string $hook Current admin page hook suffix.
      */
     public function enqueueAssets($hook) {
-        // The add-store UI now lives on the primary Manager page (Connection tab),
-        // so the OAuth-connect script loads there — not on a separate page.
-        if ($hook !== 'settings_page_wash') {
+        // The Store Connections hub (with the "New connection" button) renders on the
+        // primary Manager page AND on every additional store's settings page
+        // (full-plugin-per-store, #252/#264), so the OAuth-connect script must load on
+        // all of them — otherwise the button is dead on the per-store pages. The hook
+        // suffixes share the 'settings_page_wash' prefix: 'settings_page_wash' for the
+        // primary and 'settings_page_wash-conn-<id>' for each additional store.
+        if (strpos((string) $hook, 'settings_page_wash') !== 0) {
             return;
         }
         wp_enqueue_script(

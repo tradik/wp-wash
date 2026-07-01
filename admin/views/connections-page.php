@@ -110,54 +110,8 @@ foreach ($washConnections as $washId => $washConn) :
     </button>
 </p>
 
-<!-- Hidden until "New connection" is clicked: the same connect fields as the primary above (CSS layout, not a form-table). -->
+<!-- Hidden until "New connection" is clicked: the single reusable connect form (#264) — identical to the primary store's. -->
 <div id="wash-new-connection" style="display:none; max-width:900px;">
-    <p><label for="wash-oauth-store"><strong><?php esc_html_e('Shopify Store', 'wash-blog-manager'); ?></strong></label></p>
-    <p style="display: flex; align-items: center; gap: 8px;">
-        <input type="text" id="wash-oauth-store" class="regular-text" placeholder="your-store" style="max-width: 200px;">
-        <span style="color: #666;">.myshopify.com</span>
-    </p>
-    <p class="description"><?php esc_html_e('Your Shopify store handle (e.g., "my-store" from my-store.myshopify.com)', 'wash-blog-manager'); ?></p>
-    <div style="margin: 12px 0;">
-        <strong style="display:block; margin-bottom:8px;"><?php esc_html_e('Data processing consent', 'wash-blog-manager'); ?></strong>
-        <?php include_once WASH_PLUGIN_DIR . 'admin/views/partials/consent-row.php'; ?>
-    </div>
-    <p>
-        <button type="button" class="button button-primary" id="wash-oauth-connect">
-            <span class="dashicons dashicons-admin-links" style="vertical-align: text-bottom;"></span>
-            <?php esc_html_e('Connect to Shopify', 'wash-blog-manager'); ?>
-        </button>
-    </p>
-    <details style="margin-top:8px;">
-        <summary><?php esc_html_e('Enter credentials manually', 'wash-blog-manager'); ?></summary>
-        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top:12px;">
-            <?php wp_nonce_field('wash_add_connection'); ?>
-            <input type="hidden" name="action" value="wash_add_connection">
-            <p>
-                <label for="wash-store"><?php esc_html_e('Store domain', 'wash-blog-manager'); ?></label><br>
-                <input type="text" id="wash-store" name="store" class="regular-text" placeholder="mystore.myshopify.com" required>
-            </p>
-            <p>
-                <label for="wash-apikey"><?php esc_html_e('API key', 'wash-blog-manager'); ?></label><br>
-                <input type="password" id="wash-apikey" name="apiKey" class="regular-text" placeholder="wp4s_…" autocomplete="off" required>
-            </p>
-            <details>
-                <summary><?php esc_html_e('Advanced (optional)', 'wash-blog-manager'); ?></summary>
-                <p>
-                    <label for="wash-appurl"><?php esc_html_e('App URL', 'wash-blog-manager'); ?></label><br>
-                    <input type="url" id="wash-appurl" name="appUrl" class="regular-text" placeholder="https://app-wash.tradik.com">
-                </p>
-                <p>
-                    <label for="wash-httpuser"><?php esc_html_e('HTTP Basic user', 'wash-blog-manager'); ?></label><br>
-                    <input type="text" id="wash-httpuser" name="httpUser" class="regular-text" autocomplete="off">
-                </p>
-                <p>
-                    <label for="wash-httppass"><?php esc_html_e('HTTP Basic password', 'wash-blog-manager'); ?></label><br>
-                    <input type="password" id="wash-httppass" name="httpPass" class="regular-text" autocomplete="off">
-                </p>
-            </details>
-            <p><button type="submit" class="button"><?php esc_html_e('Add connection', 'wash-blog-manager'); ?></button></p>
-        </form>
-    </details>
+    <?php $wash_addMode = true; include_once WASH_PLUGIN_DIR . 'admin/views/partials/connect-form.php'; ?>
 </div>
 <?php endif; ?>

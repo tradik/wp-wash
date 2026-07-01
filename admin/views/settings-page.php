@@ -464,44 +464,8 @@ function wash_render_permission_locked_banner() {
                 <input type="hidden" name="wash_shopify_store" value="<?php echo esc_attr($wash_shopifyStore); ?>" />
                 <input type="hidden" name="wash_api_key" value="<?php echo esc_attr(WashContext::option('wash_api_key')); ?>" />
             <?php else : ?>
-                <!-- Not connected - show connection form -->
-                <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row">
-                            <label for="wash_shopify_store"><?php esc_html_e('Shopify Store', 'wash-blog-manager'); ?></label>
-                        </th>
-                        <td>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <input type="text" id="wash_shopify_store" name="wash_shopify_store"
-                                       value="<?php echo esc_attr($wash_shopifyStore); ?>"
-                                       class="regular-text" placeholder="your-store"
-                                       style="max-width: 200px;" />
-                                <span style="color: #666;">.myshopify.com</span>
-                            </div>
-                            <p class="description"><?php esc_html_e('Your Shopify store handle (e.g., "my-store" from my-store.myshopify.com)', 'wash-blog-manager'); ?></p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2" style="padding: 15px 10px;">
-                            <strong style="display:block; margin-bottom:8px;"><?php esc_html_e('Data processing consent', 'wash-blog-manager'); ?></strong>
-                            <?php include_once WASH_PLUGIN_DIR . 'admin/views/partials/consent-row.php'; ?>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"></th>
-                        <td>
-                            <button type="button" id="wash-connect-btn" class="button button-primary" style="display: none;" <?php disabled(!$wash_consentAccepted); ?>>
-                                <span class="dashicons dashicons-admin-links" style="vertical-align: text-bottom;"></span>
-                                <?php esc_html_e('Connect to Shopify', 'wash-blog-manager'); ?>
-                            </button>
-                            <?php if (!$wash_consentAccepted) : ?>
-                                <p class="description" style="margin-top: 6px;">
-                                    <?php esc_html_e('Tick the consent box above to enable the Connect button.', 'wash-blog-manager'); ?>
-                                </p>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                </table>
+                <!-- Not connected — single reusable connect form (#264), shared with the add-store panel. -->
+                <?php $wash_addMode = false; include_once WASH_PLUGIN_DIR . 'admin/views/partials/connect-form.php'; ?>
             <?php endif; ?>
         </div>
 
@@ -2107,7 +2071,7 @@ function wash_render_permission_locked_banner() {
     // Shown with a qualifying plan, or when extra stores already exist (so a
     // downgraded merchant can still reach/disable them); a free single-store
     // install sees nothing new. JS ties its visibility to the Connection tab.
-    if (WashConnectionsAdmin::planAllowsMultiStore() || WashConnection::count() > 1) :
+    if ($wash_isConnected && (WashConnectionsAdmin::planAllowsMultiStore() || WashConnection::count() > 1)) :
         WashConnectionsAdmin::enforcePlanDowngrade(); // reflect a lapsed plan on open
         ?>
         <div id="wash-connection-extra" style="display:none;">
@@ -2538,6 +2502,22 @@ ob_start();
         domainSelect.value = currentVal;
     }
 
+    /** Primary published shop locale (e.g. "en"), or first available, or '' if unknown. */
+    function washPrimaryShopLocale() {
+        if (!shopLocales || !shopLocales.length) return '';
+        var primary = shopLocales.find(function (l) { return l.primary; });
+        return (primary || shopLocales[0]).locale || '';
+    }
+
+    /** True if a locale is a published shop locale (case-insensitive). */
+    function washIsShopLocale(locale) {
+        if (!locale) return false;
+        var needle = String(locale).toLowerCase();
+        return (shopLocales || []).some(function (l) {
+            return String(l.locale || '').toLowerCase() === needle;
+        });
+    }
+
     function updateMarketLocaleSelect() {
         if (!marketLocaleSelect) return;
         var currentVal = marketLocaleSelect.value;
@@ -2579,14 +2559,28 @@ ob_start();
                     });
                 }
             } else {
-                // Market without web presence — derive locale from first region code
-                var regionCode = (market.regions && market.regions[0]) ? market.regions[0].code : null;
-                var locale = regionCode ? regionCode.toLowerCase() : 'en';
-                var opt = document.createElement('option');
-                opt.value = market.id + '|' + locale;
-                opt.textContent = market.name + ' / ' + locale;
-                optgroup.appendChild(opt);
-                hasOptions = true;
+                // Market without web presence — locale derived from first region code.
+                // A country code is a valid locale only by coincidence (e.g. "fr"),
+                // while "us"/"gb" are rejected by Shopify ("Locale is invalid").
+                // To never disturb a working setup, only override when we can PROVE the
+                // code is invalid — i.e. the shop-locale list is loaded and excludes it.
+                // Without that proof (locales not yet/never loaded) keep legacy behavior.
+                var regionCode = (market.regions && market.regions[0] && market.regions[0].code)
+                    ? String(market.regions[0].code).toLowerCase() : null;
+                var locale, isFallback = false;
+                if (shopLocales && shopLocales.length && !washIsShopLocale(regionCode)) {
+                    locale = washPrimaryShopLocale(); // proven-invalid code → shop default
+                    isFallback = true;
+                } else {
+                    locale = regionCode || 'en'; // valid code, or unverifiable → as before
+                }
+                if (locale) {
+                    var opt = document.createElement('option');
+                    opt.value = market.id + '|' + locale;
+                    opt.textContent = market.name + ' / ' + locale + (isFallback ? ' (shop default)' : '');
+                    optgroup.appendChild(opt);
+                    hasOptions = true;
+                }
             }
 
             if (hasOptions) {
