@@ -3047,6 +3047,28 @@ class WashAdmin {
     }
 
     /**
+     * Run $fn once for EVERY enabled connection with that connection active, then
+     * restore the previously-active connection (safe to call mid-request). The one
+     * shared admin fan-out loop (#264 multi-store) for operations that must touch
+     * every store a post may live on. $fn receives ($connectionId, $connection).
+     * Unlike WashSync::dispatch() it applies NO publish-routing gate, so a caller
+     * that needs one (e.g. "does this store hold the post?") guards inside $fn.
+     *
+     * @param callable $fn function(string $connectionId, array $connection): void
+     */
+    private function eachEnabledConnection(callable $fn) {
+        $prevActive = WashContext::activeId();
+        foreach (WashConnection::all() as $connectionId => $connection) {
+            if (empty($connection['enabled'])) {
+                continue;
+            }
+            WashContext::setActiveId($connectionId);
+            $fn($connectionId, $connection);
+        }
+        WashContext::setActiveId($prevActive);
+    }
+
+    /**
      * Aggregate a manual sync's outcome across every enabled store (#264): "synced"
      * if the post reached ANY store, else "queued" if any store is still processing,
      * else "error" (carrying the first store's error message). Reads per-connection
@@ -3309,15 +3331,60 @@ class WashAdmin {
     }
 
     /**
-     * Unpublish a post from Shopify.
+     * Unpublish a post from Shopify — from EVERY enabled store it is synced to
+     * (#264 multi-store). A post mapped to several stores must be removed from all
+     * of them, not only the active/primary connection. Each store is touched only
+     * when it actually holds the post (per-connection sync meta), so single-store
+     * installs behave exactly as before.
+     *
+     * @param int     $postId Post ID.
+     * @param WP_Post $post   Post object.
+     * @return true|WP_Error True on full or partial success; WP_Error only when
+     *                       every store that held the post failed.
+     */
+    private function unpublishFromShopify($postId, $post) {
+        $firstError = null;
+        $touchedAny = false;
+        $anySuccess = false;
+        $this->eachEnabledConnection(function () use ($postId, $post, &$firstError, &$touchedAny, &$anySuccess) {
+            // Only act where THIS connection actually holds the post — unpublish must
+            // reach every store the article/page lives on, regardless of current
+            // routing rules (else an orphaned live article is left behind).
+            $hasArticle = !empty(get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true));
+            $hasPage    = !empty(get_post_meta($postId, WashContext::metaKey('_wash_page_id'), true));
+            if (!$hasArticle && !$hasPage) {
+                return;
+            }
+            $touchedAny = true;
+            $result = $this->unpublishFromShopifyOnActive($postId, $post);
+            if (is_wp_error($result)) {
+                if ($firstError === null) {
+                    $firstError = $result;
+                }
+            } else {
+                $anySuccess = true;
+            }
+        });
+
+        if (!$touchedAny) {
+            return true; // post was on no store — nothing to unpublish (idempotent)
+        }
+        // Partial success still counts as processed; surface an error only when
+        // every store that held the post failed.
+        return ($anySuccess || $firstError === null) ? true : $firstError;
+    }
+
+    /**
+     * Unpublish the post from the CURRENTLY-ACTIVE connection only: delete its
+     * Shopify article/page and clear that connection's per-connection sync meta.
      *
      * @param int     $postId Post ID.
      * @param WP_Post $post   Post object.
      * @return true|WP_Error True on success, WP_Error on failure.
      */
-    private function unpublishFromShopify($postId, $post) {
+    protected function unpublishFromShopifyOnActive($postId, $post) {
         $endpoint = $post->post_type === 'page' ? '/api/page-sync' : '/api/content-sync';
-        washLog("[wash] unpublishFromShopify: postId={$postId}, endpoint={$endpoint}");
+        washLog("[wash] unpublishFromShopify: postId={$postId}, endpoint={$endpoint}, connection=" . WashContext::activeId());
 
         $sync = new WashSync();
         $payload = [
@@ -3349,8 +3416,8 @@ class WashAdmin {
             return new WP_Error('wash_api_error', $result['error']);
         }
 
-        // Clear local sync meta — the post is no longer on Shopify.
-        foreach (['_wash_article_id', '_wash_blog_id', '_wash_blog_handle', '_wash_handle',
+        // Clear local sync meta — the post is no longer on this store.
+        foreach (['_wash_article_id', '_wash_page_id', '_wash_blog_id', '_wash_blog_handle', '_wash_handle',
                   '_wash_synced_at', '_wash_sync_status', '_wash_sync_error',
                   '_wash_shopify_url', '_wash_storefront_subfolder'] as $key) {
             delete_post_meta($postId, WashContext::metaKey($key));

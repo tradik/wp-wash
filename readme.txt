@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.28.2
+Stable tag: 1.28.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -85,6 +85,11 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.28.3 =
+Fixed multi-store unpublish so a post is removed from every store it is mapped to.
+
+* **"Unpublish from Shopify" now removes a post from ALL its stores.** With more than one Shopify store connected, unpublishing a post that was synced to several stores only removed it from the first/primary store — it stayed live on the others. Unpublish now runs for every enabled store the post actually reached, clearing each store's own sync state. Single-store installs are unchanged. (Publish and Re-publish already fanned out to all mapped stores.)
 
 = 1.28.2 =
 Fixed multi-store publishing so a post only reaches stores it is mapped to.
