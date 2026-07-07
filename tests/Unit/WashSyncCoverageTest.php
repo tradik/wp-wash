@@ -106,6 +106,46 @@ class WashSyncCoverageTest extends TestCase
     }
 
     // ---------------------------------------------------------------
+    // addKnownShopifyIds — round-trip identity attached to the push payload
+    // ---------------------------------------------------------------
+
+    public function testAddKnownShopifyIdsNoMetaLeavesDataUntouched(): void
+    {
+        Functions\when('get_post_meta')->justReturn('');
+        $out = $this->invokePrivate('addKnownShopifyIds', [['x' => 1], $this->makePost(['post_type' => 'post']), 42]);
+        $this->assertSame(['x' => 1], $out);
+    }
+
+    public function testAddKnownShopifyIdsArticleAddsArticleAndBlogIds(): void
+    {
+        Functions\when('get_post_meta')->alias(fn($id, $key) => match ($key) {
+            '_wash_article_id' => 'gid://shopify/Article/9',
+            '_wash_blog_id'    => 'gid://shopify/Blog/3',
+            default            => '',
+        });
+        $out = $this->invokePrivate('addKnownShopifyIds', [[], $this->makePost(['post_type' => 'post']), 42]);
+        $this->assertSame('gid://shopify/Article/9', $out['shopifyArticleId']);
+        $this->assertSame('gid://shopify/Blog/3', $out['shopifyBlogId']);
+        $this->assertArrayNotHasKey('shopifyPageId', $out);
+    }
+
+    public function testAddKnownShopifyIdsArticleWithoutBlogIdOmitsBlog(): void
+    {
+        Functions\when('get_post_meta')->alias(fn($id, $key) => $key === '_wash_article_id' ? 'gid://shopify/Article/9' : '');
+        $out = $this->invokePrivate('addKnownShopifyIds', [[], $this->makePost(['post_type' => 'post']), 42]);
+        $this->assertSame('gid://shopify/Article/9', $out['shopifyArticleId']);
+        $this->assertArrayNotHasKey('shopifyBlogId', $out);
+    }
+
+    public function testAddKnownShopifyIdsPageAddsPageId(): void
+    {
+        Functions\when('get_post_meta')->alias(fn($id, $key) => $key === '_wash_article_id' ? 'gid://shopify/Page/7' : '');
+        $out = $this->invokePrivate('addKnownShopifyIds', [[], $this->makePost(['post_type' => 'page']), 42]);
+        $this->assertSame('gid://shopify/Page/7', $out['shopifyPageId']);
+        $this->assertArrayNotHasKey('shopifyArticleId', $out);
+    }
+
+    // ---------------------------------------------------------------
     // faqPlainText
     // ---------------------------------------------------------------
 

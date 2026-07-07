@@ -134,6 +134,17 @@ class WashBlogRouter {
      * @return bool true → skip publishing to this store
      */
     public static function shouldSkipPublish($postId) {
+        // A post already mapped to a Shopify article/page on THIS store — imported
+        // from Shopify, or synced before — has a KNOWN destination. Re-publishing just
+        // UPDATES it in place, so it must bypass the "no rule matches" gate: that gate
+        // only exists to stop NEW, unmapped posts from being guessed onto a blog. The
+        // meta is per-connection, so this can never leak a post onto the wrong store.
+        // Without this, imported content could never be edited-and-pushed back (it has
+        // no language/category rule) and dead-ended on "no blog-mapping rule".
+        if (get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true)) {
+            return false;
+        }
+
         $hasRules   = !empty(self::rules());
         $multiStore = WashConnection::enabledCount() > 1;
         // hasMapping only does real matching when rules exist; guard with $hasRules so

@@ -1459,6 +1459,33 @@ class WashApiClientCoverageTest extends TestCase
         $this->assertSame([5 => 'Jane', 7 => 'Bob'], $updateCalls['wash_author_mappings']);
     }
 
+    public function testRestoreSettingsMapsPerSourceMetafieldFlags(): void
+    {
+        // PLUGIN028: backupSettings() sends metaWpCore/Yoast/Rankmath/Acf, so restore
+        // must map them — else a settings push / reauth silently resets merchant-enabled
+        // ACF/SEO metafield sync back to defaults.
+        Functions\when('get_site_url')->justReturn('https://example.com');
+        $this->mockOptions();
+
+        $updateCalls = [];
+        Functions\when('update_option')->alias(function ($k, $v) use (&$updateCalls) {
+            $updateCalls[$k] = $v;
+        });
+
+        $client = new \WashApiClient();
+        $client->restoreSettings([
+            'metaWpCore'   => true,
+            'metaYoast'    => true,
+            'metaRankmath' => false,
+            'metaAcf'      => true,
+        ]);
+
+        $this->assertSame('1', $updateCalls['wash_meta_wp_core']);
+        $this->assertSame('1', $updateCalls['wash_meta_yoast']);
+        $this->assertSame('0', $updateCalls['wash_meta_rankmath']);
+        $this->assertSame('1', $updateCalls['wash_meta_acf']);
+    }
+
     public function testRestoreSettingsNonArrayInputReturnsFalse(): void
     {
         Functions\when('get_site_url')->justReturn('https://example.com');

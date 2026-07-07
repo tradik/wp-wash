@@ -699,6 +699,7 @@ class WashApiClient {
             'hreflang' => 'PRO',
             'authorMapping' => 'PRO',
             'blogMapping' => 'PRO',
+            'reverseImport' => 'PRO',
             'smartRedirections' => 'BUSINESS',
             'acfSync' => 'BUSINESS',
             'prioritySupport' => 'BUSINESS',
@@ -795,6 +796,13 @@ class WashApiClient {
             'syncBlocksMeta'   => 'wash_sync_blocks_meta',
             'syncBlocksCss'    => 'wash_sync_blocks_css',
             'redirectionsEnabled' => 'wash_redirections_enabled',
+            // Per-source metafield toggles — backupSettings() sends these (:739-742), so
+            // restore must map them too, else a settings push / reauth-restore silently
+            // resets them to defaults, disabling merchant-enabled ACF/SEO sync (PLUGIN028).
+            'metaWpCore'       => 'wash_meta_wp_core',
+            'metaYoast'        => 'wash_meta_yoast',
+            'metaRankmath'     => 'wash_meta_rankmath',
+            'metaAcf'          => 'wash_meta_acf',
         ];
 
         // The push is HMAC-authenticated, but never trust the payload blindly:

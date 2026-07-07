@@ -112,6 +112,7 @@ if ($wash_forceRefreshSettings && $wash_isConnected) {
 // Feature to tab mapping
 $wash_tabFeatures = [
     'blogs' => 'blogMapping',
+    'import' => 'reverseImport',
     'redirections' => 'smartRedirections',
     'hreflangs' => 'hreflang',
     'metafields' => 'metafields',
@@ -122,6 +123,7 @@ $wash_tabFeatures = [
 // Required plans for locked features
 $wash_featurePlans = [
     'blogMapping' => 'PRO',
+    'reverseImport' => 'PRO',
     'smartRedirections' => 'BUSINESS',
     'hreflang' => 'PRO',
     'metafields' => 'PRO',
@@ -389,6 +391,7 @@ function wash_render_permission_locked_banner() {
     <nav class="nav-tab-wrapper wash-tabs">
         <?php wash_render_tab('connection', __('Connection', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, true, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
         <?php wash_render_tab('blogs', __('Blogs', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
+        <?php wash_render_tab('import', __('Import from Shopify', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
         <?php wash_render_tab('redirections', __('Redirections', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
         <?php wash_render_tab('hreflangs', __('Hreflangs', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
         <?php wash_render_tab('metafields', __('Meta Fields', 'wash-blog-manager'), $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, false, $wash_permissions, $wash_tabPermissions, $wash_isConnected); ?>
@@ -800,6 +803,79 @@ function wash_render_permission_locked_banner() {
                     </p>
                 </div>
             </details>
+        </div>
+
+        <!-- Import from Shopify Tab -->
+        <?php $wash_importTabAttrs = wash_get_tab_content_class('import', $wash_features, $wash_tabFeatures, $wash_featurePlans, $wash_upgradeUrl, $wash_permissions, $wash_tabPermissions); ?>
+        <div class="<?php echo esc_attr($wash_importTabAttrs['class']); ?>" id="tab-import" style="display: none;" data-locked="<?php echo $wash_importTabAttrs['isLocked'] ? '1' : '0'; ?>" data-required-plan="<?php echo esc_attr($wash_importTabAttrs['requiredPlan']); ?>" data-upgrade-url="<?php echo esc_url($wash_importTabAttrs['upgradeUrl']); ?>">
+            <?php if (!empty($wash_importTabAttrs['isPlanLocked'])) : ?>
+                <?php wash_render_locked_banner($wash_importTabAttrs['requiredPlan'], $wash_importTabAttrs['upgradeUrl']); ?>
+            <?php endif; ?>
+            <h2 class="title"><?php esc_html_e('Import from Shopify', 'wash-blog-manager'); ?></h2>
+            <p class="description"><?php esc_html_e('Pull articles from a Shopify blog into WordPress — content, images, tags, and (with Polylang or WPML) translations. Imported posts are linked to their Shopify article, so re-importing updates them in place and they are never pushed straight back.', 'wash-blog-manager'); ?></p>
+
+            <?php
+            // Div/label layout (not a form-table): a settings form is not tabular data,
+            // so a <table>/<th> here trips Sonar accessibility rules (layout table +
+            // <th> under role="presentation"). The .wash-import-articles-only class is
+            // toggled by import-progress.js to hide blog-only controls for Page imports.
+            ?>
+            <div class="wash-import-form">
+                <p class="wash-import-field">
+                    <label for="wash-import-type"><strong><?php esc_html_e('Import', 'wash-blog-manager'); ?></strong></label><br />
+                    <select id="wash-import-type">
+                        <option value="article"><?php esc_html_e('Blog articles', 'wash-blog-manager'); ?></option>
+                        <option value="page"><?php esc_html_e('Pages', 'wash-blog-manager'); ?></option>
+                    </select>
+                </p>
+                <p class="wash-import-field wash-import-articles-only">
+                    <label for="wash-import-blog"><strong><?php esc_html_e('Source blog', 'wash-blog-manager'); ?></strong></label><br />
+                    <select id="wash-import-blog" class="regular-text">
+                        <option value=""><?php esc_html_e('Select a blog…', 'wash-blog-manager'); ?></option>
+                    </select>
+                </p>
+                <p class="wash-import-field">
+                    <label for="wash-import-status"><strong><?php esc_html_e('Import as', 'wash-blog-manager'); ?></strong></label><br />
+                    <select id="wash-import-status">
+                        <option value="draft"><?php esc_html_e('Draft (review before publishing)', 'wash-blog-manager'); ?></option>
+                        <option value="shopify"><?php esc_html_e('Match Shopify status', 'wash-blog-manager'); ?></option>
+                        <option value="publish"><?php esc_html_e('Published', 'wash-blog-manager'); ?></option>
+                    </select>
+                </p>
+                <fieldset class="wash-import-field">
+                    <legend><strong><?php esc_html_e('Options', 'wash-blog-manager'); ?></strong></legend>
+                    <?php
+                    // Render option checkboxes from a data array (Sonar duplication rule).
+                    // 'class' = wash-import-articles-only rows are hidden when importing Pages.
+                    $wash_importFields = [
+                        ['id' => 'wash-import-images', 'label' => __('Import images (featured + inline) and file attachments', 'wash-blog-manager'), 'checked' => true, 'class' => ''],
+                        ['id' => 'wash-import-metafields', 'label' => __('Import metafields (as custom fields)', 'wash-blog-manager'), 'checked' => false, 'class' => ''],
+                        ['id' => 'wash-import-blog-category', 'label' => __('Assign a category named after the Shopify blog', 'wash-blog-manager'), 'checked' => true, 'class' => 'wash-import-articles-only'],
+                        ['id' => 'wash-import-translations', 'label' => __('Import translations (requires Polylang or WPML)', 'wash-blog-manager'), 'checked' => false, 'class' => ''],
+                        ['id' => 'wash-import-skip-imported', 'label' => __('Skip content already imported', 'wash-blog-manager'), 'checked' => false, 'class' => ''],
+                    ];
+                    foreach ($wash_importFields as $wash_importField) :
+                        ?>
+                        <label class="<?php echo esc_attr($wash_importField['class']); ?>" style="display:block; margin-bottom:6px;">
+                            <input type="checkbox" id="<?php echo esc_attr($wash_importField['id']); ?>" <?php checked($wash_importField['checked']); ?> />
+                            <?php echo esc_html($wash_importField['label']); ?>
+                        </label>
+                    <?php endforeach; ?>
+                </fieldset>
+            </div>
+
+            <p>
+                <button type="button" id="wash-import-start" class="button button-primary"><?php esc_html_e('Start import', 'wash-blog-manager'); ?></button>
+            </p>
+
+            <div style="margin: 15px 0;">
+                <progress id="wash-import-progress" value="0" max="0" style="width: 100%; height: 22px;"></progress>
+                <p style="margin-top: 8px; font-size: 14px;">
+                    <strong><span id="wash-import-done">0</span> / <span id="wash-import-total">0</span></strong>
+                    — <span id="wash-import-status-text"></span>
+                </p>
+                <ul id="wash-import-errors" style="color: #d63638; font-size: 13px;"></ul>
+            </div>
         </div>
 
         <!-- Redirections Tab -->

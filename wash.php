@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Wash: Blog Manager
  * Description:       Synchronize WordPress content, images, and metafields to Shopify blogs.
- * Version:           1.28.3
+ * Version:           1.29.0
  * Requires at least: 6.3
  * Requires PHP:      8.0
  * Author:            Tradik
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WASH_VERSION', '1.28.3');
+define('WASH_VERSION', '1.29.0');
 define('WASH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WASH_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
@@ -55,6 +55,13 @@ require_once WASH_PLUGIN_DIR . 'includes/class-wash-blog-router.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-images.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-metafields.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-hreflangs.php';
+// Reverse import (Shopify → WordPress). Writer depends on the media + translations
+// helpers, and the translations helper on WashHreflangs, so load them in order.
+require_once WASH_PLUGIN_DIR . 'includes/class-wash-import-media.php';
+require_once WASH_PLUGIN_DIR . 'includes/class-wash-import-metafields.php';
+require_once WASH_PLUGIN_DIR . 'includes/class-wash-import-translations.php';
+require_once WASH_PLUGIN_DIR . 'includes/class-wash-import-writer.php';
+require_once WASH_PLUGIN_DIR . 'includes/class-wash-import.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-multisite.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-files-media.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-callback.php';
@@ -84,6 +91,9 @@ function washInit() {
 
     $sync = new WashSync();
     $sync->init();
+
+    $import = new WashImport();
+    $import->init();
 
     $images = new WashImages();
     $images->init();

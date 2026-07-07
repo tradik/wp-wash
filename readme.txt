@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.28.3
+Stable tag: 1.29.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -85,6 +85,12 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.29.0 =
+Added "Import from Shopify": pull articles and pages back into WordPress.
+
+* **New "Import from Shopify" tab (PRO+).** Import a Shopify blog's articles (as posts) or the shop's Pages (as pages), including content, featured + inline images, file attachments, tags, a category named after the source blog, optional metafields, and — with Polylang or WPML — translations. Runs per connection as a batched job with a live progress bar. Imported content is linked to its Shopify source, so re-importing updates it in place, editing it and pushing it back updates the same article, and it is never pushed straight back on import.
+* **Hardening.** Numerous reliability and data-safety fixes across the sync queue and image handling (duplicate-upload prevention, stale-image re-upload, failed-job cleanup), multi-store meta correctness, and settings backup/restore. Single-store installs are unaffected.
 
 = 1.28.3 =
 Fixed multi-store unpublish so a post is removed from every store it is mapped to.

@@ -468,6 +468,36 @@ class WashAdmin {
             true
         );
 
+        // Reverse import ("Import from Shopify" tab) driver. Enqueued on the same
+        // settings screen; drives wash_import_preview → wash_import_batch batches.
+        wp_enqueue_script(
+            'wash-import',
+            $pluginUrl . 'admin/js/import-progress.js',
+            [],
+            WASH_VERSION . '.' . filemtime(WASH_PLUGIN_DIR . 'admin/js/import-progress.js'),
+            true
+        );
+        wp_localize_script('wash-import', 'WashImport', [
+            'ajaxUrl'          => admin_url('admin-ajax.php'),
+            'nonce'            => wp_create_nonce('wash_import'),
+            'blogsNonce'       => wp_create_nonce('wash_mappings'),
+            'washConnectionId' => WashContext::activeId(),
+            'batchSize'        => max(1, (int) apply_filters('wash_import_batch_size', 5)),
+            'i18n'             => [
+                'preparing'   => __('Preparing…', 'wash-blog-manager'),
+                'working'     => __('Importing…', 'wash-blog-manager'),
+                'done'        => __('Done', 'wash-blog-manager'),
+                'imported'    => __('imported', 'wash-blog-manager'),
+                'errorsLabel' => __('errors', 'wash-blog-manager'),
+                'noBlog'      => __('Please choose a Shopify blog to import from.', 'wash-blog-manager'),
+                'empty'       => __('No articles found in this blog.', 'wash-blog-manager'),
+                'previewFail' => __('Failed to prepare import: ', 'wash-blog-manager'),
+                'blogsFail'   => __('Could not load blogs: ', 'wash-blog-manager'),
+                'retrying'    => __('Retrying skipped batches…', 'wash-blog-manager'),
+                'batchFailed' => __('Batch failed (not imported) at offset ', 'wash-blog-manager'),
+            ],
+        ]);
+
         wp_localize_script('wash-admin', 'washAdmin', [
             'ajaxUrl'           => admin_url('admin-ajax.php'),
             'connectionId'      => WashContext::activeId(),
@@ -2258,29 +2288,33 @@ class WashAdmin {
      * @return string 'synced' when the article exists, otherwise 'not_synced'.
      */
     private function applyStatusToPostMeta($postId, $status) {
+        // Route EVERY key through WashContext so a refresh started from a secondary
+        // store's page writes/clears that store's namespaced meta — never the primary's
+        // unprefixed keys (multi-store invariant #216 / PLUGIN023). apiClient() already
+        // honours washConnectionId, so activeId() resolves to the same connection here.
         if ($status && !empty($status['exists'])) {
             if (!empty($status['shopifyArticleId'])) {
-                update_post_meta($postId, '_wash_article_id', $status['shopifyArticleId']);
+                update_post_meta($postId, WashContext::metaKey('_wash_article_id'), $status['shopifyArticleId']);
             }
             if (!empty($status['shopifyBlogId'])) {
-                update_post_meta($postId, '_wash_blog_id', $status['shopifyBlogId']);
+                update_post_meta($postId, WashContext::metaKey('_wash_blog_id'), $status['shopifyBlogId']);
             }
             if (!empty($status['shopifyBlogHandle'])) {
-                update_post_meta($postId, '_wash_blog_handle', $status['shopifyBlogHandle']);
+                update_post_meta($postId, WashContext::metaKey('_wash_blog_handle'), $status['shopifyBlogHandle']);
             }
             if (!empty($status['syncedAt'])) {
-                update_post_meta($postId, '_wash_synced_at', $status['syncedAt']);
+                update_post_meta($postId, WashContext::metaKey('_wash_synced_at'), $status['syncedAt']);
             }
-            delete_post_meta($postId, '_wash_sync_error');
-            delete_post_meta($postId, '_wash_sync_error_at');
+            delete_post_meta($postId, WashContext::metaKey('_wash_sync_error'));
+            delete_post_meta($postId, WashContext::metaKey('_wash_sync_error_at'));
             return 'synced';
         }
-        delete_post_meta($postId, '_wash_article_id');
-        delete_post_meta($postId, '_wash_blog_id');
-        delete_post_meta($postId, '_wash_blog_handle');
-        delete_post_meta($postId, '_wash_synced_at');
-        delete_post_meta($postId, '_wash_sync_error');
-        delete_post_meta($postId, '_wash_sync_error_at');
+        delete_post_meta($postId, WashContext::metaKey('_wash_article_id'));
+        delete_post_meta($postId, WashContext::metaKey('_wash_blog_id'));
+        delete_post_meta($postId, WashContext::metaKey('_wash_blog_handle'));
+        delete_post_meta($postId, WashContext::metaKey('_wash_synced_at'));
+        delete_post_meta($postId, WashContext::metaKey('_wash_sync_error'));
+        delete_post_meta($postId, WashContext::metaKey('_wash_sync_error_at'));
         return 'not_synced';
     }
 

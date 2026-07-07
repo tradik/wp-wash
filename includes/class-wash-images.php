@@ -28,6 +28,11 @@ class WashImages {
      * @param int $attachmentId Attachment post ID
      */
     public function onAddAttachment($attachmentId) {
+        // Anti-loop guard: attachments created by a reverse import (media sideload
+        // from cdn.shopify.com) must NOT be pushed back to Shopify.
+        if (!empty($GLOBALS['wash_importing'])) {
+            return;
+        }
         if (!$this->isSyncableFile($attachmentId)) {
             return;
         }

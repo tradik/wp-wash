@@ -184,19 +184,20 @@ class WashBlogRouterTest extends TestCase
 
     public function testShouldSkipPublishTrueWhenRulesExistButNoneMatch(): void
     {
-        // Single store WITH rules; post matches none → skip (no default publish).
+        // A NEW (unsynced) post WITH rules that matches none → skip (no default publish).
+        // A post already synced to this store is exempt — see the bypass tests below.
         $this->setRules([$this->langRule('de-ch', self::SW_MARKET)]);
-        $this->makePost(22, 'pl-pl');
+        $this->makePost(22, 'pl-pl', 'post', ['_wash_article_id' => '']);
         $this->assertTrue(\WashBlogRouter::shouldSkipPublish(22));
     }
 
     public function testShouldSkipPublishTrueForMultiStoreEvenWithoutRules(): void
     {
-        // 2+ stores connected → never default publish, even for a store with no rules
-        // (e.g. an empty secondary). This is the US-post-must-not-land-on-UK guard.
+        // 2+ stores connected → never default publish a NEW post, even for a store with
+        // no rules (e.g. an empty secondary). This is the US-post-must-not-land-on-UK guard.
         $this->addSecondStore();
         $this->setRules([]);
-        $this->makePost(23, 'pl-pl');
+        $this->makePost(23, 'pl-pl', 'post', ['_wash_article_id' => '']);
         $this->assertTrue(\WashBlogRouter::shouldSkipPublish(23));
     }
 
@@ -212,8 +213,29 @@ class WashBlogRouterTest extends TestCase
     {
         $this->addSecondStore();
         $this->setRules([$this->langRule('de-ch', self::SW_MARKET)]);
-        $this->makePost(25, 'en-us');
+        $this->makePost(25, 'en-us', 'post', ['_wash_article_id' => '']);
         $this->assertTrue(\WashBlogRouter::shouldSkipPublish(25));
+    }
+
+    public function testShouldSkipPublishFalseWhenPostAlreadyHasArticle(): void
+    {
+        // Imported / previously-synced post: it already has a Shopify article on this
+        // store, so re-publishing UPDATES it in place — the "no rule" gate must not
+        // block it, even though its language matches no rule. This is the fix for
+        // "no blog-mapping rule" on imported content.
+        $this->setRules([$this->langRule('de-ch', self::SW_MARKET)]);
+        $this->makePost(26, 'pl-pl', 'post', ['_wash_article_id' => 'gid://shopify/Article/99']);
+        $this->assertFalse(\WashBlogRouter::shouldSkipPublish(26));
+    }
+
+    public function testShouldSkipPublishFalseForImportedPostInMultiStore(): void
+    {
+        // Same, multi-store: the article id is per-connection, so bypassing here can
+        // never leak the post onto a store where it has no article.
+        $this->addSecondStore();
+        $this->setRules([$this->langRule('de-ch', self::SW_MARKET)]);
+        $this->makePost(27, 'en-us', 'post', ['_wash_article_id' => 'gid://shopify/Article/77']);
+        $this->assertFalse(\WashBlogRouter::shouldSkipPublish(27));
     }
 
     // -- matchRule priority -------------------------------------------------

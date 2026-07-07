@@ -378,7 +378,9 @@ class WashMetafields {
      * Handle post meta deletion — mark for deletion from Shopify.
      */
     public function onMetaDelete($metaId, $postId, $metaKey, $metaValue) {
-        if ($this->shouldSkipMeta($metaKey)) {
+        // Anti-loop guard (never delete a Shopify metafield because of a meta write
+        // performed during a reverse import) + skip internal WP keys, in one gate.
+        if (!empty($GLOBALS['wash_importing']) || $this->shouldSkipMeta($metaKey)) {
             return;
         }
 
@@ -418,12 +420,11 @@ class WashMetafields {
      * Sync a single metafield to Shopify.
      */
     private function syncMetafield($postId, $metaKey, $metaValue) {
-        if ($this->shouldSkipMeta($metaKey)) {
-            return;
-        }
-
-        // Skip ACF fields here - they are handled by onAcfSavePost
-        if ($this->isAcfField($metaKey)) {
+        // One skip gate: (1) anti-loop — a reverse import writes post-meta (identity
+        // keys + the optional "import metafields" values) that must NOT be echoed back
+        // to Shopify as upserts; (2) internal WP keys; (3) ACF fields (handled by
+        // onAcfSavePost). Order preserved so getShopifyResourceId() only runs on a keeper.
+        if (!empty($GLOBALS['wash_importing']) || $this->shouldSkipMeta($metaKey) || $this->isAcfField($metaKey)) {
             return;
         }
 

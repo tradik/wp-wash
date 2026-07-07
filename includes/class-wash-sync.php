@@ -42,6 +42,15 @@ class WashSync {
     public function onSavePost($postId, $post, $update) {
         washLog("[wash] onSavePost called for post {$postId}, type: {$post->post_type}, status: {$post->post_status}");
 
+        // Anti-loop guard: while a reverse import (Shopify → WordPress) is writing
+        // posts, do NOT push them straight back to Shopify. WashImport sets this
+        // global around wp_insert_post/wp_update_post; imported posts also carry
+        // `_wash_skip_autosync` so later auto-saves stay put too.
+        if (!empty($GLOBALS['wash_importing'])) {
+            washLog("[wash] onSavePost: reverse import in progress — skipping outbound sync for post {$postId}");
+            return;
+        }
+
         if ($post->post_status !== 'publish') {
             washLog("[wash] Skipping sync - post_status is not 'publish', status: {$post->post_status}");
             return;
@@ -221,6 +230,14 @@ class WashSync {
      */
     public function onStatusTransition($newStatus, $oldStatus, $post) {
         if ($this->isSyncing) {
+            return;
+        }
+        // Anti-loop / data-safety guard: a reverse import that writes a post as Draft
+        // (or "match Shopify" when the article is hidden) transitions publish → draft,
+        // which would otherwise fire deleteForUnpublish() and DELETE the Shopify article
+        // we just imported from. An import must never unpublish/delete on Shopify — it
+        // only pulls content in; unpublishing stays a deliberate, user-driven action.
+        if (!empty($GLOBALS['wash_importing'])) {
             return;
         }
         if (!($oldStatus === 'publish' && $newStatus !== 'publish')) {
@@ -421,6 +438,36 @@ class WashSync {
     }
 
     /**
+     * If this post already knows its Shopify resource — synced before, or imported
+     * from Shopify — attach its id so the worker updates it IN PLACE even when no
+     * blog-mapping rule matches (an imported post has a known destination and does not
+     * need routing). Pages carry a Page GID; articles carry an Article GID + blog id.
+     * The worker synthesises a SyncLog from these on first update. Extracted from
+     * buildPostData() so the branch does not add to that method's complexity (Sonar).
+     *
+     * @param array   $data   Payload being assembled.
+     * @param WP_Post $post   The post/page being synced.
+     * @param int     $postId Post ID.
+     * @return array The payload with any known Shopify ids added.
+     */
+    private function addKnownShopifyIds(array $data, $post, $postId) {
+        $knownId = get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true);
+        if (!$knownId) {
+            return $data;
+        }
+        if ($post->post_type === 'page') {
+            $data['shopifyPageId'] = $knownId;
+            return $data;
+        }
+        $data['shopifyArticleId'] = $knownId;
+        $knownBlogId = get_post_meta($postId, WashContext::metaKey('_wash_blog_id'), true);
+        if ($knownBlogId) {
+            $data['shopifyBlogId'] = $knownBlogId;
+        }
+        return $data;
+    }
+
+    /**
      * Build the post data payload for the Shopify App API.
      */
     private function buildPostData($postId, $post, $action) {
@@ -537,6 +584,8 @@ class WashSync {
 
         // Add categories for rule-based blog mapping
         $data['categories'] = $this->getPostCategories($postId);
+
+        $data = $this->addKnownShopifyIds($data, $post, $postId);
 
         // Add translation group info so Shopify sync merges siblings into one article
         $hreflangs = new WashHreflangs();
