@@ -20,6 +20,11 @@ class WashHreflangsTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        // Patchwork keeps a function defined once any earlier test mocks it, so
+        // function_exists() guards stop short-circuiting. Pin neutral defaults so
+        // results do not depend on test order (PHPUnit 13 orders differently).
+        Functions\when('get_the_terms')->justReturn(false);
+        Functions\when('PLL')->justReturn(new \stdClass());
         // Reset per-connection static state so a memoized WashContext client/id
         // can't leak between tests (PHPUnit runs in execution-order, not file order).
         \WashContext::setActiveId(null);

@@ -16,6 +16,7 @@ require_once dirname(__DIR__, 2) . '/includes/class-wash-connection.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wash-context.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wash-api-client.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wash-connections-admin.php';
+require_once dirname(__DIR__, 2) . '/includes/class-wash-connect-code.php';
 
 class WashRedirect extends \RuntimeException
 {
@@ -110,8 +111,47 @@ class WashConnectionsAdminTest extends TestCase
         });
         $this->admin->init();
         $this->assertContains('admin_menu', $actions);
-        $this->assertContains('admin_post_wash_add_connection', $actions);
+        // #285: stores are added with a connect code (WashConnectCode), not by
+        // typing the store domain or following a redirect back from Shopify.
+        $this->assertNotContains('admin_post_wash_add_connection', $actions);
         $this->assertContains('admin_post_wash_toggle_connection', $actions);
+    }
+
+    public function testInitSchedulesThePlanEnforcementCronOnce(): void
+    {
+        Functions\when('add_action')->justReturn(true);
+        Functions\when('wp_next_scheduled')->justReturn(false);
+        $scheduled = [];
+        Functions\when('wp_schedule_event')->alias(function ($time, $recurrence, $hook) use (&$scheduled) {
+            $scheduled[] = [$recurrence, $hook];
+        });
+
+        $this->admin->init();
+
+        $this->assertSame([['daily', 'wash_enforce_plan']], $scheduled);
+    }
+
+    public function testRegisterPagesLabelsAStoreWithoutADomain(): void
+    {
+        $labels = [];
+        Functions\when('add_submenu_page')->alias(function ($parent, $t, $menuLabel) use (&$labels) {
+            $labels[] = $menuLabel;
+        });
+
+        $this->seedConnection('x2', '');
+        $this->admin->registerPages();
+
+        $this->assertSame(['Wash: (no domain)'], $labels);
+    }
+
+    public function testRenderConnectionSettingsDoesNothingForNonAdmins(): void
+    {
+        Functions\when('current_user_can')->justReturn(false);
+        \WashContext::setActiveId('primary');
+
+        ob_start();
+        $this->admin->renderConnectionSettings();
+        $this->assertSame('', ob_get_clean(), 'no redirect, no output');
     }
 
     public function testRegisterPagesAddsRoutableSubmenuPerAdditionalStore(): void
@@ -157,25 +197,12 @@ class WashConnectionsAdminTest extends TestCase
         $this->assertStringContainsString('…', $labels[0]);                    // truncation marker
     }
 
-    public function testManualAddCreatesConnectionAndRedirects(): void
+    public function testConnectionUrlPointsAtTheStoresSettingsPage(): void
     {
-        $_POST = ['store' => 'shop2.myshopify.com', 'apiKey' => 'wp4s_new'];
-        $url = $this->expectRedirect(fn() => $this->admin->handleManualAdd());
-        $this->assertStringContainsString('page=wash-conn-', $url);
-        $this->assertStringContainsString('added=1', $url);
-
-        $stored = $this->options['wash_connections'];
-        $entry  = reset($stored);
-        $this->assertSame('shop2.myshopify.com', $entry['store']);
-        $this->assertSame('wp4s_new', $entry['apiKey']);
-    }
-
-    public function testManualAddRejectsMissingFields(): void
-    {
-        $_POST = ['store' => '', 'apiKey' => ''];
-        $url = $this->expectRedirect(fn() => $this->admin->handleManualAdd());
-        $this->assertStringContainsString('error=missing', $url);
-        $this->assertArrayNotHasKey('wash_connections', $this->options);
+        $this->assertSame(
+            'http://wp/wp-admin/options-general.php?page=wash-conn-abc&added=1',
+            \WashConnectionsAdmin::connectionUrl('abc', 'added')
+        );
     }
 
     public function testRemoveDeletesConnection(): void
@@ -194,41 +221,6 @@ class WashConnectionsAdminTest extends TestCase
         $url = $this->expectRedirect(fn() => $this->admin->handleToggle());
         $this->assertStringContainsString('toggled=0', $url);
         $this->assertFalse($this->options['wash_connections']['x1']['enabled']);
-    }
-
-    public function testOAuthAddCallbackAddsConnection(): void
-    {
-        $_GET = [
-            'page' => 'wash', 'wash_callback' => '1', 'wash_add' => '1',
-            'wash_state' => 'nonce', 'api_key' => 'wp4s_oauth', 'store' => 'shop3',
-        ];
-        $url = $this->expectRedirect(fn() => $this->admin->handleOAuthAddCallback());
-        $this->assertStringContainsString('page=wash-conn-', $url);
-        $this->assertStringContainsString('added=1', $url);
-        $stored = $this->options['wash_connections'];
-        $entry  = reset($stored);
-        $this->assertSame('shop3', $entry['store']);
-        $this->assertSame('wp4s_oauth', $entry['apiKey']);
-    }
-
-    public function testOAuthAddCallbackIgnoresUnrelatedPages(): void
-    {
-        $_GET = ['page' => 'some-other-page'];
-        // No redirect, no exception — handler returns early.
-        $this->admin->handleOAuthAddCallback();
-        $this->assertArrayNotHasKey('wash_connections', $this->options);
-    }
-
-    public function testOAuthAddCallbackRejectsBadNonce(): void
-    {
-        Functions\when('wp_verify_nonce')->justReturn(false);
-        $_GET = [
-            'page' => 'wash', 'wash_callback' => '1', 'wash_add' => '1',
-            'wash_state' => 'bad', 'api_key' => 'k', 'store' => 's',
-        ];
-        $url = $this->expectRedirect(fn() => $this->admin->handleOAuthAddCallback());
-        $this->assertStringContainsString('error=state', $url);
-        $this->assertArrayNotHasKey('wash_connections', $this->options);
     }
 
     public function testRenderConnectionSettingsRedirectsForPrimary(): void
@@ -252,14 +244,20 @@ class WashConnectionsAdminTest extends TestCase
         Functions\when('washPluginUrl')->justReturn('http://wp/wp-content/plugins/wash/');
         Functions\when('wp_create_nonce')->justReturn('nonce123');
         Functions\when('get_bloginfo')->justReturn('My Site');
-        Functions\when('get_site_url')->justReturn('https://example.com'); // WashApiClient::getShopifyAppSlug
+        $nonceActions = [];
+        Functions\when('wp_create_nonce')->alias(function ($action) use (&$nonceActions) {
+            $nonceActions[] = $action;
+            return 'nonce123';
+        });
 
         $this->admin->enqueueAssets('settings_page_wash');
 
         $this->assertContains('wash-connections', $enqueued);
         $this->assertArrayHasKey('washConnData', $localized);
         $this->assertSame('nonce123', $localized['washConnData']['nonce']);
-        $this->assertSame('wash', $localized['washConnData']['page']);
+        $this->assertSame(['wash_connect_code'], $nonceActions);
+        $this->assertSame('http://wp/wp-admin/admin-ajax.php', $localized['washConnData']['ajaxUrl']);
+        $this->assertArrayNotHasKey('appSlug', $localized['washConnData'], 'the store is never addressed from WordPress');
     }
 
     public function testEnqueueAssetsSkipsUnrelatedPages(): void
@@ -295,7 +293,7 @@ class WashConnectionsAdminTest extends TestCase
     public function testHandlerBlocksUnauthorizedUser(): void
     {
         Functions\when('current_user_can')->justReturn(false);
-        $url = $this->expectRedirect(fn() => $this->admin->handleManualAdd());
+        $url = $this->expectRedirect(fn() => $this->admin->handleRemove());
         $this->assertSame('wp_die', $url); // guard() calls wp_die() before any work
     }
 
@@ -322,15 +320,6 @@ class WashConnectionsAdminTest extends TestCase
         $this->assertTrue(\WashConnectionsAdmin::planAllowsMultiStore()); // don't block on outage
     }
 
-    public function testManualAddRejectedWhenPlanDoesNotQualify(): void
-    {
-        Functions\when('get_transient')->justReturn(['plan' => 'FREE']);
-        $_POST = ['store' => 'shop.myshopify.com', 'apiKey' => 'wp4s_new'];
-        $url = $this->expectRedirect(fn() => $this->admin->handleManualAdd());
-        $this->assertStringContainsString('error=plan', $url);
-        $this->assertArrayNotHasKey('wash_connections', $this->options); // nothing added
-    }
-
     public function testEnforcePlanDowngradeDisablesAdditionalConnections(): void
     {
         Functions\when('get_transient')->justReturn(['plan' => 'FREE']); // lapsed
@@ -347,15 +336,4 @@ class WashConnectionsAdminTest extends TestCase
         $this->assertTrue($this->options['wash_connections']['x1']['enabled']);
     }
 
-    public function testOAuthAddRejectedWhenPlanDoesNotQualify(): void
-    {
-        Functions\when('get_transient')->justReturn(['plan' => 'FREE']);
-        $_GET = [
-            'page' => 'wash', 'wash_callback' => '1', 'wash_add' => '1',
-            'wash_state' => 'nonce', 'api_key' => 'wp4s_oauth', 'store' => 'shop3',
-        ];
-        $url = $this->expectRedirect(fn() => $this->admin->handleOAuthAddCallback());
-        $this->assertStringContainsString('error=plan', $url);
-        $this->assertArrayNotHasKey('wash_connections', $this->options);
-    }
 }

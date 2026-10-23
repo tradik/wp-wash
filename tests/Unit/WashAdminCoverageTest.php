@@ -38,6 +38,7 @@
  */
 namespace Wash\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Brain\Monkey;
 use Brain\Monkey\Functions;
@@ -45,9 +46,7 @@ use Brain\Monkey\Functions;
 require_once dirname(__DIR__, 2) . '/includes/class-wash-api-client.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wash-admin.php';
 
-/**
- * @covers WashAdmin
- */
+#[CoversClass(\WashAdmin::class)]
 class WashAdminCoverageTest extends TestCase
 {
     private \WashAdmin $admin;
@@ -2518,53 +2517,6 @@ class WashAdminCoverageTest extends TestCase
         }
 
         $this->assertSame('success', $this->jsonResponses[0]['type']);
-    }
-
-    // ---------------------------------------------------------------
-    // handleCallback — success path covered here too
-    // ---------------------------------------------------------------
-
-    public function testHandleCallbackWithReauthAndBackupRestoresSettings(): void
-    {
-        $_GET['page']         = 'wash';
-        $_GET['wash_callback'] = '1';
-        $_GET['wash_state']   = 'valid';
-        $_GET['api_key']      = 'new-key';
-        $_GET['store']        = 'my-store';
-        $_GET['is_reauth']    = '1';
-        $_GET['has_backup']   = '1';
-
-        Functions\when('current_user_can')->justReturn(true);
-        Functions\when('wp_verify_nonce')->alias(fn($n, $a) => $a === 'wash_connect' ? 1 : false);
-        Functions\when('add_query_arg')->alias(function (...$a) {
-            if (count($a) === 3 && is_string($a[0])) {
-                return $a[2] . '&' . $a[0] . '=' . $a[1];
-            }
-            [$args, $url] = $a;
-            return $url . '&' . http_build_query($args);
-        });
-
-        // getBackedUpSettings returns backed-up settings
-        Functions\when('wp_remote_get')->justReturn(['body' => json_encode([
-            'success'  => true,
-            'settings' => ['wash_post_types' => 'post,page'],
-        ])]);
-        Functions\when('wp_remote_retrieve_response_code')->justReturn(200);
-        Functions\when('wp_remote_retrieve_body')->justReturn(json_encode([
-            'success'  => true,
-            'settings' => ['wash_post_types' => 'post,page'],
-        ]));
-
-        try {
-            $this->admin->handleCallback();
-            $this->fail('Expected redirect');
-        } catch (\RuntimeException $e) {
-            // redirect at end
-        }
-
-        $this->assertSame('new-key', $this->options['wash_api_key'] ?? null);
-        unset($_GET['page'], $_GET['wash_callback'], $_GET['wash_state'],
-              $_GET['api_key'], $_GET['store'], $_GET['is_reauth'], $_GET['has_backup']);
     }
 
     // ---------------------------------------------------------------

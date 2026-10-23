@@ -59,25 +59,43 @@ class WashWpOrgComplianceTest extends TestCase
     }
 
     /**
-     * The Shopify connect callback writes credentials from $_GET, so it must be
-     * CSRF-protected. Pin the round-trip: the button issues a `wash_connect`
-     * nonce inside return_url, and handleCallback() verifies it.
+     * Redeeming a connect code writes credentials, so it must be CSRF- and
+     * capability-gated: connections.js gets a `wash_connect_code` nonce and
+     * WashConnectCode::ajaxRedeem() checks it and manage_options first.
      */
-    public function testConnectCallbackCsrfWiringPresent(): void
+    public function testConnectCodeCsrfWiringPresent(): void
     {
-        $view = (string) file_get_contents($this->pluginDir() . '/admin/views/settings-page.php');
-        $admin = (string) file_get_contents($this->pluginDir() . '/includes/class-wash-admin.php');
+        $admin = (string) file_get_contents($this->pluginDir() . '/includes/class-wash-connections-admin.php');
+        $code  = (string) file_get_contents($this->pluginDir() . '/includes/class-wash-connect-code.php');
 
-        // Issued on the connect button, embedded in the return_url so it round-trips.
-        $this->assertStringContainsString("wp_create_nonce('wash_connect')", $view);
-        $this->assertStringContainsString('wash_state=', $view);
-
-        // Verified before any credential write in handleCallback().
-        $this->assertMatchesRegularExpression(
-            "/wp_verify_nonce\(\s*\\\$state\s*,\s*'wash_connect'\s*\)/",
-            $admin,
-            'handleCallback() must verify the wash_connect nonce'
+        $this->assertStringContainsString('wp_create_nonce(WashConnectCode::NONCE)', $admin);
+        $this->assertStringContainsString("const NONCE = 'wash_connect_code';", $code);
+        $this->assertMatchesRegularExpression('/check_ajax_referer\(\s*self::NONCE\s*,\s*\'nonce\'\s*\)/', $code);
+        $this->assertLessThan(
+            strpos($code, 'redeemConnectCode('),
+            strpos($code, "current_user_can('manage_options')"),
+            'capability must be checked before the code is redeemed'
         );
+    }
+
+    /**
+     * Shopify App Store requirement 2.3.1 (#285): no plugin UI may ask the
+     * merchant to type a myshopify.com domain or store handle.
+     */
+    public function testConnectUiNeverAsksForTheShopDomain(): void
+    {
+        // The connect form and its script: no domain wording, no store-addressed URL.
+        foreach (['/admin/views/partials/connect-form.php', '/admin/js/connections.js'] as $file) {
+            $src = (string) file_get_contents($this->pluginDir() . $file);
+            $this->assertStringNotContainsString('myshopify.com', $src, $file . ' mentions myshopify.com');
+            $this->assertStringNotContainsString('admin.shopify.com/store/', $src, $file . ' builds a store-specific admin URL');
+        }
+        // The views may DISPLAY the connected store (and carry it in a hidden field on
+        // settings save), but must not offer a field to type one.
+        foreach (['/admin/views/connections-page.php', '/admin/views/settings-page.php'] as $file) {
+            $src = (string) file_get_contents($this->pluginDir() . $file);
+            $this->assertDoesNotMatchRegularExpression('/<input(?![^>]*type="hidden")[^>]+(name|id)="(store|wash_shopify_store|wash-oauth-store|wash-store)"/', $src, $file);
+        }
     }
 
     /**

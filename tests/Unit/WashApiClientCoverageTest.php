@@ -6,7 +6,6 @@
  *
  * Methods targeted:
  *  - resolveAppUrl (all branches: hilo, explicit option, tradik.dev, default)
- *  - getShopifyAppSlug (all 3 branches)
  *  - getAppUrl
  *  - get() – success, not-configured, wp_error, 4xx, null JSON body
  *  - post() – success, not-configured, wp_error, 4xx error body
@@ -152,32 +151,6 @@ class WashApiClientCoverageTest extends TestCase
         $this->mockOptions(['wash_app_url' => '']);
         $client = new \WashApiClient();
         $this->assertSame('https://app-wash.tradik.com', $client->getAppUrl());
-    }
-
-    // -----------------------------------------------------------------------
-    // getShopifyAppSlug
-    // -----------------------------------------------------------------------
-
-    public function testGetShopifyAppSlugDevEnvironment(): void
-    {
-        Functions\when('get_site_url')->justReturn('https://myshop.tradik.dev');
-        $client = $this->makeClient(['wash_app_url' => '']);
-        $this->assertSame('wash-blog-manager-dev', $client->getShopifyAppSlug());
-    }
-
-    public function testGetShopifyAppSlugHiloInstance(): void
-    {
-        Functions\when('get_site_url')->justReturn('https://hilo.com');
-        $this->mockOptions(['wash_app_url' => '']);
-        $client = new \WashApiClient();
-        $this->assertSame('wash-blog', $client->getShopifyAppSlug());
-    }
-
-    public function testGetShopifyAppSlugProductionDefault(): void
-    {
-        Functions\when('get_site_url')->justReturn('https://myshop.com');
-        $client = $this->makeClient(['wash_app_url' => '']);
-        $this->assertSame('wash', $client->getShopifyAppSlug());
     }
 
     // -----------------------------------------------------------------------

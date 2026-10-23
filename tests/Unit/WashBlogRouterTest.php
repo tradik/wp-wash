@@ -34,6 +34,11 @@ class WashBlogRouterTest extends TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        // Once any test mocks get_the_terms(), Patchwork keeps it defined for the
+        // rest of the run, so function_exists() no longer short-circuits
+        // categorySlugs(). Pin the "no categories" default so the outcome does
+        // not depend on test order.
+        Functions\when('get_the_terms')->justReturn(false);
         $this->options = ['wash_shopify_store' => 'test-store'];
         $this->meta = [];
         $this->posts = [];

@@ -56,7 +56,7 @@ class ApiClientContractTest extends TestCase
     }
 
     /**
-     * @test Contract: base headers contain required auth fields.
+     * Contract: base headers contain required auth fields.
      */
     public function testBaseHeadersContainRequiredFields(): void
     {
@@ -76,7 +76,7 @@ class ApiClientContractTest extends TestCase
     }
 
     /**
-     * @test Contract: no Bearer auth — WP plugin uses X-Wash-Key, not Bearer.
+     * Contract: no Bearer auth — WP plugin uses X-Wash-Key, not Bearer.
      */
     public function testNoBeareAuthWithoutHttpCredentials(): void
     {
@@ -85,7 +85,7 @@ class ApiClientContractTest extends TestCase
     }
 
     /**
-     * @test Contract: HTTP Basic Auth header when credentials set.
+     * Contract: HTTP Basic Auth header when credentials set.
      */
     public function testHttpBasicAuthWhenCredentialsConfigured(): void
     {
@@ -115,7 +115,7 @@ class ApiClientContractTest extends TestCase
     }
 
     /**
-     * @test Contract: POST URL is appUrl + endpoint.
+     * Contract: POST URL is appUrl + endpoint.
      */
     public function testPostUrlConstruction(): void
     {
@@ -143,7 +143,7 @@ class ApiClientContractTest extends TestCase
     }
 
     /**
-     * @test Contract: POST includes Content-Type: application/json.
+     * Contract: POST includes Content-Type: application/json.
      */
     public function testPostContentTypeHeader(): void
     {
@@ -169,7 +169,7 @@ class ApiClientContractTest extends TestCase
     }
 
     /**
-     * @test Contract: POST body is valid JSON.
+     * Contract: POST body is valid JSON.
      */
     public function testPostBodyIsValidJson(): void
     {
@@ -197,7 +197,7 @@ class ApiClientContractTest extends TestCase
     }
 
     /**
-     * @test Contract: returns WP_Error when API key not configured.
+     * Contract: returns WP_Error when API key not configured.
      */
     public function testReturnsErrorWhenNotConfigured(): void
     {
@@ -216,20 +216,11 @@ class ApiClientContractTest extends TestCase
     }
 
     /**
-     * @test Contract: app URL resolves based on environment.
+     * Contract: app URL resolves based on environment.
      */
     public function testAppUrlResolution(): void
     {
         $appUrl = $this->getPrivateProperty('appUrl');
         $this->assertEquals('https://app-wash.tradik.dev', $appUrl);
-    }
-
-    /**
-     * @test Contract: Shopify app slug matches environment.
-     */
-    public function testShopifyAppSlugDev(): void
-    {
-        $slug = $this->client->getShopifyAppSlug();
-        $this->assertEquals('wash-blog-manager-dev', $slug);
     }
 }

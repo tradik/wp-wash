@@ -59,7 +59,7 @@ class EndpointContractTest extends TestCase
     }
 
     /**
-     * @test Contract: post type → endpoint mapping matches Shopify App routes.
+     * Contract: post type → endpoint mapping matches Shopify App routes.
      */
     public function testPostEndpoint(): void
     {
@@ -72,7 +72,7 @@ class EndpointContractTest extends TestCase
     }
 
     /**
-     * @test Contract: page type → endpoint mapping matches Shopify App routes.
+     * Contract: page type → endpoint mapping matches Shopify App routes.
      */
     public function testPageEndpoint(): void
     {
@@ -85,7 +85,7 @@ class EndpointContractTest extends TestCase
     }
 
     /**
-     * @test Contract: all expected endpoints are reachable paths.
+     * Contract: all expected endpoints are reachable paths.
      */
     public function testAllEndpointsStartWithApiPrefix(): void
     {
@@ -100,7 +100,7 @@ class EndpointContractTest extends TestCase
     }
 
     /**
-     * @test Contract: API client constructs correct full URL.
+     * Contract: API client constructs correct full URL.
      */
     public function testApiClientFullUrl(): void
     {
@@ -115,7 +115,7 @@ class EndpointContractTest extends TestCase
     }
 
     /**
-     * @test Contract: health check endpoint is /api/health.
+     * Contract: health check endpoint is /api/health.
      */
     public function testHealthEndpoint(): void
     {

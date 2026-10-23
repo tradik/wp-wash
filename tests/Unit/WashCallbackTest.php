@@ -6,6 +6,8 @@
  */
 namespace Wash\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use Brain\Monkey;
 use Brain\Monkey\Functions;
@@ -83,10 +85,8 @@ class WashCallbackTest extends TestCase
         return new \WashCallback();
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testSourcePostSyncsMetafields(): void
     {
         $metaMock = Mockery::mock('overload:WashMetafields');
@@ -116,10 +116,8 @@ class WashCallbackTest extends TestCase
         $this->assertTrue($response->data['success']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testNonSourceTranslationSkipsMetafields(): void
     {
         $metaMock = Mockery::mock('overload:WashMetafields');
@@ -179,10 +177,8 @@ class WashCallbackTest extends TestCase
         $this->assertSame('Attachment callback processed', $response->data['message']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testNoTranslationGroupSyncsMetafields(): void
     {
         $metaMock = Mockery::mock('overload:WashMetafields');
@@ -198,10 +194,8 @@ class WashCallbackTest extends TestCase
         $this->assertTrue($response->data['success']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testFallbackDetectsNonSourceTranslation(): void
     {
         $metaMock = Mockery::mock('overload:WashMetafields');
@@ -222,10 +216,8 @@ class WashCallbackTest extends TestCase
         $this->assertTrue($response->data['success']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testShopifyUrlWithoutLocaleHasNoPrefix(): void
     {
         $metaMock = Mockery::mock('overload:WashMetafields');
@@ -248,10 +240,8 @@ class WashCallbackTest extends TestCase
         $this->assertSame('https://test.myshopify.com/blogs/news/test-post', $storedUrl);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testShopifyUrlWithLocaleHasPrefix(): void
     {
         $metaMock = Mockery::mock('overload:WashMetafields');
@@ -276,10 +266,8 @@ class WashCallbackTest extends TestCase
         $this->assertSame('https://test.myshopify.com/de/blogs/news/test-post', $storedUrl);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testShopifyPageUrlWithLocaleHasPrefix(): void
     {
         $metaMock = Mockery::mock('overload:WashMetafields');
@@ -309,10 +297,8 @@ class WashCallbackTest extends TestCase
         $this->assertSame('https://test.myshopify.com/fr/pages/about-us', $storedUrl);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testRedirectPathIncludesLocalePrefix(): void
     {
         Functions\when('get_option')->alias(function ($key, $default = '') {
@@ -360,10 +346,8 @@ class WashCallbackTest extends TestCase
         $this->assertSame('/de/blogs/art/mein-artikel', $redirectTo);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testRedirectPathWithoutLocaleHasNoPrefix(): void
     {
         Functions\when('get_option')->alias(function ($key, $default = '') {
@@ -409,10 +393,8 @@ class WashCallbackTest extends TestCase
         $this->assertSame('/blogs/art/my-article', $redirectTo);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testRedirectSkippedWhenLockHeldByConcurrentCallback(): void
     {
         Functions\when('get_option')->alias(function ($key, $default = '') {
@@ -456,10 +438,9 @@ class WashCallbackTest extends TestCase
      * A delete/unpublish ack must clear local sync meta and pause auto-sync,
      * and must NOT re-store the (shared) article id — that re-store was the
      * "unpublish, but WordPress still shows synced" desync (#255).
-     *
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
      */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testDeleteCallbackClearsMetaSetsSkipFlagAndDoesNotStoreArticleId(): void
     {
         $updated = [];

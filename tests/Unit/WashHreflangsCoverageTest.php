@@ -13,6 +13,7 @@
 
 namespace Wash\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\RunClassInSeparateProcess;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
@@ -139,6 +140,11 @@ class WashHreflangsCoverageTest extends TestCase
         Monkey\setUp();
         \WashContext::setActiveId(null);
         $this->resetCache();
+        // Patchwork keeps a function defined once any earlier test mocks it, so
+        // function_exists() guards stop short-circuiting. Pin neutral defaults so
+        // results do not depend on test order (PHPUnit 13 orders differently).
+        Functions\when('get_the_terms')->justReturn(false);
+        Functions\when('PLL')->justReturn(new \stdClass());
         $this->stubBasicOptions();
     }
 
@@ -1534,6 +1540,10 @@ class WashHreflangsCoverageTest extends TestCase
     // Private: getWpmlTranslations() — deeper paths
     // ---------------------------------------------------------------
 
+    // Own process: once any earlier test mocks wpml_get_language_information,
+    // Patchwork keeps it defined and the function_exists() guard can't be hit.
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testGetWpmlTranslationsNoFunctionReturnsEmpty(): void
     {
         // wpml_get_language_information is NOT stubbed →

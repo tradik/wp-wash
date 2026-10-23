@@ -9,6 +9,10 @@ if (!defined('ABSPATH')) {
 
 class WashApiClient {
 
+    /** Content type of every request body and expected response. */
+    const JSON_TYPE = 'application/json';
+
+
     /** @var string Shopify App base URL */
     private $appUrl;
 
@@ -77,22 +81,6 @@ class WashApiClient {
     }
 
     /**
-     * Get the Shopify app slug based on the configured app URL.
-     * Dev environment uses 'wash-blog-manager-dev', production uses 'wash'.
-     *
-     * @return string Shopify app slug
-     */
-    public function getShopifyAppSlug() {
-        if (strpos($this->appUrl, 'tradik.dev') !== false) {
-            return 'wash-blog-manager-dev';
-        }
-        if (strpos($this->appUrl, 'app-wash1') !== false) {
-            return 'wash-blog';
-        }
-        return 'wash';
-    }
-
-    /**
      * Get the configured app URL.
      *
      * @return string App URL
@@ -110,7 +98,7 @@ class WashApiClient {
      */
     private function getBaseHeaders($timestamp) {
         $headers = [
-            'Accept'               => 'application/json',
+            'Accept'               => self::JSON_TYPE,
             'X-Wash-Key'           => $this->apiKey,
             'X-Wash-Timestamp'     => $timestamp,
             'X-Wash-Plugin-Version' => WASH_VERSION,
@@ -186,7 +174,7 @@ class WashApiClient {
         washLog("[wash API] API Key (first 8 chars): " . substr($this->apiKey, 0, 8) . "...");
 
         $headers = $this->getBaseHeaders($timestamp);
-        $headers['Content-Type'] = 'application/json';
+        $headers['Content-Type'] = self::JSON_TYPE;
 
         $result = $this->sendWithRetry($url, $body, $headers);
 
@@ -244,7 +232,7 @@ class WashApiClient {
     public function testConnection() {
         $args = [
             'timeout' => 10,
-            'headers' => ['Accept' => 'application/json'],
+            'headers' => ['Accept' => self::JSON_TYPE],
         ];
 
         // Add HTTP Basic Auth if configured
@@ -281,7 +269,7 @@ class WashApiClient {
         $url = $this->appUrl . '/api/ping';
         $timestamp = (string) time();
         $headers = $this->getBaseHeaders($timestamp);
-        $headers['Content-Type'] = 'application/json';
+        $headers['Content-Type'] = self::JSON_TYPE;
 
         $response = wp_remote_post($url, [
             'timeout' => 15,
@@ -526,7 +514,7 @@ class WashApiClient {
         $url = $this->appUrl . '/api/fix-session';
         $timestamp = (string) time();
         $headers = $this->getBaseHeaders($timestamp);
-        $headers['Content-Type'] = 'application/json';
+        $headers['Content-Type'] = self::JSON_TYPE;
 
         $response = wp_remote_post($url, [
             'timeout' => 15,
@@ -633,6 +621,36 @@ class WashApiClient {
 
         // translators: %d is the HTTP status code.
         return sprintf(__('API error (HTTP %d)', 'wash-blog-manager'), $statusCode);
+    }
+
+    /**
+     * Exchange a one-time connect code for this site's credentials (#285).
+     *
+     * The merchant generates the code in Wash inside the Shopify admin, so the
+     * plugin never asks for the shop domain. This runs before an API key exists:
+     * it sends no X-Wash-Key, only the code, which the app accepts once.
+     *
+     * @param string $code     Code as pasted, e.g. "ABCD-EFGH-JKMN"
+     * @param string $siteUrl  This site's origin
+     * @param string $siteName This site's name, used to label the connection
+     * @return array|\WP_Error ['apiKey', 'store', 'isReauth', 'hasBackup', 'hasMappings'] or an error
+     */
+    public function redeemConnectCode($code, $siteUrl, $siteName) {
+        $headers = [
+            'Accept'                => self::JSON_TYPE,
+            'Content-Type'          => self::JSON_TYPE,
+            'X-Wash-Plugin-Version' => WASH_VERSION,
+        ];
+        $body = wp_json_encode(['code' => $code, 'siteUrl' => $siteUrl, 'siteName' => $siteName]);
+
+        $result = $this->sendWithRetry($this->appUrl . '/api/connect-code', $body, $headers);
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        if (empty($result['apiKey']) || empty($result['store'])) {
+            return new \WP_Error('wash_connect_code', __('The Shopify app did not return connection details. Please try again.', 'wash-blog-manager'));
+        }
+        return $result;
     }
 
     /**

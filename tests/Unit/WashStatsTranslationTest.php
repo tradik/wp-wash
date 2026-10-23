@@ -8,6 +8,8 @@
  */
 namespace Wash\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use Brain\Monkey;
 use Brain\Monkey\Functions;
@@ -34,10 +36,8 @@ class WashStatsTranslationTest extends TestCase
         parent::tearDown();
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testGetLanguageStatsPolylang(): void
     {
         Functions\when('pll_languages_list')->justReturn(['en', 'pl', 'de']);
@@ -62,10 +62,8 @@ class WashStatsTranslationTest extends TestCase
         $this->assertEqualsCanonicalizing(['en', 'de'], $result['byLanguage']['pl']['translatedTo']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testGetLanguageStatsWpml(): void
     {
         Functions\when('icl_object_id')->justReturn(0);
@@ -98,10 +96,8 @@ class WashStatsTranslationTest extends TestCase
         $this->assertSame(['fr'], $result['byLanguage']['en']['translatedTo']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testGetLanguageStatsSingleLanguageFallback(): void
     {
         Functions\when('wp_count_posts')->justReturn((object) ['publish' => 42, 'draft' => 5, 'pending' => 0, 'private' => 0]);
@@ -115,10 +111,8 @@ class WashStatsTranslationTest extends TestCase
         $this->assertSame([], $result['byLanguage']['en']['translatedTo']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testGetCategoryStatsPolylang(): void
     {
         Functions\when('get_terms')->justReturn([
@@ -138,10 +132,8 @@ class WashStatsTranslationTest extends TestCase
         $this->assertSame('pl', $result[1]['language']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testGetCategoryStatsWpml(): void
     {
         Functions\when('icl_object_id')->justReturn(0);
@@ -162,10 +154,8 @@ class WashStatsTranslationTest extends TestCase
         $this->assertSame('fr', $result[0]['language']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testGetCategoryStatsSlugSanitization(): void
     {
         Functions\when('get_terms')->justReturn([
@@ -179,10 +169,8 @@ class WashStatsTranslationTest extends TestCase
         $this->assertSame('<script>alert(1)</script>', $result[0]['name']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testGetCategoryStatsHandlesEmptyTerms(): void
     {
         Functions\when('get_terms')->justReturn([]);
@@ -190,10 +178,8 @@ class WashStatsTranslationTest extends TestCase
         $this->assertSame([], $callback->getCategoryStats());
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testGetCategoryStatsHandlesWpError(): void
     {
         Functions\when('is_wp_error')->alias(fn($v) => is_object($v) && property_exists($v, 'is_error'));

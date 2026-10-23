@@ -2,9 +2,9 @@
 Contributors: tradik
 Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.29.0
+Stable tag: 1.30.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -31,9 +31,11 @@ Edit content in WordPress and have it automatically published to your Shopify st
 
 1. Upload the `wash` folder to `/wp-content/plugins/`
 2. Activate the plugin through the 'Plugins' menu
-3. Go to Settings → Wash
-4. Enter your Shopify App URL, API Key, and API Secret
-5. Click "Test Connection" to verify
+3. Install Wash on your Shopify store from the [Shopify App Store](https://apps.shopify.com/wash) and open it
+4. In Wash, go to Connections → Add Connection and click "Generate connect code"
+5. In WordPress, go to Settings → Wash, tick the data processing consent box, paste the code and click "Connect to Shopify"
+
+The code works once and expires after 15 minutes. You never type your store's address in WordPress: the code tells the plugin which store to connect.
 
 == Frequently Asked Questions ==
 
@@ -57,7 +59,8 @@ The plugin sends data to the Tradik-hosted Wash service, which is the broker bet
 
 * WordPress post / page content being synced: title, slug, excerpt, rendered HTML body, status, categories, tags, author display name, featured-image URL, inline image URLs, custom fields and metafields the merchant has enabled in plugin Settings.
 * WordPress site URL (used by the service to look up the matching Shopify store).
-* The plugin's API key (set by the merchant during the Shopify-side "Connect" flow — this is the credential the service uses to authenticate the request).
+* The plugin's API key (returned by the service when the merchant connects with a one-time connect code — this is the credential the service uses to authenticate later requests).
+* The one-time connect code the merchant pastes into the connect form (sent once, when connecting).
 * WordPress site name (sent once on initial connect, for display in the Shopify-side dashboard).
 * Optional HTTP Basic Auth credentials (only if the merchant explicitly enters them in Settings → Wash so that the service can fetch images from a staging site that sits behind HTTP Basic Auth; never sent otherwise).
 * The remote IP of the caller is used by the service as a rate-limit bucket key (the plugin's signed-media endpoint reads `$_SERVER['REMOTE_ADDR']` for this purpose).
@@ -67,7 +70,7 @@ The plugin sends data to the Tradik-hosted Wash service, which is the broker bet
 * On `save_post` for any post type the merchant has enabled (published posts/pages).
 * When the merchant clicks the "Sync now" row action or the bulk "Publish / Re-publish / Unpublish to Shopify" action.
 * When the merchant clicks "Refresh plan" or "Refresh settings" on the Settings page (the service returns the merchant's current Shopify plan and saved per-store settings; no content is sent).
-* When the merchant clicks "Connect to Shopify" — a one-time handshake that posts the WordPress site URL and site name.
+* When the merchant clicks "Connect to Shopify" — a one-time request that posts the connect code, the WordPress site URL and the site name; the service answers with the store and the API key.
 
 **Why it is sent:**
 
@@ -85,6 +88,14 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.30.0 =
+Connect a store with a code from Shopify instead of typing the store address.
+
+* **New way to connect.** In Wash inside your Shopify admin, go to Connections → Add Connection and click "Generate connect code". Paste the code into Settings → Wash and click "Connect to Shopify". The same form adds further stores (Business/Enterprise). The code works once and expires after 15 minutes.
+* **WordPress no longer asks for your myshopify.com address or store handle**, in the first connect, when adding a store, or anywhere else (Shopify App Store requirement 2.3.1). The plugin learns the store from the code.
+* **Removed:** the store-handle field, the redirect to the Shopify admin it drove, and "Enter credentials manually". The optional App URL and HTTP Basic fields for additional stores are still under "Advanced".
+* Stores that are already connected are not affected and do not need to reconnect.
 
 = 1.29.0 =
 Added "Import from Shopify": pull articles and pages back into WordPress.

@@ -10,6 +10,8 @@
  */
 namespace Wash\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use Brain\Monkey;
 use Brain\Monkey\Functions;
@@ -818,10 +820,8 @@ class WashPageBuildersCoverageTest extends TestCase
     // render_data fallback when frontend fetch returns empty HTML.
     // ---------------------------------------------------------------
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testRenderBricksWithBricksFrontendClass(): void
     {
         // Define stub Bricks\Frontend in a separate process so it doesn't
@@ -865,10 +865,8 @@ class WashPageBuildersCoverageTest extends TestCase
         $this->assertStringContainsString('Bricks HTML', $result['html']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testRenderBricksWithBricksFrontendClassObFallback(): void
     {
         // render_data returns null/false → triggers ob_start fallback
@@ -906,10 +904,8 @@ class WashPageBuildersCoverageTest extends TestCase
         $this->assertStringContainsString('Bricks OB content', $result['html']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testRenderBricksWithBricksAssetsClass(): void
     {
         if (!class_exists('\Bricks\Frontend')) {
@@ -950,10 +946,8 @@ class WashPageBuildersCoverageTest extends TestCase
         $this->assertStringContainsString('.bricks-inline', $result['css']);
     }
 
-    /**
-     * @runInSeparateProcess
-     * @preserveGlobalState disabled
-     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testRenderBricksWithDynamicDataFunction(): void
     {
         if (!class_exists('\Bricks\Frontend')) {

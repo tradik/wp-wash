@@ -376,16 +376,13 @@ class WashMediaEndpointCoverageTest extends TestCase
         $method = new \ReflectionMethod($endpoint, 'discardBufferedOutput');
         $method->setAccessible(true);
 
-        try {
-            $method->invoke($endpoint);
-            // All buffers gone → readfile() would write the image as byte 0.
-            $this->assertSame(0, ob_get_level());
-        } finally {
-            // Restore PHPUnit's own output buffers so teardown stays consistent.
-            while (ob_get_level() < $baseLevel) {
-                ob_start();
-            }
-        }
+        // Stop at the runner's own level: PHPUnit flags tests that close
+        // buffers they did not open. Production calls it with floor 0.
+        $method->invoke($endpoint, $baseLevel);
+
+        // Both stray buffers gone, their bytes discarded, none echoed.
+        $this->assertSame($baseLevel, ob_get_level());
+        $this->expectOutputString('');
     }
 
     // ---------------------------------------------------------------

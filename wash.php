@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Wash: Blog Manager
  * Description:       Synchronize WordPress content, images, and metafields to Shopify blogs.
- * Version:           1.29.0
+ * Version:           1.30.0
  * Requires at least: 6.3
  * Requires PHP:      8.0
  * Author:            Tradik
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WASH_VERSION', '1.29.0');
+define('WASH_VERSION', '1.30.0');
 define('WASH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WASH_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
@@ -50,6 +50,7 @@ require_once WASH_PLUGIN_DIR . 'includes/class-wash-context.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-api-client.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-admin.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-connections-admin.php';
+require_once WASH_PLUGIN_DIR . 'includes/class-wash-connect-code.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-sync.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-blog-router.php';
 require_once WASH_PLUGIN_DIR . 'includes/class-wash-images.php';
@@ -88,6 +89,9 @@ function washInit() {
 
     $connectionsAdmin = new WashConnectionsAdmin();
     $connectionsAdmin->init();
+
+    $connectCode = new WashConnectCode();
+    $connectCode->init();
 
     $sync = new WashSync();
     $sync->init();

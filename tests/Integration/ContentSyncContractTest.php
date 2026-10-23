@@ -22,6 +22,10 @@ class ContentSyncContractTest extends TestCase
         parent::setUp();
         Monkey\setUp();
 
+        // A Unit test that mocked ACF leaves get_fields() defined for the rest
+        // of a combined run (Patchwork); pin "no ACF fields" so order is irrelevant.
+        Functions\when('get_fields')->justReturn(false);
+
         Functions\when('get_option')->alias(function ($key, $default = '') {
             return match ($key) {
                 'wash_shopify_store' => 'test-store',
@@ -105,7 +109,7 @@ class ContentSyncContractTest extends TestCase
     }
 
     /**
-     * @test Contract: buildPostData contains required fields for Go API.
+     * Contract: buildPostData contains required fields for Go API.
      *
      * Go struct contentRequest requires: action, title, content, slug, wpPostId.
      */
@@ -120,7 +124,7 @@ class ContentSyncContractTest extends TestCase
     }
 
     /**
-     * @test Contract: action values match Go API expectations.
+     * Contract: action values match Go API expectations.
      */
     public function testActionValuesValid(): void
     {
@@ -133,7 +137,7 @@ class ContentSyncContractTest extends TestCase
     }
 
     /**
-     * @test Contract: wpPostId is integer (Go: int64).
+     * Contract: wpPostId is integer (Go: int64).
      */
     public function testWpPostIdIsInteger(): void
     {
@@ -142,7 +146,7 @@ class ContentSyncContractTest extends TestCase
     }
 
     /**
-     * @test buildPostData applies the wash_sync_data filter (LOW-14, #175) — the
+     * buildPostData applies the wash_sync_data filter (LOW-14, #175) — the
      * filter was registered (WashMultisite::injectSiteData) but never applied.
      */
     public function testBuildPostDataAppliesWashSyncDataFilter(): void
@@ -166,7 +170,7 @@ class ContentSyncContractTest extends TestCase
     }
 
     /**
-     * @test Contract: tags field is array of strings (Go: []string).
+     * Contract: tags field is array of strings (Go: []string).
      */
     public function testTagsIsArrayOfStrings(): void
     {
@@ -188,7 +192,7 @@ class ContentSyncContractTest extends TestCase
     }
 
     /**
-     * @test Contract: title, content, slug are strings.
+     * Contract: title, content, slug are strings.
      */
     public function testStringFieldTypes(): void
     {
@@ -200,7 +204,7 @@ class ContentSyncContractTest extends TestCase
     }
 
     /**
-     * @test Contract: seo sub-object matches Go seoData struct
+     * Contract: seo sub-object matches Go seoData struct
      * (metaTitle, metaDescription).
      */
     public function testSeoFieldShape(): void
@@ -223,7 +227,7 @@ class ContentSyncContractTest extends TestCase
     }
 
     /**
-     * @test Contract: publishedAt is a date string.
+     * Contract: publishedAt is a date string.
      */
     public function testPublishedAtIsDateString(): void
     {
@@ -235,7 +239,7 @@ class ContentSyncContractTest extends TestCase
     }
 
     /**
-     * @test Contract: additional fields present for extended sync.
+     * Contract: additional fields present for extended sync.
      */
     public function testExtendedFieldsPresent(): void
     {
@@ -252,7 +256,7 @@ class ContentSyncContractTest extends TestCase
     }
 
     /**
-     * @test Contract: field values are correctly mapped from WP_Post.
+     * Contract: field values are correctly mapped from WP_Post.
      */
     public function testFieldValueMapping(): void
     {

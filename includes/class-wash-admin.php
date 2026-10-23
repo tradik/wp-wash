@@ -15,7 +15,6 @@ class WashAdmin {
     public function init() {
         add_action('admin_menu', [$this, 'addMenuPage']);
         add_action('admin_init', [$this, 'registerSettings']);
-        add_action('admin_init', [$this, 'handleCallback']);
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
         // Background bulk-publish dispatch — runs sync in a separate request,
         // immune to per-request PHP/Apache/nginx/FastCGI timeouts.
@@ -321,93 +320,6 @@ class WashAdmin {
         }
 
         return $sanitized;
-    }
-
-    /**
-     * Handle callback from Shopify app with credentials.
-     *
-     * This is the post-OAuth handoff from the Shopify-hosted app to WordPress:
-     * the user clicks "Connect" inside the Shopify admin and the Shopify app
-     * server-side-redirects back to `wp-admin/options-general.php?page=wash&wash_callback=1&wash_state=...&api_key=...&store=...`.
-     *
-     * CSRF protection: the connect button embeds a `wash_connect` nonce in the
-     * `return_url` it hands to the Shopify app, which redirects that URL back
-     * verbatim (it only appends api_key/store via URL::searchParams.set). We
-     * verify that nonce here before writing any credentials, so a forged link
-     * cannot trick a logged-in admin into overwriting their stored API key.
-     * Capability (`manage_options`) is checked in addition to the nonce.
-     */
-    public function handleCallback() {
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- routing guards only; the wash_connect nonce is verified below before any write.
-        if (!isset($_GET['page']) || $_GET['page'] !== 'wash' || !isset($_GET['wash_callback'])) {
-            return;
-        }
-        // A second-store OAuth return carries wash_add=1 and is owned by
-        // WashConnectionsAdmin::handleOAuthAddCallback() (it ADDS a connection).
-        // Both handlers fire on ?page=wash, so bail here or we'd overwrite the
-        // primary store's credentials with the newly-connected store's (#252).
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- routing guard only; no state is written in this branch.
-        if (isset($_GET['wash_add'])) {
-            return;
-        }
-        if (!current_user_can('manage_options')) {
-            return;
-        }
-
-        // CSRF gate: reject callbacks that don't carry the one-time nonce we issued.
-        $state = isset($_GET['wash_state']) ? sanitize_text_field(wp_unslash($_GET['wash_state'])) : '';
-        if (!wp_verify_nonce($state, 'wash_connect')) {
-            wp_safe_redirect(admin_url('options-general.php?page=wash&connect_error=state'));
-            exit;
-        }
-
-        // Receive credentials from Shopify app callback
-        if (isset($_GET['api_key'])) {
-            $apiKey = sanitize_text_field(wp_unslash($_GET['api_key']));
-
-            if (!empty($apiKey)) {
-                update_option('wash_api_key', $apiKey);
-
-                if (isset($_GET['store'])) {
-                    update_option('wash_shopify_store', sanitize_text_field(wp_unslash($_GET['store'])));
-                }
-
-                // Check if this is a reauth with backup available
-                $isReauth = isset($_GET['is_reauth']) && $_GET['is_reauth'] === '1';
-                $hasBackup = isset($_GET['has_backup']) && $_GET['has_backup'] === '1';
-
-                if ($isReauth && $hasBackup) {
-                    // Restore settings from backup
-                    $this->restoreSettingsFromBackup();
-                }
-
-                // Redirect to clean URL
-                $redirectUrl = admin_url('options-general.php?page=wash&connected=1');
-                if ($isReauth) {
-                    $redirectUrl = add_query_arg('restored', $hasBackup ? '1' : '0', $redirectUrl);
-                }
-                wp_safe_redirect($redirectUrl);
-                exit;
-            }
-        }
-    }
-
-    /**
-     * Restore plugin settings from Shopify App backup.
-     * Called during reauth when backup is available.
-     */
-    private function restoreSettingsFromBackup() {
-        $response = WashContext::apiClient()->getBackedUpSettings();
-
-        if (is_wp_error($response)) {
-            washLog('[wash] Failed to restore settings: ' . $response->get_error_message());
-            return;
-        }
-
-        if (!empty($response['success']) && !empty($response['settings'])) {
-            WashContext::apiClient()->restoreSettings($response['settings']);
-            washLog('[wash] Settings restored from backup');
-        }
     }
 
     /**

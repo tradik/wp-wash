@@ -180,9 +180,12 @@ class WashMediaEndpoint {
      * processing then rejects the upload as "invalid image data" and the post
      * keeps the source URL (#249). Extracted from streamFile() so it is testable
      * without exit()/readfile().
+     *
+     * @param int $floor Buffer level to stop at. Production uses 0 (drop every
+     *                   buffer); tests pass the test runner's own level.
      */
-    protected function discardBufferedOutput() {
-        while (ob_get_level() > 0) {
+    protected function discardBufferedOutput($floor = 0) {
+        while (ob_get_level() > $floor) {
             ob_end_clean();
         }
     }

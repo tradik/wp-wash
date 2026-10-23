@@ -11,7 +11,6 @@ $wash_connection = WashContext::connection();
 $wash_isPrimary = WashContext::activeId() === WashConnection::PRIMARY;
 $wash_isConnected = !empty($wash_connection['apiKey']);
 $wash_shopifyStore = $wash_connection['store'];
-$wash_shopifyAppSlug = WashContext::apiClient()->getShopifyAppSlug();
 
 // Get WordPress permalink structure for URL examples
 $wash_permalinkStructure = get_option('permalink_structure', '/%postname%/');
@@ -281,18 +280,6 @@ function wash_render_permission_locked_banner() {
 }
 ?>
 <div class="wrap wash-settings">
-    <?php
-    // Connection was rejected because the CSRF nonce was missing/expired
-    // (handleCallback()). Read-only display on this manage_options-gated page.
-    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only notice, no state change.
-    if (isset($_GET['connect_error']) && $_GET['connect_error'] === 'state') : ?>
-    <div class="notice notice-error is-dismissible" style="margin: 15px 0;">
-        <p>
-            <strong>Wash:</strong>
-            <?php esc_html_e('Connection could not be verified (the security token was missing or expired). Please click "Connect to Shopify" again to retry.', 'wash-blog-manager'); ?>
-        </p>
-    </div>
-    <?php endif; ?>
     <?php if ($wash_forceRefreshPlan && empty($wash_connectionError)) : ?>
     <div class="notice notice-success is-dismissible" style="margin: 15px 0;">
         <p><?php esc_html_e('Plan information refreshed successfully.', 'wash-blog-manager'); ?></p>
@@ -2305,29 +2292,8 @@ ob_start();
     updateSubmitVisibility(activeTab);
     syncConnectionExtra(activeTab);
 
-    // Show/hide manual config
-    // Connect button visibility
-    var storeInput = document.getElementById('wash_shopify_store');
-    var connectBtn = document.getElementById('wash-connect-btn');
     var consentCheckbox = document.getElementById('wash-consent-checkbox');
     var consentAccepted = <?php echo $wash_consentAccepted ? 'true' : 'false'; ?>;
-
-    function updateConnectButton() {
-        if (!connectBtn) return;
-        var store = storeInput ? storeInput.value.trim() : '';
-        if (store) {
-            connectBtn.style.display = 'inline-flex';
-            // Even when visible, keep the button disabled until consent is recorded.
-            connectBtn.disabled = !consentAccepted;
-        } else {
-            connectBtn.style.display = 'none';
-        }
-    }
-
-    if (storeInput) {
-        storeInput.addEventListener('input', updateConnectButton);
-        updateConnectButton();
-    }
 
     // Persist explicit consent to the Tradik Wash data-processing terms
     // (wp.org Plugin Directory guideline #10). Once accepted, the option is
@@ -2347,7 +2313,6 @@ ob_start();
                 .then(function(json) {
                     if (json && json.success) {
                         consentAccepted = true;
-                        updateConnectButton();
                     } else {
                         // Revert UI state if the server rejected the request.
                         consentCheckbox.checked = false;
@@ -2358,44 +2323,6 @@ ob_start();
                 .catch(function() {
                     consentCheckbox.checked = false;
                     consentCheckbox.disabled = false;
-                });
-        });
-    }
-
-    // Connect button click
-    if (connectBtn) {
-        connectBtn.addEventListener('click', function() {
-            var store = storeInput.value.trim().replace('.myshopify.com', '').toLowerCase();
-
-            // Validate store handle format
-            if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(store) && !/^[a-z0-9]$/.test(store)) {
-                alert('<?php echo esc_js(__('Invalid store name. Use only lowercase letters, numbers, and hyphens.', 'wash-blog-manager')); ?>');
-                return;
-            }
-
-            // Show loading state
-            connectBtn.disabled = true;
-            connectBtn.innerHTML = '<span class="dashicons dashicons-update" style="animation: rotation 1s infinite linear; vertical-align: text-bottom;"></span> <?php echo esc_js(__('Checking...', 'wash-blog-manager')); ?>';
-
-            // Verify store exists by checking if it responds
-            fetch('https://' + store + '.myshopify.com/admin', { mode: 'no-cors', cache: 'no-store' })
-                .finally(function() {
-                    // Redirect regardless - Shopify will show proper error if store doesn't exist.
-                    // CSRF: embed a one-time nonce in the return_url. The Shopify app
-                    // redirects this URL back verbatim (only appending api_key/store), so
-                    // handleCallback() can verify the request actually originated here.
-                    var returnUrl = encodeURIComponent(window.location.href.split('?')[0] + '?page=wash&wash_callback=1&wash_state=<?php echo esc_js(wp_create_nonce('wash_connect')); ?>');
-                    var siteUrl = encodeURIComponent(window.location.protocol + '//' + window.location.host);
-                    var siteName = encodeURIComponent('<?php echo esc_js(get_bloginfo('name')); ?>');
-
-                    var appSlug = '<?php echo esc_js($wash_shopifyAppSlug); ?>';
-                    var connectUrl = 'https://admin.shopify.com/store/' + store + '/apps/' + appSlug + '/app/connections' +
-                        '?action=connect' +
-                        '&return_url=' + returnUrl +
-                        '&site_url=' + siteUrl +
-                        '&site_name=' + siteName;
-
-                    window.location.href = connectUrl;
                 });
         });
     }

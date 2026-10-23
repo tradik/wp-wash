@@ -1,11 +1,12 @@
 /**
- * Connections manager (#216, #252).
+ * Connections manager (#216, #252, #285).
  * Dynamic values are injected via wp_localize_script as window.washConnData.
  *
  * Two behaviours:
- *  1. "New connection" button reveals the (hidden-by-default) connect panel — the
- *     same panel the primary store uses above.
- *  2. "Connect to Shopify" redirects into the Shopify-hosted OAuth add flow.
+ *  1. "New connection" button reveals the (hidden-by-default) connect panel.
+ *  2. Every .wash-connect-form (primary first connect, or add another store)
+ *     redeems the pasted connect code over AJAX and follows the returned
+ *     redirect. The store is never typed in WordPress; the code identifies it.
  */
 (function () {
     'use strict';
@@ -21,56 +22,95 @@
             newPanel.style.display = hidden ? 'block' : 'none';
             newBtn.setAttribute('aria-expanded', hidden ? 'true' : 'false');
             if (hidden) {
-                var storeInput = document.getElementById('wash-oauth-store');
-                if (storeInput) {
-                    storeInput.focus();
+                var codeInput = newPanel.querySelector('.wash-connect-code-input');
+                if (codeInput) {
+                    codeInput.focus();
                 }
             }
         });
     }
 
-    // 2. OAuth "Connect to Shopify" for the new store.
-    var btn = document.getElementById('wash-oauth-connect');
-    if (!btn) {
-        return;
-    }
-
-    // Gate the connect button on the data-processing consent tick, mirroring the
-    // primary panel. When consent was already recorded the box is checked+disabled,
-    // so the button is enabled from the start; the AJAX save itself is handled by
-    // the shared consent handler in settings-page.php.
+    // 2. Connect-code forms.
     var consent = document.getElementById('wash-consent-checkbox');
-    function gateConnect() {
-        btn.disabled = !!consent && !consent.checked;
-    }
-    if (consent) {
-        gateConnect();
-        consent.addEventListener('change', gateConnect);
+
+    function fieldValue(form, selector) {
+        var el = form.querySelector(selector);
+        return el ? el.value.trim() : '';
     }
 
-    btn.addEventListener('click', function () {
-        var input = document.getElementById('wash-oauth-store');
-        var store = ((input && input.value) || '')
-            .trim()
-            .replace(/^https?:\/\//, '')
-            .replace(/\/.*$/, '')
-            .replace(/\.myshopify\.com$/i, '');
-
-        if (!store) {
-            window.alert(data.enterStoreMsg || 'Enter the store domain first.');
+    function bindForm(form) {
+        var btn = form.querySelector('.wash-connect-code-btn');
+        var codeInput = form.querySelector('.wash-connect-code-input');
+        var errorBox = form.querySelector('.wash-connect-error');
+        if (!btn || !codeInput) {
             return;
         }
+        var label = btn.innerHTML;
 
-        var returnUrl = encodeURIComponent(
-            data.managerBase + '?page=' + data.page +
-            '&wash_callback=1&wash_add=1&wash_state=' + data.nonce
-        );
-        var siteUrl = encodeURIComponent(window.location.protocol + '//' + window.location.host);
-        var siteName = encodeURIComponent(data.siteName || '');
+        // Gate on the data-processing consent tick. When consent was already
+        // recorded the box is checked+disabled, so the button starts enabled; the
+        // consent AJAX save itself is handled in settings-page.php.
+        function gate() {
+            btn.disabled = !!consent && !consent.checked;
+        }
+        if (consent) {
+            gate();
+            consent.addEventListener('change', gate);
+        }
 
-        window.location.href = 'https://admin.shopify.com/store/' + store +
-            '/apps/' + data.appSlug + '/app/connections' +
-            '?action=connect&return_url=' + returnUrl +
-            '&site_url=' + siteUrl + '&site_name=' + siteName;
-    });
+        function showError(message) {
+            errorBox.textContent = message;
+            errorBox.style.display = 'block';
+            btn.disabled = false;
+            btn.innerHTML = label;
+        }
+
+        function connect() {
+            var code = codeInput.value.trim();
+            if (!code) {
+                showError(data.enterCodeMsg || 'Paste the connect code first.');
+                codeInput.focus();
+                return;
+            }
+            errorBox.style.display = 'none';
+            btn.disabled = true;
+            btn.textContent = data.connectingMsg || 'Connecting…';
+
+            var body = new FormData();
+            body.append('action', 'wash_redeem_connect_code');
+            body.append('nonce', data.nonce);
+            body.append('mode', form.getAttribute('data-mode'));
+            body.append('code', code);
+            body.append('appUrl', fieldValue(form, '.wash-connect-appurl'));
+            body.append('httpUser', fieldValue(form, '.wash-connect-httpuser'));
+            body.append('httpPass', fieldValue(form, '.wash-connect-httppass'));
+
+            fetch(data.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    if (json && json.success && json.data && json.data.redirect) {
+                        window.location.href = json.data.redirect;
+                        return;
+                    }
+                    showError((json && json.data && json.data.message) || data.failedMsg);
+                })
+                .catch(function () {
+                    showError(data.failedMsg || 'Could not reach the server. Please try again.');
+                });
+        }
+
+        btn.addEventListener('click', connect);
+        // Enter in the code field must connect, not submit the surrounding
+        // settings form the primary connect panel is nested in.
+        codeInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (!btn.disabled) {
+                    connect();
+                }
+            }
+        });
+    }
+
+    Array.prototype.forEach.call(document.querySelectorAll('.wash-connect-form'), bindForm);
 })();
