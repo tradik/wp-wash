@@ -315,9 +315,52 @@ class WashConnectionsAdminTest extends TestCase
 
     public function testPlanCheckFailsOpenOnApiError(): void
     {
+        $this->options['wash_api_key'] = 'primary-key';
         Functions\when('get_transient')->justReturn(false);             // not cached → fetch
         Functions\when('wp_remote_get')->justReturn(new \WP_Error('http', 'down'));
         $this->assertTrue(\WashConnectionsAdmin::planAllowsMultiStore()); // don't block on outage
+    }
+
+    /** Make the primary's plan-info call answer with an HTTP error (#294). */
+    private function primaryPlanInfoFails(int $status, array $body): void
+    {
+        $this->options['wash_api_key'] = 'primary-key';
+        Functions\when('get_transient')->justReturn(false);
+        Functions\when('wp_remote_get')->justReturn(['response' => ['code' => $status]]);
+        Functions\when('wp_remote_retrieve_response_code')->justReturn($status);
+        Functions\when('wp_remote_retrieve_body')->justReturn(json_encode($body));
+    }
+
+    public function testPlanCheckRefusesWhenThePrimaryStoreUninstalledWash(): void
+    {
+        $this->primaryPlanInfoFails(401, ['success' => false, 'error' => 'uninstalled', 'code' => 'CONNECTION_INACTIVE']);
+        $this->assertFalse(\WashConnectionsAdmin::planAllowsMultiStore());
+    }
+
+    public function testPlanCheckRefusesWhenThePrimaryKeyIsRejected(): void
+    {
+        $this->primaryPlanInfoFails(401, ['success' => false, 'error' => 'Invalid API key']);
+        $this->assertFalse(\WashConnectionsAdmin::planAllowsMultiStore());
+    }
+
+    public function testPlanCheckStaysOpenOnAServerError(): void
+    {
+        $this->primaryPlanInfoFails(503, ['success' => false, 'error' => 'busy']);
+        $this->assertTrue(\WashConnectionsAdmin::planAllowsMultiStore());
+    }
+
+    public function testPlanCheckRefusesWithoutAPrimaryConnection(): void
+    {
+        Functions\when('get_transient')->justReturn(false);   // no key → wash_not_configured
+        $this->assertFalse(\WashConnectionsAdmin::planAllowsMultiStore());
+    }
+
+    public function testEnforcePlanDowngradeKeepsStoresWhenThePrimaryIsDead(): void
+    {
+        $this->primaryPlanInfoFails(401, ['success' => false, 'error' => 'uninstalled', 'code' => 'CONNECTION_INACTIVE']);
+        $this->seedConnection('x1');
+        $this->admin->enforcePlanDowngrade();
+        $this->assertTrue($this->options['wash_connections']['x1']['enabled']);
     }
 
     public function testEnforcePlanDowngradeDisablesAdditionalConnections(): void

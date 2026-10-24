@@ -51,7 +51,11 @@ if ($wash_isConnected) {
     }
 
     $wash_planInfo = $wash_apiClient->getPlanInfo($wash_forceRefreshPlan);
-    if (is_wp_error($wash_planInfo)) {
+    $wash_storeInactive = WashApiClient::isStoreInactive($wash_planInfo);
+    if ($wash_storeInactive) {
+        // Shown by partials/store-inactive.php instead of the generic error notice.
+        $wash_connectionError = '';
+    } elseif (is_wp_error($wash_planInfo)) {
         $wash_connectionError = $wash_planInfo->get_error_message();
     } elseif (!empty($wash_planInfo['features'])) {
         $wash_features = $wash_planInfo['features'];
@@ -428,7 +432,7 @@ function wash_render_permission_locked_banner() {
                     );
                     ?>
                 </p>
-            <?php elseif ($wash_isConnected) : ?>
+            <?php elseif ($wash_isConnected && empty($wash_storeInactive)) : ?>
                 <!-- Connected state - simple view -->
                 <div class="wash-connected-box" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 20px; margin: 15px 0;">
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
@@ -454,6 +458,9 @@ function wash_render_permission_locked_banner() {
                 <input type="hidden" name="wash_shopify_store" value="<?php echo esc_attr($wash_shopifyStore); ?>" />
                 <input type="hidden" name="wash_api_key" value="<?php echo esc_attr(WashContext::option('wash_api_key')); ?>" />
             <?php else : ?>
+                <?php if (!empty($wash_storeInactive)) : ?>
+                    <?php include_once WASH_PLUGIN_DIR . 'admin/views/partials/store-inactive.php'; ?>
+                <?php endif; ?>
                 <!-- Not connected — single reusable connect form (#264), shared with the add-store panel. -->
                 <?php $wash_addMode = false; include_once WASH_PLUGIN_DIR . 'admin/views/partials/connect-form.php'; ?>
             <?php endif; ?>

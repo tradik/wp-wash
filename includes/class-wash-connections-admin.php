@@ -133,21 +133,59 @@ class WashConnectionsAdmin {
     }
 
     /**
+     * Whether a plan-info failure means the primary cannot vouch for a plan at
+     * all, as opposed to a network blip or a 5xx.
+     *
+     * @param mixed $error getPlanInfo() result
+     * @return bool
+     */
+    private static function isDeadPrimary($error) {
+        if (!is_wp_error($error)) {
+            return false;
+        }
+        if ($error->get_error_code() === 'wash_not_configured' || WashApiClient::isStoreInactive($error)) {
+            return true;
+        }
+        $data = $error->get_error_data();
+        return is_array($data) && in_array((int) ($data['status'] ?? 0), array(401, 403), true);
+    }
+
+    /**
      * Whether the merchant's plan permits additional stores. Multi-store is gated on
-     * the PRIMARY connection's plan (Business/Enterprise). Fail-open on an API error
-     * (consistent with WashApiClient::hasFeature) so a transient outage never blocks
-     * a legitimate paying merchant.
+     * the PRIMARY connection's plan (Business/Enterprise). Fail-open on a transient API
+     * error (consistent with WashApiClient::hasFeature) so an outage never blocks a
+     * legitimate paying merchant; a dead primary key refuses (#294).
      *
      * @return bool
      */
     public static function planAllowsMultiStore() {
+        $info = self::primaryPlanInfo();
+        if (!is_array($info)) {
+            // A dead primary (store uninstalled Wash, key rejected, or never
+            // connected) must not unlock more stores: on a shared site it would
+            // let anyone add stores (#294). Only transient errors stay fail-open.
+            return !self::isDeadPrimary($info);
+        }
+        return self::isMultiStorePlan($info);
+    }
+
+    /**
+     * The primary's plan info, or the WP_Error from fetching it.
+     *
+     * @return array|\WP_Error
+     */
+    private static function primaryPlanInfo() {
         WashContext::setActiveId(WashConnection::PRIMARY);
         $info = WashContext::apiClient()->getPlanInfo();
         WashContext::setActiveId(null);
+        return $info;
+    }
 
-        if (!is_array($info)) {
-            return true;
-        }
+    /**
+     * @param array $info Plan info from the app
+     * @return bool
+     */
+    private static function isMultiStorePlan(array $info) {
         $plan = strtoupper((string) (isset($info['plan']) ? $info['plan'] : ''));
         return in_array($plan, array('BUSINESS', 'ENTERPRISE'), true);
     }
@@ -158,7 +196,11 @@ class WashConnectionsAdmin {
      * stops content reaching the extra stores. Re-upgrading re-enables them by hand.
      */
     public static function enforcePlanDowngrade() {
-        if (self::planAllowsMultiStore()) {
+        // Pause extra stores only on a KNOWN lower plan. A dead or unreachable
+        // primary says nothing about the plan, and must not switch off stores
+        // that still work (#294).
+        $info = self::primaryPlanInfo();
+        if (!is_array($info) || self::isMultiStorePlan($info)) {
             return;
         }
         foreach (WashConnection::all() as $id => $conn) {

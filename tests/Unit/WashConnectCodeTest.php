@@ -15,6 +15,7 @@ require_once dirname(__DIR__, 2) . '/includes/class-wash-connection.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wash-context.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wash-api-client.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wash-connections-admin.php';
+require_once dirname(__DIR__, 2) . '/includes/class-wash-sync-meta.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wash-connect-code.php';
 
 class WashJsonResponse extends \RuntimeException
@@ -139,6 +140,43 @@ class WashConnectCodeTest extends TestCase
             ['code' => 'abcd-efgh-jkmn', 'siteUrl' => 'https://blog.example.com', 'siteName' => 'My Blog'],
             json_decode($this->requests[0]['body'], true)
         );
+    }
+
+    /** Record every bulk meta delete so a test can see what was cleared. */
+    private function trackMetaDeletes(): array
+    {
+        $deleted = new \ArrayObject();
+        Functions\when('delete_post_meta_by_key')->alias(function ($key) use ($deleted) {
+            $deleted[] = $key;
+            return true;
+        });
+        Functions\when('delete_transient')->justReturn(true);
+        return [$deleted];
+    }
+
+    public function testConnectingADifferentStoreClearsTheOldStoresSyncState(): void
+    {
+        $this->options['wash_shopify_store'] = 'old-shop.myshopify.com';
+        [$deleted] = $this->trackMetaDeletes();
+        $this->redeemReturns($this->credentials(['store' => 'new-shop']));
+
+        $this->assertTrue($this->redeem()->success);
+
+        $this->assertSame('new-shop', $this->options['wash_shopify_store']);
+        $this->assertContains('_wash_article_id', (array) $deleted);
+        $this->assertContains('_wash_synced_at', (array) $deleted);
+        $this->assertCount(count(\WashSyncMeta::KEYS), $deleted);
+    }
+
+    public function testReconnectingTheSameStoreKeepsSyncState(): void
+    {
+        $this->options['wash_shopify_store'] = 'shop.myshopify.com';
+        [$deleted] = $this->trackMetaDeletes();
+        $this->redeemReturns($this->credentials(['store' => 'shop']));
+
+        $this->assertTrue($this->redeem()->success);
+
+        $this->assertCount(0, $deleted);
     }
 
     public function testSiteOriginKeepsANonDefaultPort(): void

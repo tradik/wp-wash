@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.30.0
+Stable tag: 1.31.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -88,6 +88,13 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.31.0 =
+Safer when one WordPress site moves between Shopify stores.
+
+* **"This store no longer has Wash installed."** When the connected store uninstalls Wash, or disables the connection, Settings → Wash now says so and shows the connect form, instead of a green "Connected" with a key that no longer works. Reinstalling Wash in that store within 48 hours brings the connection back.
+* **Switching to a different store starts clean.** Connecting the site to another store with a connect code clears the old store's sync status from every post (article ids, blog, CDN images, redirects, last sync). The Posts list no longer shows posts as synced to a store they are not in. Reconnecting the same store keeps everything.
+* **Adding stores needs a working primary store.** Store Connections → New connection is refused while the primary store has uninstalled Wash or its key is rejected. A short outage of the Wash app still never blocks a paying merchant, and a dead primary no longer pauses your other stores.
 
 = 1.30.0 =
 Connect a store with a code from Shopify instead of typing the store address.

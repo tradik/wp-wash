@@ -65,14 +65,25 @@ class WashConnectCode {
 
     /**
      * Store the primary credentials; on a reconnect, pull the settings backup
-     * the app kept. Mirrors what the redirect-based connect used to do.
+     * the app kept. Mirrors what the redirect-based connect used to do. When the
+     * site switches to a different store, the old store's per-post sync state
+     * is cleared first.
      *
      * @param array $result Redeemed credentials
      * @return string Where to send the admin next
      */
     private static function connectPrimary(array $result) {
+        $previousStore = (string) get_option('wash_shopify_store', '');
+        $store = sanitize_text_field($result['store']);
         update_option('wash_api_key', sanitize_text_field($result['apiKey']));
-        update_option('wash_shopify_store', sanitize_text_field($result['store']));
+        update_option('wash_shopify_store', $store);
+
+        // Another store took over this site: the posts' sync state belongs to
+        // the old one (#294). Reconnecting the same store keeps it.
+        if (WashSyncMeta::isDifferentStore($previousStore, $store)) {
+            WashSyncMeta::clearForConnection(WashConnection::PRIMARY);
+            delete_transient(WashContext::transientKey('wash_plan_info'));
+        }
 
         $redirect = admin_url('options-general.php?page=wash&connected=1');
         if (empty($result['isReauth'])) {

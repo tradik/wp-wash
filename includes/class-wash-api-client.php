@@ -140,8 +140,7 @@ class WashApiClient {
         $responseBody = json_decode($body, true);
 
         if ($code >= 400) {
-            $errorMsg = $this->extractErrorMessage($responseBody, $body, $code);
-            return new \WP_Error('wash_api_error', $errorMsg, ['status' => $code]);
+            return $this->apiError($responseBody, $body, $code);
         }
 
         if ($responseBody === null && !empty($body)) {
@@ -577,12 +576,46 @@ class WashApiClient {
         $responseBody = json_decode($body, true);
 
         if ($code >= 400) {
-            $errorMsg = $this->extractErrorMessage($responseBody, $body, $code);
-            washLog("[wash API] Error response: {$errorMsg}");
-            return new \WP_Error('wash_api_error', $errorMsg, ['status' => $code]);
+            $error = $this->apiError($responseBody, $body, $code);
+            washLog('[wash API] Error response: ' . $error->get_error_message());
+            return $error;
         }
 
         return $responseBody;
+    }
+
+    /**
+     * Build the WP_Error for an HTTP error response. Carries the app's machine
+     * code (e.g. CONNECTION_INACTIVE) next to the status so callers can react
+     * to why a request failed, not only that it did (#294).
+     *
+     * @param array|null $responseBody Decoded JSON response
+     * @param string     $rawBody      Raw response body
+     * @param int        $statusCode   HTTP status code
+     * @return \WP_Error
+     */
+    private function apiError($responseBody, $rawBody, $statusCode) {
+        $data = ['status' => $statusCode];
+        if (is_array($responseBody) && !empty($responseBody['code'])) {
+            $data['code'] = (string) $responseBody['code'];
+        }
+        return new \WP_Error('wash_api_error', $this->extractErrorMessage($responseBody, $rawBody, $statusCode), $data);
+    }
+
+    /**
+     * Whether an API error means the store uninstalled Wash (or the merchant
+     * disabled this connection in the app). The key is dead until the store
+     * reinstalls, so the admin must not show a green "Connected" (#294).
+     *
+     * @param mixed $error Result of an API call
+     * @return bool
+     */
+    public static function isStoreInactive($error) {
+        if (!is_wp_error($error)) {
+            return false;
+        }
+        $data = $error->get_error_data();
+        return is_array($data) && ($data['code'] ?? '') === 'CONNECTION_INACTIVE';
     }
 
     /**

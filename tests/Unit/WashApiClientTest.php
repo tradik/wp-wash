@@ -152,4 +152,56 @@ class WashApiClientTest extends TestCase
         $this->mockOptions();
         $this->assertFalse((new \WashApiClient())->restoreSettings([]));
     }
+
+    // -- error codes from the app (#294) --
+
+    private function getAnswers(int $status, string $body)
+    {
+        $this->mockOptions();
+        Functions\when('wp_remote_get')->justReturn(['body' => $body]);
+        Functions\when('wp_remote_retrieve_response_code')->justReturn($status);
+        Functions\when('wp_remote_retrieve_body')->justReturn($body);
+        Functions\when('is_wp_error')->alias(fn($v) => $v instanceof \WP_Error);
+        return (new \WashApiClient())->get('/api/plan-info');
+    }
+
+    public function testHttpErrorCarriesTheAppsErrorCode(): void
+    {
+        $error = $this->getAnswers(401, '{"success":false,"error":"uninstalled","code":"CONNECTION_INACTIVE"}');
+
+        $this->assertSame('uninstalled', $error->get_error_message());
+        $this->assertSame(['status' => 401, 'code' => 'CONNECTION_INACTIVE'], $error->get_error_data());
+        $this->assertTrue(\WashApiClient::isStoreInactive($error));
+    }
+
+    public function testAPlainRejectedKeyIsNotAnUninstalledStore(): void
+    {
+        $error = $this->getAnswers(401, '{"success":false,"error":"Invalid API key"}');
+
+        $this->assertSame(['status' => 401], $error->get_error_data());
+        $this->assertFalse(\WashApiClient::isStoreInactive($error));
+    }
+
+    public function testASuccessfulResultIsNotAnUninstalledStore(): void
+    {
+        Functions\when('is_wp_error')->alias(fn($v) => $v instanceof \WP_Error);
+        $this->assertFalse(\WashApiClient::isStoreInactive(['plan' => 'PRO']));
+    }
+
+    public function testPostErrorCarriesTheAppsErrorCode(): void
+    {
+        $this->mockOptions();
+        $body = '{"success":false,"error":"uninstalled","code":"CONNECTION_INACTIVE"}';
+        Functions\when('wp_json_encode')->alias('json_encode');
+        Functions\when('wp_remote_post')->justReturn(['body' => $body]);
+        Functions\when('wp_remote_retrieve_response_code')->justReturn(401);
+        Functions\when('wp_remote_retrieve_body')->justReturn($body);
+        Functions\when('wp_remote_retrieve_header')->justReturn('');
+        Functions\when('is_wp_error')->alias(fn($v) => $v instanceof \WP_Error);
+
+        $error = (new \WashApiClient())->post('/api/sync', ['wpPostId' => 1]);
+
+        $this->assertTrue(\WashApiClient::isStoreInactive($error));
+        $this->assertSame('uninstalled', $error->get_error_message());
+    }
 }
