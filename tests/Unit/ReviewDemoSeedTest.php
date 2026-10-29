@@ -58,12 +58,17 @@ class ReviewDemoSeedTest extends TestCase
             }
         };
         $model = new class ($languages, $locales) {
+            public ?string $renameFirst = null;
             public function __construct(public object $languages, private array $locales)
             {
             }
             public function get_languages_list(): array
             {
-                return array_map(fn ($l) => (object) ['locale' => $l], $this->locales);
+                $list = array_map(fn ($l) => (object) ['locale' => $l, 'slug' => strtolower(strtr($l, '_', '-'))], $this->locales);
+                if ($this->renameFirst && $list) {
+                    $list[0]->slug = $this->renameFirst;
+                }
+                return $list;
             }
         };
         return (object) ['model' => $model];
@@ -77,6 +82,17 @@ class ReviewDemoSeedTest extends TestCase
         washReviewEnsureLanguages();
         $this->assertSame(['en'], $pll->model->languages->added);
         $this->assertTrue($pll->model->languages->cleaned);
+    }
+
+    public function testLanguagesSkipsTakenSlug(): void
+    {
+        // Production: slug "en" already belongs to en_GB, so English is not added again.
+        $pll = $this->pll(['en_GB', 'de_DE']);
+        $pll->model->renameFirst = 'en';
+        Functions\when('PLL')->justReturn($pll);
+        $this->expectOutputString('');
+        washReviewEnsureLanguages();
+        $this->assertSame([], $pll->model->languages->added);
     }
 
     public function testLanguagesReportsFailure(): void

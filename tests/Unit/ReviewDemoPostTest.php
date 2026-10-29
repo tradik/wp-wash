@@ -57,13 +57,14 @@ class ReviewDemoPostTest extends TestCase
         Functions\when('get_page_by_path')->justReturn(null);
         Functions\when('wp_get_attachment_url')->justReturn('https://x/b.jpg');
         Functions\expect('wp_insert_post')->once()->with(\Mockery::on(
-            fn ($p) => $p['post_name'] === WASH_REVIEW_SLUG && $p['post_category'] === [7]
+            fn ($p) => $p['post_name'] === WASH_REVIEW_SLUG && !isset($p['post_category'])
                 && str_contains($p['post_content'], 'wp-image-2')
         ), true)->andReturn(30);
         Functions\expect('set_post_thumbnail')->once()->with(30, 1);
         Functions\expect('update_field')->once()->with(WASH_REVIEW_FIELD, '3 min', 30);
         Functions\when('pll_default_language')->justReturn('en');
         Functions\expect('pll_set_post_language')->once()->with(30, 'en');
+        Functions\expect('wp_set_post_categories')->once()->with(30, [7]);
         $this->expectOutputString("[wash-review] created post Hello from WordPress (ID 30)\n");
         washReviewEnsurePost(7, [1, 2]);
         $this->assertSame(['_yoast_wpseo_title', '_yoast_wpseo_metadesc'], array_column($this->meta, 0));
@@ -73,12 +74,13 @@ class ReviewDemoPostTest extends TestCase
     {
         Functions\when('get_page_by_path')->justReturn(null);
         Functions\expect('wp_insert_post')->once()->with(\Mockery::on(
-            fn ($p) => $p['post_category'] === [] && !str_contains($p['post_content'], 'wp:image')
+            fn ($p) => !str_contains($p['post_content'], 'wp:image')
         ), true)->andReturn(31);
         Functions\expect('set_post_thumbnail')->never();
         Functions\when('update_field')->justReturn(true);
         Functions\when('pll_default_language')->justReturn(false);
         Functions\expect('pll_set_post_language')->never();
+        Functions\expect('wp_set_post_categories')->never();
         $this->expectOutputString("[wash-review] created post Hello from WordPress (ID 31)\n");
         washReviewEnsurePost(0, [0, 0]);
     }
