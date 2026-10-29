@@ -20,6 +20,7 @@
     <source>
         <include>
             <directory>includes</directory>
+            <directory>../wordpress/review-demo</directory>
         </include>
     </source>
 
