@@ -23,7 +23,7 @@ class ReviewDemoCleanupTest extends TestCase
 
     protected function tearDown(): void
     {
-        unset($GLOBALS['wpdb']);
+        unset($GLOBALS['wpdb'], $GLOBALS['wp_rewrite']);
         Monkey\tearDown();
         parent::tearDown();
     }
@@ -31,11 +31,18 @@ class ReviewDemoCleanupTest extends TestCase
     public function testPermalinksSwitchedToPostnameOnce(): void
     {
         Functions\expect('get_option')->twice()->with('permalink_structure')->andReturn('/%year%/%postname%/', '/%postname%/');
-        Functions\expect('update_option')->once()->with('permalink_structure', '/%postname%/');
+        $GLOBALS['wp_rewrite'] = new class {
+            public array $set = [];
+            public function set_permalink_structure(string $structure): void
+            {
+                $this->set[] = $structure;
+            }
+        };
         Functions\expect('flush_rewrite_rules')->once()->with(false);
         $this->expectOutputString("[wash-review] permalinks set to /%postname%/\n");
         washReviewEnsurePostnamePermalinks();
         washReviewEnsurePostnamePermalinks();
+        $this->assertSame(['/%postname%/'], $GLOBALS['wp_rewrite']->set);
     }
 
     public function testOrphanLinksAndStaleGroupsRemoved(): void
@@ -46,6 +53,8 @@ class ReviewDemoCleanupTest extends TestCase
         washReviewDropOrphanTermLinks();
         $this->assertStringContainsString("tt.taxonomy = 'post_translations'", $GLOBALS['wpdb']->queries[0]);
         $this->assertStringStartsWith('DELETE tr FROM wp_term_relationships', $GLOBALS['wpdb']->queries[1]);
+        // Term languages link term ids, not post ids: never treated as orphans.
+        $this->assertStringContainsString("NOT IN ('link_category', 'term_language', 'term_translations')", $GLOBALS['wpdb']->queries[1]);
     }
 
     public function testCleanSiteLogsNothing(): void
@@ -75,6 +84,76 @@ class ReviewDemoCleanupTest extends TestCase
         Functions\expect('wp_delete_term')->never();
         $this->expectOutputString('');
         washReviewDropNewsCopies();
+    }
+
+    /** Polylang language stub: $termId is its term_language term id (0 = missing). */
+    private function language(string $slug, int $termId): object
+    {
+        return new class ($slug, $termId) {
+            public string $name;
+            public function __construct(public string $slug, private int $termId)
+            {
+                $this->name = strtoupper($slug);
+            }
+            public function get_tax_prop(string $taxonomy, string $prop): int
+            {
+                return $taxonomy === 'term_language' && $prop === 'term_id' ? $this->termId : 0;
+            }
+        };
+    }
+
+    public function testMissingTermLanguagesRecreated(): void
+    {
+        $languages = new class {
+            public int $cleaned = 0;
+            public function clean_cache(): void
+            {
+                $this->cleaned++;
+            }
+        };
+        $list = [$this->language('en', 0), $this->language('de', 0), $this->language('en-gb', 4)];
+        $model = new class ($languages, $list) {
+            public function __construct(public object $languages, private array $list)
+            {
+            }
+            public function get_languages_list(): array
+            {
+                return $this->list;
+            }
+        };
+        Functions\when('PLL')->justReturn((object) ['model' => $model]);
+        Functions\expect('wp_insert_term')->twice()
+            ->with(\Mockery::anyOf('EN', 'DE'), 'term_language', \Mockery::type('array'))
+            ->andReturn(['term_id' => 50], new \WP_Error('x', 'no'));
+        $this->expectOutputString("[wash-review] repaired 1 Polylang term languages\n");
+        washReviewRepairLanguageTerms();
+        $this->assertSame(1, $languages->cleaned);
+    }
+
+    public function testNothingToRepairLogsNothing(): void
+    {
+        $model = new class {
+            public object $languages;
+            public function __construct()
+            {
+                $this->languages = new \stdClass();
+            }
+            public function get_languages_list(): array
+            {
+                return [];
+            }
+        };
+        Functions\when('PLL')->justReturn((object) ['model' => $model]);
+        $this->expectOutputString('');
+        washReviewRepairLanguageTerms();
+    }
+
+    #[RunInSeparateProcess]
+    public function testRepairSkippedWithoutPolylang(): void
+    {
+        $this->expectOutputString('');
+        washReviewRepairLanguageTerms();
+        $this->assertFalse(function_exists('PLL'));
     }
 
     public function testCategoryGetsDefaultLanguageWhenMissing(): void
