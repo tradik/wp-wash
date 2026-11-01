@@ -14,6 +14,7 @@ if (!defined('OBJECT')) {
     define('OBJECT', 'OBJECT');
 }
 require_once dirname(__DIR__, 3) . '/wordpress/review-demo/functions.php';
+require_once dirname(__DIR__, 3) . '/wordpress/review-demo/cleanup.php';
 
 class ReviewDemoPostTest extends TestCase
 {
@@ -110,6 +111,9 @@ class ReviewDemoPostTest extends TestCase
         Functions\when('get_attached_file')->justReturn(__FILE__);
         Functions\when('term_exists')->justReturn(['term_id' => 7]);
         Functions\when('get_page_by_path')->justReturn((object) ['ID' => 3]);
+        Functions\when('get_option')->justReturn('/%postname%/');
+        Functions\when('get_terms')->justReturn([]);
+        $GLOBALS['wpdb'] = new ReviewDemoWpdbStub();
     }
 
     #[RunInSeparateProcess]
