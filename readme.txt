@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.31.0
+Stable tag: 1.31.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -88,6 +88,11 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.31.1 =
+One save, one sync.
+
+* **Saving a post no longer sends it to Shopify twice.** With Yoast SEO, ACF or other classic meta boxes in the block editor, WordPress saves a post twice: the post itself, then the meta box fields. Wash used to sync both, so the Logs showed every publish or update twice and a new translation could be created twice at the same moment. If the second save sends exactly the same content to the same store within a minute, Wash skips it. If the meta boxes changed something, such as the SEO title, the update is still sent. "Sync to Shopify" always sends.
 
 = 1.31.0 =
 Safer when one WordPress site moves between Shopify stores.

@@ -8,6 +8,8 @@ if (!defined('ABSPATH')) {
 }
 
 class WashSync {
+    /** Seconds within which an identical auto-sync of the same post is skipped (#341). */
+    const DEDUPE_WINDOW = 60;
 
     /** @var bool Prevents recursive sync calls */
     private $isSyncing = false;
@@ -166,7 +168,7 @@ class WashSync {
         $existingArticleId = get_post_meta($postId, WashContext::metaKey('_wash_article_id'), true);
         $action = empty($existingArticleId) ? 'create' : 'update';
         washLog("[wash] Action determined: {$action} (existingArticleId: " . ($existingArticleId ?: 'none') . ")");
-        $this->syncPost($postId, $post, $action);
+        $this->syncPost($postId, $post, $action, $autoOnly);
         $this->isSyncing = false;
         washLog("[wash] Sync completed for post {$postId}");
     }
@@ -293,7 +295,7 @@ class WashSync {
     /**
      * Sync a WordPress post to Shopify.
      */
-    private function syncPost($postId, $post, $action) {
+    private function syncPost($postId, $post, $action, $dedupe = false) {
         washLog("[wash] syncPost() - Starting sync for post {$postId}");
 
         // Sync images in content first (if Files & Media enabled)
@@ -314,12 +316,19 @@ class WashSync {
         washLog("[wash] syncPost() - Post title: {$postData['title']}, slug: {$postData['slug']}");
         washLog("[wash] syncPost() - Tags being sent: " . json_encode($postData['tags']));
 
+        $fingerprint = $this->syncFingerprint($postId, $endpoint, $postData);
+        if ($dedupe && $this->wasJustSent($fingerprint)) {
+            washLog("[wash] syncPost() - identical payload sent for post {$postId} in the last " . self::DEDUPE_WINDOW . "s — skipping duplicate save (#341)");
+            return;
+        }
+
         $result = $this->apiClient()->post($endpoint, $postData);
 
         if (is_wp_error($result)) {
             washLog("[wash] syncPost() - API returned error: " . $result->get_error_message());
         } else {
             washLog("[wash] syncPost() - API returned success, shopifyArticleId: " . ($result['shopifyArticleId'] ?? 'null'));
+            $this->rememberSent($fingerprint);
         }
 
         $this->logSync($postId, $action, $result);
@@ -341,6 +350,44 @@ class WashSync {
 
         // Fire action for extensibility
         do_action('wash_post_synced', $postId, $shopifyId);
+    }
+
+    /**
+     * Transient key (per store and post) and payload hash used to drop a repeated
+     * auto-sync (#341). The block editor saves a post twice when legacy meta boxes
+     * (Yoast, ACF) are on screen: the REST save, then a `meta-box-loader` POST. Both
+     * fire save_post. An identical second payload is skipped; one that differs
+     * (a meta box changed a field) is still sent, so nothing is lost.
+     *
+     * @param int    $postId
+     * @param string $endpoint
+     * @param array  $postData
+     * @return array{key:string,hash:string}
+     */
+    private function syncFingerprint($postId, $endpoint, $postData) {
+        return [
+            'key'  => 'wash_sync_sent_' . hash('sha256', WashContext::activeId() . ':' . $postId),
+            'hash' => hash('sha256', $endpoint . wp_json_encode($postData)),
+        ];
+    }
+
+    /**
+     * Whether this exact payload went to this store within DEDUPE_WINDOW (#341).
+     *
+     * @param array{key:string,hash:string} $fingerprint From syncFingerprint().
+     * @return bool
+     */
+    private function wasJustSent($fingerprint) {
+        return get_transient($fingerprint['key']) === $fingerprint['hash'];
+    }
+
+    /**
+     * Record a successfully sent payload, so an identical repeat is skipped (#341).
+     *
+     * @param array{key:string,hash:string} $fingerprint From syncFingerprint().
+     */
+    private function rememberSent($fingerprint) {
+        set_transient($fingerprint['key'], $fingerprint['hash'], self::DEDUPE_WINDOW);
     }
 
     /**
