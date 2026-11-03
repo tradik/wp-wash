@@ -784,6 +784,8 @@ class WashApiClient {
             // wash_block_robots stays a GLOBAL option (#216): the robots.txt block
             // is site-wide, one per WordPress install, not per Shopify connection.
             'blockRobots'      => get_option('wash_block_robots', '1'),
+            // Editable from the app's Sync Settings tab since 1.32.0 (#380).
+            'rewriteInternalUrls' => WashContext::option('wash_rewrite_internal_urls', '1'),
             'metaFieldConfig'  => json_decode(WashContext::option('wash_meta_field_config', '[]'), true),
             // Per-source metafield flags. Without these the app coerces missing
             // values to false on every WP-side save, silently resetting them (LOW-17, #178).
@@ -837,6 +839,7 @@ class WashApiClient {
             'syncMetafields'   => 'wash_sync_metafields',
             'postTypes'        => 'wash_post_types',
             'blockRobots'      => 'wash_block_robots',
+            'rewriteInternalUrls' => 'wash_rewrite_internal_urls',
             'hreflangsEnabled' => 'wash_hreflangs_enabled',
             'authorsEnabled'   => 'wash_authors_enabled',
             'authorMappings'   => 'wash_author_mappings',

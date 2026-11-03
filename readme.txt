@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.31.1
+Stable tag: 1.32.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -88,6 +88,11 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.32.0 =
+Rewrite Internal URLs can be set from Shopify.
+
+* **The Wash app's Sync Settings tab now has "Rewrite Internal URLs".** It is the same setting as in Settings → Wash: Manager → Sync Settings. Turning it on or off in either place changes it in both. It stays on by default. Locking the Sync Settings tab under the app's Permissions keeps WordPress from changing it.
 
 = 1.31.1 =
 One save, one sync.

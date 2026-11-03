@@ -1459,6 +1459,48 @@ class WashApiClientCoverageTest extends TestCase
         $this->assertSame('1', $updateCalls['wash_meta_acf']);
     }
 
+    public function testRestoreSettingsMapsRewriteInternalUrlsAndSkipsItWhenAbsent(): void
+    {
+        // #380: the app's Sync Settings tab can switch Rewrite Internal URLs off.
+        // An app that doesn't send the key must leave the option alone.
+        Functions\when('get_site_url')->justReturn('https://example.com');
+        $this->mockOptions();
+
+        $updateCalls = [];
+        Functions\when('update_option')->alias(function ($k, $v) use (&$updateCalls) {
+            $updateCalls[$k] = $v;
+        });
+
+        $client = new \WashApiClient();
+        $client->restoreSettings(['rewriteInternalUrls' => '0']);
+        $this->assertSame('0', $updateCalls['wash_rewrite_internal_urls']);
+
+        $updateCalls = [];
+        $client->restoreSettings(['syncOnPublish' => '1']);
+        $this->assertArrayNotHasKey('wash_rewrite_internal_urls', $updateCalls);
+    }
+
+    public function testBackupSettingsSendsRewriteInternalUrls(): void
+    {
+        // #380: the app shows the WordPress value on its Sync Settings tab.
+        Functions\when('get_site_url')->justReturn('https://example.com');
+        $this->mockOptions(['wash_rewrite_internal_urls' => '0']);
+        Functions\when('wp_json_encode')->alias('json_encode');
+        $sent = null;
+        Functions\when('wp_remote_post')->alias(function ($url, $args) use (&$sent) {
+            $sent = json_decode($args['body'], true);
+            return ['body' => '{"success":true}'];
+        });
+        Functions\when('wp_remote_retrieve_response_code')->justReturn(200);
+        Functions\when('wp_remote_retrieve_body')->justReturn('{"success":true}');
+        Functions\when('wp_remote_retrieve_header')->justReturn('');
+        Functions\when('is_wp_error')->justReturn(false);
+
+        (new \WashApiClient())->backupSettings();
+
+        $this->assertSame('0', $sent['rewriteInternalUrls']);
+    }
+
     public function testRestoreSettingsNonArrayInputReturnsFalse(): void
     {
         Functions\when('get_site_url')->justReturn('https://example.com');
