@@ -45,7 +45,7 @@
                 }
             });
             if (rules.length === 0) {
-                alert(i18n("srNoRules", "No rules to export."));
+                alert(i18n("srNothingToExport", "No rules to export."));
                 return;
             }
             var json = JSON.stringify(rules, null, 2);
@@ -512,7 +512,7 @@
             if (tbody.find("#wash-sr-empty").length) return;
             tbody.append(
                 '<tr id="wash-sr-empty"><td colspan="7" style="text-align:center;padding:20px;color:#666;">' +
-                    i18n("srNoRules", 'No rules defined yet.') +
+                    i18n("srNoRules", "No rules yet. Add one with the Text, URL, Shortcode or Block button.") +
                     "</td></tr>"
             );
         }

@@ -1302,7 +1302,8 @@ function wash_render_permission_locked_banner() {
                             if (!data.success) {
                                 statusEl.textContent = '<?php echo esc_js(__('Error saving', 'wash-blog-manager')); ?>';
                             } else if (data.data && data.data.synced) {
-                                statusEl.textContent = '<?php echo esc_js(__('Saved & synced to Shopify', 'wash-blog-manager')); ?>';
+                                // wp_json_encode, not esc_js: textContent shows esc_js's &amp; literally (#329).
+                                statusEl.textContent = <?php echo wp_json_encode(__('Saved & synced to Shopify', 'wash-blog-manager')); ?>;
                             } else {
                                 statusEl.textContent = '<?php echo esc_js(__('Saved (Shopify sync pending)', 'wash-blog-manager')); ?>';
                             }
