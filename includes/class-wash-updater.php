@@ -124,7 +124,7 @@ class WashUpdater {
         }
 
         return (object) [
-            'name'          => 'Wash: Blog Manager',
+            'name'          => 'Wash Connector',
             'slug'          => $this->slug(),
             'version'       => $plugin['latestVersion'],
             'download_link' => $plugin['downloadUrl'] ?? '',

@@ -143,9 +143,32 @@ class WashUpdaterTest extends TestCase
 
         $result = $this->updater->pluginInfo(false, 'plugin_information', (object) ['slug' => 'wash']);
 
+        $this->assertSame('Wash Connector', $result->name); // #386: the plugin's one name
         $this->assertSame('1.30.0', $result->version);
         $this->assertSame('New stuff', $result->sections['changelog']);
         $this->assertStringContainsString('token=', $result->download_link);
+    }
+
+    public function testPluginInfoAsksTheAppOncePerRequest(): void
+    {
+        $this->mockApi(['latestVersion' => '1.30.0', 'downloadUrl' => 'https://app.example/dl']);
+        $calls = 0;
+        Functions\when('wp_remote_get')->alias(function () use (&$calls) {
+            $calls++;
+            return ['body' => json_encode(['success' => true, 'plugin' => ['latestVersion' => '1.30.0']])];
+        });
+
+        $this->updater->pluginInfo(false, 'plugin_information', (object) ['slug' => 'wash']);
+        $this->updater->pluginInfo(false, 'plugin_information', (object) ['slug' => 'wash']);
+
+        $this->assertSame(1, $calls);
+    }
+
+    public function testPluginInfoKeepsTheResultWhenTheAppIsUnreachable(): void
+    {
+        $this->mockApi([], false);
+
+        $this->assertFalse($this->updater->pluginInfo(false, 'plugin_information', (object) ['slug' => 'wash']));
     }
 
     public function testPluginInfoIgnoresOtherSlugsAndActions(): void

@@ -1,10 +1,10 @@
-=== Wash: Blog Manager ===
+=== Wash Connector ===
 Contributors: tradik
 Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.32.0
+Stable tag: 1.33.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ Synchronize WordPress content, images, and metafields to Shopify blogs in real-t
 
 == Description ==
 
-Wash: Blog Manager bridges your WordPress editorial workflow with Shopify's blog platform.
+Wash Connector, the WordPress side of the Wash: Blog Manager Shopify app, bridges your WordPress editorial workflow with Shopify's blog platform.
 Edit content in WordPress and have it automatically published to your Shopify store.
 
 **Features:**
@@ -89,10 +89,13 @@ On a fresh install the plugin is inert — no requests leave WordPress until the
 
 == Changelog ==
 
+= 1.33.0 =
+* **The plugin is now called "Wash Connector" everywhere.** The Plugins list, the Settings menu and the settings page title used to say "Wash: Blog Manager", "Wash: Manager" or "Wash Settings", while the Shopify app told you to install the "Wash Connector". "Wash: Blog Manager" is now only the name of the Shopify app. Nothing else changes: the plugin folder, settings, connection and updates stay as they were.
+
 = 1.32.0 =
 Rewrite Internal URLs can be set from Shopify.
 
-* **The Wash app's Sync Settings tab now has "Rewrite Internal URLs".** It is the same setting as in Settings → Wash: Manager → Sync Settings. Turning it on or off in either place changes it in both. It stays on by default. Locking the Sync Settings tab under the app's Permissions keeps WordPress from changing it.
+* **The Wash app's Sync Settings tab now has "Rewrite Internal URLs".** It is the same setting as in Settings → Wash Connector → Sync Settings. Turning it on or off in either place changes it in both. It stays on by default. Locking the Sync Settings tab under the app's Permissions keeps WordPress from changing it.
 
 = 1.31.1 =
 One save, one sync.

@@ -89,14 +89,17 @@ class WashMultisiteCoverageTest extends TestCase
     public function testAddNetworkMenuPassesCorrectSlug(): void
     {
         $slug = null;
-        Functions\when('add_menu_page')->alias(function ($title, $menuTitle, $cap, $menuSlug) use (&$slug) {
+        $label = null;
+        Functions\when('add_menu_page')->alias(function ($title, $menuTitle, $cap, $menuSlug) use (&$slug, &$label) {
             $slug = $menuSlug;
+            $label = $menuTitle;
         });
         Functions\when('__')->alias(fn($text) => $text);
 
         $this->multisite->addNetworkMenu();
 
         $this->assertSame('wash-network', $slug);
+        $this->assertSame('Wash Connector', $label); // #386
     }
 
     // ---------------------------------------------------------------

@@ -217,9 +217,6 @@ msgstr ""
 msgid "Plan information refreshed successfully."
 msgstr ""
 
-#: admin/views/settings-page.php:233 includes/class-wash-admin.php:144
-msgid "Wash Settings"
-msgstr "wash-instellingen"
 
 #: admin/views/settings-page.php:238
 msgid "Check for updates"
@@ -1806,7 +1803,7 @@ msgid "Wash Network"
 msgstr ""
 
 #: includes/class-wash-multisite.php:24 includes/class-wash-admin.php:145
-msgid "Wash: Manager"
+msgid "Wash Connector"
 msgstr ""
 
 #: includes/class-wash-multisite.php:112

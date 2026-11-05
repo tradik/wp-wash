@@ -25,7 +25,7 @@ class WashMultisite {
     public function addNetworkMenu() {
         add_menu_page(
             __('Wash Network', 'wash-blog-manager'),
-            __('Wash: Manager', 'wash-blog-manager'),
+            __('Wash Connector', 'wash-blog-manager'),
             'manage_network_options',
             'wash-network',
             [$this, 'renderNetworkSettingsPage'],

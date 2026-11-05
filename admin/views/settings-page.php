@@ -308,7 +308,7 @@ function wash_render_permission_locked_banner() {
     <?php endif; ?>
     <h1>
         <img src="<?php echo esc_url(washPluginUrl() . 'admin/assets/logo.png'); ?>" alt="Wash" style="height: 28px; width: auto; margin-right: 8px; vertical-align: middle;" />
-        <?php esc_html_e('Wash Settings', 'wash-blog-manager'); ?>
+        <?php esc_html_e('Wash Connector', 'wash-blog-manager'); ?>
         <?php if ($wash_shopifyStore !== '') :
             // Which store am I configuring? Show it in the heading (#252) — essential
             // once there is more than one connection.

@@ -183,8 +183,8 @@ class WashAdmin {
      */
     public function addMenuPage() {
         add_options_page(
-            __('Wash Settings', 'wash-blog-manager'),
-            __('Wash: Manager', 'wash-blog-manager'),
+            __('Wash Connector', 'wash-blog-manager'),
+            __('Wash Connector', 'wash-blog-manager'),
             'manage_options',
             'wash',
             [$this, 'renderSettingsPage']

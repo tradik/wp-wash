@@ -1,6 +1,6 @@
 <?php
 /**
- * Uninstall script for Wash: Blog Manager.
+ * Uninstall script for the Wash Connector.
  * Runs when the plugin is deleted via the WordPress admin.
  *
  * Data is preserved by default — it is only removed when the merchant explicitly
