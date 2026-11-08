@@ -2763,8 +2763,10 @@ class WashAdmin {
                 return;
         }
 
-        $shopifyStore = WashContext::connection()['store'];
-        $upgradeUrl = $shopifyStore ? "https://{$shopifyStore}.myshopify.com/admin/apps/wash-1" : '';
+        // Shopify's Managed Pricing page for the "wash" app handle, the same
+        // page the app's Plans link opens (the old /admin/apps/wash-1 matched no app).
+        $shopifyStore = preg_replace('/\.myshopify\.com$/', '', (string) WashContext::connection()['store']);
+        $upgradeUrl = $shopifyStore ? "https://admin.shopify.com/store/{$shopifyStore}/charges/wash/pricing_plans" : '';
 
         echo '<div class="notice ' . esc_attr($class) . ' is-dismissible"><p><strong>Wash:</strong> ' . esc_html($message);
         if ($showUpgrade && $upgradeUrl) {

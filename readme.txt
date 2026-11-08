@@ -4,7 +4,7 @@ Tags: shopify, sync, content, blog, multisite
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.33.0
+Stable tag: 1.33.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -88,6 +88,9 @@ The plugin does not send any data to third-party analytics, telemetry, advertisi
 On a fresh install the plugin is inert — no requests leave WordPress until the merchant opens **Settings → Wash → Connection**, ticks the "I understand that connecting this plugin will send my WordPress post content … to the Tradik Wash service" checkbox (which links to the Privacy Policy above and to this External services section), and then clicks **Connect to Shopify**. The Connect button is disabled until the consent checkbox is ticked. The decision is persisted in the `wash_consent_accepted` and `wash_consent_accepted_at` options and shown back to the merchant on the same screen ("Consent recorded on YYYY-MM-DD HH:MM"). Uninstall removes both options.
 
 == Changelog ==
+
+= 1.33.1 =
+* **Fixed: the "Upgrade your plan" link.** When a sync hits your plan's limit, the link in the notice now opens the plan picker on Shopify. Before, it pointed to an app address that doesn't exist.
 
 = 1.33.0 =
 * **The plugin is now called "Wash Connector" everywhere.** The Plugins list, the Settings menu and the settings page title used to say "Wash: Blog Manager", "Wash: Manager" or "Wash Settings", while the Shopify app told you to install the "Wash Connector". "Wash: Blog Manager" is now only the name of the Shopify app. Nothing else changes: the plugin folder, settings, connection and updates stay as they were.

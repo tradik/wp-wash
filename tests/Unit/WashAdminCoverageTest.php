@@ -1700,7 +1700,23 @@ class WashAdminCoverageTest extends TestCase
         $html = ob_get_clean();
 
         $this->assertStringContainsString('notice-error', $html);
-        $this->assertStringContainsString('myshopify.com', $html); // upgrade link
+        $this->assertMatchesRegularExpression('#href="https://admin\.shopify\.com/store/[^/"]+/charges/wash/pricing_plans"#', $html);
+        $this->assertStringNotContainsString('wash-1', $html);
+        unset($_GET['wash_result'], $_GET['wash_error_msg']);
+    }
+
+    public function testUpgradeLinkDropsTheMyshopifySuffix(): void
+    {
+        $this->options['wash_shopify_store'] = 'test-store.myshopify.com';
+        $_GET['wash_result']   = 'error';
+        $_GET['wash_error_msg'] = 'Usage limit exceeded';
+        Functions\when('get_current_screen')->justReturn((object) ['base' => 'edit']);
+
+        ob_start();
+        $this->admin->renderSyncNotices();
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('https://admin.shopify.com/store/test-store/charges/wash/pricing_plans', $html);
         unset($_GET['wash_result'], $_GET['wash_error_msg']);
     }
 
