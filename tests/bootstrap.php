@@ -75,8 +75,10 @@ if (!class_exists('WP_REST_Response')) {
 // Stub WordPress functions that are used at file include time
 // Brain\Monkey handles most, but some need to exist before class files are loaded
 if (!function_exists('is_plugin_active')) {
+    // Defined before Patchwork can reroute it, so tests list active plugins in
+    // $GLOBALS['washTestActivePlugins'] instead of stubbing it.
     function is_plugin_active($plugin) {
-        return false;
+        return in_array($plugin, $GLOBALS['washTestActivePlugins'] ?? [], true);
     }
 }
 if (!function_exists('plugin_dir_path')) {

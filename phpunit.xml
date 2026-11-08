@@ -21,6 +21,7 @@
         <include>
             <directory>includes</directory>
             <directory>../wordpress/review-demo</directory>
+            <directory>../wordpress/mu-plugins</directory>
         </include>
     </source>
 
